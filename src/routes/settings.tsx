@@ -77,7 +77,7 @@ function ToggleRow({
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
-      <Switch defaultChecked={defaultChecked} />
+      <Switch defaultChecked={defaultChecked ?? false} />
     </div>
   );
 }
