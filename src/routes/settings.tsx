@@ -69,7 +69,7 @@ function ToggleRow({
 }: {
   label: string;
   hint: string;
-  defaultChecked?: boolean;
+  defaultChecked?: boolean | undefined;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5">
