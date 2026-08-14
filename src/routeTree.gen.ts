@@ -10,33 +10,154 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AssistantRouteImport } from './routes/assistant'
+import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ComplianceIndexRouteImport } from './routes/compliance/index'
+import { Route as ComplianceRequirementIdRouteImport } from './routes/compliance/$requirementId'
+import { Route as FrameworksIndexRouteImport } from './routes/frameworks/index'
+import { Route as FrameworksBrsrRouteImport } from './routes/frameworks/brsr'
+import { Route as ReportsIndexRouteImport } from './routes/reports/index'
+import { Route as ReportsGapAssessmentRouteImport } from './routes/reports/gap-assessment'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComplianceIndexRoute = ComplianceIndexRouteImport.update({
+  id: '/compliance/',
+  path: '/compliance/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComplianceRequirementIdRoute = ComplianceRequirementIdRouteImport.update({
+  id: '/compliance/$requirementId',
+  path: '/compliance/$requirementId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FrameworksIndexRoute = FrameworksIndexRouteImport.update({
+  id: '/frameworks/',
+  path: '/frameworks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FrameworksBrsrRoute = FrameworksBrsrRouteImport.update({
+  id: '/frameworks/brsr',
+  path: '/frameworks/brsr',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsIndexRoute = ReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsGapAssessmentRoute = ReportsGapAssessmentRouteImport.update({
+  id: '/reports/gap-assessment',
+  path: '/reports/gap-assessment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
+  '/documents': typeof DocumentsRoute
+  '/settings': typeof SettingsRoute
+  '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
+  '/frameworks/brsr': typeof FrameworksBrsrRoute
+  '/reports/gap-assessment': typeof ReportsGapAssessmentRoute
+  '/compliance/': typeof ComplianceIndexRoute
+  '/frameworks/': typeof FrameworksIndexRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
+  '/documents': typeof DocumentsRoute
+  '/settings': typeof SettingsRoute
+  '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
+  '/frameworks/brsr': typeof FrameworksBrsrRoute
+  '/reports/gap-assessment': typeof ReportsGapAssessmentRoute
+  '/compliance': typeof ComplianceIndexRoute
+  '/frameworks': typeof FrameworksIndexRoute
+  '/reports': typeof ReportsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
+  '/documents': typeof DocumentsRoute
+  '/settings': typeof SettingsRoute
+  '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
+  '/frameworks/brsr': typeof FrameworksBrsrRoute
+  '/reports/gap-assessment': typeof ReportsGapAssessmentRoute
+  '/compliance/': typeof ComplianceIndexRoute
+  '/frameworks/': typeof FrameworksIndexRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/assistant'
+    | '/documents'
+    | '/settings'
+    | '/compliance/$requirementId'
+    | '/frameworks/brsr'
+    | '/reports/gap-assessment'
+    | '/compliance/'
+    | '/frameworks/'
+    | '/reports/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/assistant'
+    | '/documents'
+    | '/settings'
+    | '/compliance/$requirementId'
+    | '/frameworks/brsr'
+    | '/reports/gap-assessment'
+    | '/compliance'
+    | '/frameworks'
+    | '/reports'
+  id:
+    | '__root__'
+    | '/'
+    | '/assistant'
+    | '/documents'
+    | '/settings'
+    | '/compliance/$requirementId'
+    | '/frameworks/brsr'
+    | '/reports/gap-assessment'
+    | '/compliance/'
+    | '/frameworks/'
+    | '/reports/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AssistantRoute: typeof AssistantRoute
+  DocumentsRoute: typeof DocumentsRoute
+  SettingsRoute: typeof SettingsRoute
+  ComplianceRequirementIdRoute: typeof ComplianceRequirementIdRoute
+  FrameworksBrsrRoute: typeof FrameworksBrsrRoute
+  ReportsGapAssessmentRoute: typeof ReportsGapAssessmentRoute
+  ComplianceIndexRoute: typeof ComplianceIndexRoute
+  FrameworksIndexRoute: typeof FrameworksIndexRoute
+  ReportsIndexRoute: typeof ReportsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +169,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compliance/': {
+      id: '/compliance/'
+      path: '/compliance'
+      fullPath: '/compliance/'
+      preLoaderRoute: typeof ComplianceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compliance/$requirementId': {
+      id: '/compliance/$requirementId'
+      path: '/compliance/$requirementId'
+      fullPath: '/compliance/$requirementId'
+      preLoaderRoute: typeof ComplianceRequirementIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/frameworks/': {
+      id: '/frameworks/'
+      path: '/frameworks'
+      fullPath: '/frameworks/'
+      preLoaderRoute: typeof FrameworksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/frameworks/brsr': {
+      id: '/frameworks/brsr'
+      path: '/frameworks/brsr'
+      fullPath: '/frameworks/brsr'
+      preLoaderRoute: typeof FrameworksBrsrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/': {
+      id: '/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/gap-assessment': {
+      id: '/reports/gap-assessment'
+      path: '/reports/gap-assessment'
+      fullPath: '/reports/gap-assessment'
+      preLoaderRoute: typeof ReportsGapAssessmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssistantRoute: AssistantRoute,
+  DocumentsRoute: DocumentsRoute,
+  SettingsRoute: SettingsRoute,
+  ComplianceRequirementIdRoute: ComplianceRequirementIdRoute,
+  FrameworksBrsrRoute: FrameworksBrsrRoute,
+  ReportsGapAssessmentRoute: ReportsGapAssessmentRoute,
+  ComplianceIndexRoute: ComplianceIndexRoute,
+  FrameworksIndexRoute: FrameworksIndexRoute,
+  ReportsIndexRoute: ReportsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
