@@ -21,7 +21,12 @@ import { ORG } from "@/lib/esg-data";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -43,6 +48,7 @@ function SidebarContent({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
+    <TooltipProvider delayDuration={100}>
     <div className="flex h-full flex-col">
       <div
         className={cn(
@@ -106,6 +112,7 @@ function SidebarContent({
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
 
