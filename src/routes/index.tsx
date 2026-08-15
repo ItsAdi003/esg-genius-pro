@@ -200,20 +200,8 @@ function Dashboard() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        {categoryScores.map((c) => (
-          <div key={c.category} className="glass-panel glass-hover p-5">
-            <div className="flex items-baseline justify-between">
-              <p className="text-sm font-medium">{c.category}</p>
-              <p className="text-2xl font-semibold tabular-nums">{c.score}%</p>
-            </div>
-            <Progress value={c.score} className="mt-3 h-2" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Readiness against {ORG.framework} {c.category.toLowerCase()} disclosures
-            </p>
-          </div>
-        ))}
-      </div>
+
+
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel title="ESG Category Readiness" subtitle="Score by category (%)">
