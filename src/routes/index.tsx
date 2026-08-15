@@ -24,6 +24,8 @@ import {
   Legend,
 } from "recharts";
 import { AppLayout } from "@/components/app-layout";
+import { RadialScore } from "@/components/radial-score";
+import { useCountUp } from "@/hooks/use-count-up";
 import { PriorityBadge, StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -80,13 +82,16 @@ function StatCard({
   suffix,
   icon: Icon,
   tone = "primary",
+  delay = 0,
 }: {
   label: string;
-  value: string | number;
+  value: number;
   suffix?: string;
   icon: React.ElementType;
   tone?: "primary" | "success" | "warning" | "danger" | "info";
+  delay?: number;
 }) {
+  const animated = useCountUp(value);
   const tones = {
     primary: "bg-accent text-accent-foreground",
     success: "bg-success-soft text-success",
@@ -95,7 +100,7 @@ function StatCard({
     info: "bg-info-soft text-info",
   } as const;
   return (
-    <div className="surface-card p-4">
+    <div className="glass-panel glass-hover p-4" style={{ animationDelay: `${delay}ms` }}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">{label}</p>
         <span className={`flex size-8 items-center justify-center rounded-lg ${tones[tone]}`}>
@@ -103,7 +108,7 @@ function StatCard({
         </span>
       </div>
       <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight">
-        {value}
+        {Math.round(animated)}
         {suffix && <span className="text-lg text-muted-foreground">{suffix}</span>}
       </p>
     </div>
@@ -122,7 +127,7 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section className={`surface-card p-5 ${className ?? ""}`}>
+    <section className={`glass-panel glass-hover p-5 ${className ?? ""}`}>
       <header className="mb-4">
         <h2 className="text-sm font-semibold">{title}</h2>
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
@@ -148,6 +153,30 @@ function Dashboard() {
         </>
       }
     >
+      <div className="mb-4 grid gap-4 lg:grid-cols-[260px_1fr]">
+        <div className="glass-panel glass-hover flex flex-col items-center justify-center p-5">
+          <RadialScore value={ORG.readiness} label="Overall Readiness" />
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            {ORG.framework} · {ORG.reportingPeriod}
+          </p>
+        </div>
+        <div className="glass-panel glass-hover flex flex-col justify-center gap-3 p-5">
+          {categoryScores.map((c, i) => (
+            <div key={c.category}>
+              <div className="flex items-baseline justify-between">
+                <p className="text-sm font-medium">{c.category}</p>
+                <p className="text-sm font-semibold tabular-nums">{c.score}%</p>
+              </div>
+              <Progress
+                value={c.score}
+                className="mt-1.5 h-2 transition-all duration-700"
+                style={{ transitionDelay: `${i * 120}ms` }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="ESG Reporting Readiness" value={ORG.readiness} suffix="%" icon={Gauge} />
         <StatCard
@@ -173,7 +202,7 @@ function Dashboard() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         {categoryScores.map((c) => (
-          <div key={c.category} className="surface-card p-5">
+          <div key={c.category} className="glass-panel glass-hover p-5">
             <div className="flex items-baseline justify-between">
               <p className="text-sm font-medium">{c.category}</p>
               <p className="text-2xl font-semibold tabular-nums">{c.score}%</p>
