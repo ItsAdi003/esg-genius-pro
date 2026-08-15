@@ -7,18 +7,26 @@ import {
   Bot,
   FileBarChart2,
   Settings,
-  Search,
   Bell,
   ChevronDown,
   Leaf,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { GlobalSearch } from "@/components/global-search";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { ORG } from "@/lib/esg-data";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -30,52 +38,81 @@ const nav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
+    <TooltipProvider delayDuration={100}>
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      <div
+        className={cn(
+          "flex items-center gap-2.5 py-5 transition-all duration-300",
+          collapsed ? "justify-center px-2" : "px-5",
+        )}
+      >
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
           <Leaf className="size-5" />
         </div>
-        <div className="leading-tight">
-          <p className="text-[15px] font-semibold tracking-tight">ESGenius</p>
-          <p className="text-[11px] text-muted-foreground">ESG Compliance Assistant</p>
-        </div>
+        {!collapsed && (
+          <div className="leading-tight">
+            <p className="text-[15px] font-semibold tracking-tight">ESGenius</p>
+            <p className="text-[11px] text-muted-foreground">ESG Compliance Assistant</p>
+          </div>
+        )}
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-2">
+      <nav className={cn("flex-1 space-y-1 py-2", collapsed ? "px-2" : "px-3")}>
         {nav.map((item) => {
-          const active =
-            item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
-          return (
+          const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+          const link = (
             <Link
               key={item.to}
               to={item.to}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                collapsed && "justify-center px-2",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
               )}
             >
-              <item.icon className="size-[18px]" />
-              {item.label}
+              {active && (
+                <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+              )}
+              <item.icon className="size-[18px] shrink-0" />
+              {!collapsed && item.label}
             </Link>
+          );
+
+          return collapsed ? (
+            <Tooltip key={item.to}>
+              <TooltipTrigger asChild>{link}</TooltipTrigger>
+              <TooltipContent side="right">{item.label}</TooltipContent>
+            </Tooltip>
+          ) : (
+            link
           );
         })}
       </nav>
 
-      <div className="m-3 rounded-lg border border-sidebar-border bg-muted/60 p-3">
-        <p className="text-xs font-medium">AI-Assisted Assessment</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          ESGenius supports compliance professionals with evidence-linked analysis. It does not
-          replace human review.
-        </p>
-      </div>
+      {!collapsed && (
+        <div className="glass-panel m-3 p-3">
+          <p className="text-xs font-medium">AI-Assisted Assessment</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            ESGenius supports compliance professionals with evidence-linked analysis. It does not
+            replace human review.
+          </p>
+        </div>
+      )}
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -91,15 +128,24 @@ export function AppLayout({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-sidebar-border bg-sidebar lg:block">
-        <SidebarContent />
+    <div className="relative min-h-screen bg-background">
+      <div className="ambient-bg" aria-hidden />
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 hidden border-r border-sidebar-border bg-sidebar/70 backdrop-blur-xl transition-[width] duration-300 lg:block",
+          collapsed ? "w-[72px]" : "w-64",
+        )}
+      >
+        <SidebarContent collapsed={collapsed} />
       </aside>
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
+      <div className={cn("relative z-10 transition-[padding] duration-300", collapsed ? "lg:pl-[72px]" : "lg:pl-64")}>
+        <header className="sticky top-0 z-30 border-b border-border/70 bg-card/70 backdrop-blur-xl">
           <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
@@ -107,26 +153,35 @@ export function AppLayout({
                   <Menu className="size-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-64 bg-sidebar p-0">
+              <SheetContent side="left" className="w-64 bg-sidebar/90 p-0 backdrop-blur-xl">
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <SidebarContent onNavigate={() => setOpen(false)} />
               </SheetContent>
             </Sheet>
 
-            <div className="relative hidden max-w-sm flex-1 md:block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search requirements, documents, evidence…"
-                className="h-9 pl-9"
-              />
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:inline-flex"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="size-[18px]" />
+              ) : (
+                <PanelLeftClose className="size-[18px]" />
+              )}
+            </Button>
+
+            <GlobalSearch />
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <ThemeToggle />
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="size-[18px]" />
                 <span className="absolute right-2 top-2 size-2 rounded-full bg-danger" />
               </Button>
-              <div className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 sm:flex">
+              <div className="hidden items-center gap-2 rounded-lg border border-border/70 bg-card/50 px-3 py-1.5 backdrop-blur sm:flex">
                 <span className="flex size-6 items-center justify-center rounded bg-accent text-[10px] font-semibold text-accent-foreground">
                   AB
                 </span>
@@ -146,7 +201,7 @@ export function AppLayout({
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main key={pathname} className="page-enter px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

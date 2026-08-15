@@ -764,3 +764,231 @@ export const defaultAnswer: ChatMessage = {
 export function getRequirement(id: string) {
   return requirements.find((r) => r.id.toLowerCase() === id.toLowerCase());
 }
+
+/* ---------------------------------------------------------------------------
+ * Document detail mock data (page content, extracted entities, metrics, history)
+ * Replace this module with REST calls to the Spring Boot backend later.
+ * ------------------------------------------------------------------------- */
+
+export interface DocumentPage {
+  page: number;
+  heading: string;
+  body: string[];
+}
+
+export interface DetectedMetric {
+  label: string;
+  value: string;
+  page: number;
+  category: Category;
+}
+
+export interface EsgEntity {
+  name: string;
+  type: string;
+  page: number;
+}
+
+export interface AnalysisEvent {
+  date: string;
+  event: string;
+  detail: string;
+}
+
+export interface DocumentDetail {
+  pagesContent: DocumentPage[];
+  extractedText: string;
+  entities: EsgEntity[];
+  metrics: DetectedMetric[];
+  history: AnalysisEvent[];
+}
+
+const genericPages = (name: string, total: number): DocumentPage[] =>
+  Array.from({ length: Math.min(total, 6) }, (_, i) => ({
+    page: i + 1,
+    heading: `${name} — Section ${i + 1}`,
+    body: [
+      "This is a mock rendering of the extracted document page used for the ESGenius prototype. Text layout, tables and figures are simulated.",
+      "Disclosures on this page were indexed by the extraction pipeline and are available for evidence retrieval during compliance analysis.",
+      "Reporting period: FY 2025-26. Reporting boundary: all owned manufacturing and office facilities of ABC Industries Ltd.",
+    ],
+  }));
+
+export const documentDetails: Record<string, DocumentDetail> = {
+  "doc-1": {
+    pagesContent: [
+      {
+        page: 1,
+        heading: "Sustainability Report FY2025-26 — Overview",
+        body: [
+          "ABC Industries Ltd. presents its sustainability performance for the financial year 2025-26, prepared with reference to the SEBI Business Responsibility and Sustainability Reporting (BRSR) format.",
+          "The reporting boundary covers all owned manufacturing facilities, warehouses and corporate offices in India.",
+        ],
+      },
+      {
+        page: 27,
+        heading: "Energy Management",
+        body: [
+          "Total energy consumption of ABC Industries for FY2025-26 stood at 148,500 GJ across all manufacturing and office facilities, equivalent to 120,000 kWh of purchased electricity at the corporate campus.",
+          "Energy intensity per rupee of turnover reduced by 4.2% year on year following the completion of the compressed-air optimisation programme.",
+        ],
+      },
+      {
+        page: 28,
+        heading: "Renewable Energy",
+        body: [
+          "Renewable sources contributed 30% of total electricity consumed during the reporting period, sourced through rooftop solar installations and a group captive wind arrangement.",
+          "The organisation targets 45% renewable electricity by FY2027-28.",
+        ],
+      },
+      {
+        page: 31,
+        heading: "GHG Emissions",
+        body: [
+          "Scope 1 emissions for FY2025-26 were 420 tCO₂e, arising primarily from diesel generator sets and process fuel combustion.",
+          "Scope 2 (location-based) emissions were 1,180 tCO₂e. Scope 3 emissions have not been quantified for this reporting period.",
+        ],
+      },
+      {
+        page: 36,
+        heading: "Water Stewardship",
+        body: [
+          "Total water consumption across facilities was 8,500 KL, of which 1,900 KL was recycled through the effluent treatment and reuse system.",
+          "No facility currently operates in a water-stressed district as classified by the Central Ground Water Board.",
+        ],
+      },
+      {
+        page: 52,
+        heading: "Human Capital",
+        body: [
+          "Employee wellbeing, occupational health and safety training coverage and diversity metrics are disclosed with prior-year comparatives.",
+        ],
+      },
+    ],
+    extractedText:
+      "ABC Industries Ltd. — Sustainability Report FY2025-26. Prepared with reference to SEBI BRSR. Total energy consumption 148,500 GJ. Renewable share 30%. Scope 1 emissions 420 tCO₂e. Scope 2 emissions 1,180 tCO₂e. Scope 3 emissions not quantified. Total water consumption 8,500 KL with 1,900 KL recycled. Safety training coverage 96% of workforce. Board oversight of sustainability performance exercised through the Risk Management Committee.",
+    entities: [
+      { name: "ABC Industries Ltd.", type: "Organization", page: 1 },
+      { name: "SEBI BRSR", type: "Framework", page: 1 },
+      { name: "FY 2025-26", type: "Reporting Period", page: 1 },
+      { name: "Rooftop Solar Installation", type: "Asset", page: 28 },
+      { name: "Risk Management Committee", type: "Governance Body", page: 62 },
+      { name: "Central Ground Water Board", type: "Regulator", page: 36 },
+    ],
+    metrics: [
+      { label: "Total Energy Consumption", value: "120,000 kWh", page: 27, category: "Environmental" },
+      { label: "Renewable Energy", value: "30%", page: 28, category: "Environmental" },
+      { label: "Scope 1 Emissions", value: "420 tCO₂e", page: 31, category: "Environmental" },
+      { label: "Scope 2 Emissions", value: "1,180 tCO₂e", page: 31, category: "Environmental" },
+      { label: "Water Consumption", value: "8,500 KL", page: 36, category: "Environmental" },
+      { label: "Safety Training Coverage", value: "96% of workforce", page: 52, category: "Social" },
+    ],
+    history: [
+      { date: "12 Mar 2026, 09:12", event: "Document uploaded", detail: "Uploaded by Priya Nair" },
+      { date: "12 Mar 2026, 09:14", event: "Text extraction completed", detail: "84 pages indexed" },
+      { date: "12 Mar 2026, 09:18", event: "Compliance analysis run", detail: "Matched against 56 SEBI BRSR requirements" },
+      { date: "28 Mar 2026, 10:24", event: "Used in report", detail: "ESG Gap Assessment Report RPT-1042" },
+    ],
+  },
+};
+
+export function getDocument(id: string) {
+  return documents.find((d) => d.id === id);
+}
+
+export function getDocumentDetail(doc: DocumentRecord): DocumentDetail {
+  const existing = documentDetails[doc.id];
+  if (existing) return existing;
+  return {
+    pagesContent: genericPages(doc.name, doc.pages),
+    extractedText: `${doc.name} (${doc.year}) — extracted text preview. This document has been indexed across ${doc.pages} pages and is available as supporting evidence for ${doc.category.toLowerCase()} disclosures under SEBI BRSR.`,
+    entities: [
+      { name: "ABC Industries Ltd.", type: "Organization", page: 1 },
+      { name: "SEBI BRSR", type: "Framework", page: 1 },
+      { name: doc.year, type: "Reporting Period", page: 1 },
+    ],
+    metrics: [
+      { label: "Total Energy Consumption", value: "120,000 kWh", page: 4, category: "Environmental" },
+      { label: "Renewable Energy", value: "30%", page: 5, category: "Environmental" },
+      { label: "Scope 1 Emissions", value: "420 tCO₂e", page: 6, category: "Environmental" },
+      { label: "Water Consumption", value: "8,500 KL", page: 6, category: "Environmental" },
+    ],
+    history: [
+      { date: doc.uploaded, event: "Document uploaded", detail: "Uploaded by Priya Nair" },
+      {
+        date: doc.uploaded,
+        event: doc.status === "Analyzed" ? "Analysis completed" : "Queued for analysis",
+        detail: `${doc.pages} pages`,
+      },
+    ],
+  };
+}
+
+/* ---------------------------------------------------------------------------
+ * Global search (mock service)
+ * ------------------------------------------------------------------------- */
+
+export interface SearchResult {
+  group: "Requirements" | "Documents" | "Reports" | "Frameworks";
+  id: string;
+  title: string;
+  subtitle: string;
+  to: string;
+  params?: Record<string, string>;
+}
+
+export function globalSearch(query: string): SearchResult[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const match = (...fields: string[]) => fields.join(" ").toLowerCase().includes(q);
+
+  const results: SearchResult[] = [];
+
+  for (const r of requirements) {
+    if (match(r.id, r.title, r.category, r.description, r.status)) {
+      results.push({
+        group: "Requirements",
+        id: r.id,
+        title: `${r.id} — ${r.title}`,
+        subtitle: `${r.category} · ${r.status}`,
+        to: "/compliance/$requirementId",
+        params: { requirementId: r.id },
+      });
+    }
+  }
+  for (const d of documents) {
+    if (match(d.name, d.type, d.year, d.category)) {
+      results.push({
+        group: "Documents",
+        id: d.id,
+        title: d.name,
+        subtitle: `${d.type} · ${d.year}`,
+        to: "/documents/$documentId",
+        params: { documentId: d.id },
+      });
+    }
+  }
+  for (const rep of generatedReports) {
+    if (match(rep.id, rep.name, rep.period)) {
+      results.push({
+        group: "Reports",
+        id: rep.id,
+        title: rep.name,
+        subtitle: `${rep.id} · ${rep.period}`,
+        to: "/reports",
+      });
+    }
+  }
+  for (const f of frameworks) {
+    if (match(f.name, f.fullName, f.region)) {
+      results.push({
+        group: "Frameworks",
+        id: f.id,
+        title: f.name,
+        subtitle: f.fullName,
+        to: f.id === "brsr" ? "/frameworks/brsr" : "/frameworks",
+      });
+    }
+  }
+  return results.slice(0, 12);
+}
