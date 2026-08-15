@@ -16,6 +16,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ComplianceIndexRouteImport } from './routes/compliance/index'
 import { Route as ComplianceRequirementIdRouteImport } from './routes/compliance/$requirementId'
 import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
+import { Route as DocumentsDocumentIdRouteImport } from './routes/documents/$documentId'
 import { Route as FrameworksIndexRouteImport } from './routes/frameworks/index'
 import { Route as FrameworksBrsrRouteImport } from './routes/frameworks/brsr'
 import { Route as ReportsIndexRouteImport } from './routes/reports/index'
@@ -56,6 +57,11 @@ const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DocumentsRoute,
 } as any)
+const DocumentsDocumentIdRoute = DocumentsDocumentIdRouteImport.update({
+  id: '/$documentId',
+  path: '/$documentId',
+  getParentRoute: () => DocumentsRoute,
+} as any)
 const FrameworksIndexRoute = FrameworksIndexRouteImport.update({
   id: '/frameworks/',
   path: '/frameworks/',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/documents': typeof DocumentsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
+  '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/frameworks/brsr': typeof FrameworksBrsrRoute
   '/reports/gap-assessment': typeof ReportsGapAssessmentRoute
   '/compliance/': typeof ComplianceIndexRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/assistant': typeof AssistantRoute
   '/settings': typeof SettingsRoute
   '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
+  '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/frameworks/brsr': typeof FrameworksBrsrRoute
   '/reports/gap-assessment': typeof ReportsGapAssessmentRoute
   '/compliance': typeof ComplianceIndexRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/documents': typeof DocumentsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
+  '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/frameworks/brsr': typeof FrameworksBrsrRoute
   '/reports/gap-assessment': typeof ReportsGapAssessmentRoute
   '/compliance/': typeof ComplianceIndexRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/settings'
     | '/compliance/$requirementId'
+    | '/documents/$documentId'
     | '/frameworks/brsr'
     | '/reports/gap-assessment'
     | '/compliance/'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/settings'
     | '/compliance/$requirementId'
+    | '/documents/$documentId'
     | '/frameworks/brsr'
     | '/reports/gap-assessment'
     | '/compliance'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/settings'
     | '/compliance/$requirementId'
+    | '/documents/$documentId'
     | '/frameworks/brsr'
     | '/reports/gap-assessment'
     | '/compliance/'
@@ -221,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsIndexRouteImport
       parentRoute: typeof DocumentsRoute
     }
+    '/documents/$documentId': {
+      id: '/documents/$documentId'
+      path: '/$documentId'
+      fullPath: '/documents/$documentId'
+      preLoaderRoute: typeof DocumentsDocumentIdRouteImport
+      parentRoute: typeof DocumentsRoute
+    }
     '/frameworks/': {
       id: '/frameworks/'
       path: '/frameworks'
@@ -253,10 +272,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface DocumentsRouteChildren {
+  DocumentsDocumentIdRoute: typeof DocumentsDocumentIdRoute
   DocumentsIndexRoute: typeof DocumentsIndexRoute
 }
 
 const DocumentsRouteChildren: DocumentsRouteChildren = {
+  DocumentsDocumentIdRoute: DocumentsDocumentIdRoute,
   DocumentsIndexRoute: DocumentsIndexRoute,
 }
 
