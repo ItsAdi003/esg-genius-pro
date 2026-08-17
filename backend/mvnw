@@ -1,0 +1,56 @@
+#!/bin/sh
+# Maven Wrapper startup script for UN*X
+# https://github.com/apache/maven-wrapper
+
+set -e
+
+MAVEN_PROJECTBASEDIR="${MAVEN_BASEDIR:-$(cd "$(dirname "$0")" && pwd)}"
+MAVEN_WRAPPER_PROPERTIES="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.properties"
+MAVEN_WRAPPER_JAR="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.jar"
+
+if [ ! -f "$MAVEN_WRAPPER_JAR" ]; then
+  if [ -f "$MAVEN_WRAPPER_PROPERTIES" ]; then
+    WRAPPER_URL=$(grep 'wrapperUrl' "$MAVEN_WRAPPER_PROPERTIES" | cut -d'=' -f2- | tr -d '[:space:]')
+    if [ -n "$WRAPPER_URL" ]; then
+      echo "Downloading Maven Wrapper..."
+      if command -v curl > /dev/null 2>&1; then
+        curl -fsSL -o "$MAVEN_WRAPPER_JAR" "$WRAPPER_URL"
+      elif command -v wget > /dev/null 2>&1; then
+        wget -q -O "$MAVEN_WRAPPER_JAR" "$WRAPPER_URL"
+      else
+        echo "Error: curl or wget required to download Maven Wrapper" >&2
+        exit 1
+      fi
+    fi
+  fi
+fi
+
+if [ -f "$MAVEN_WRAPPER_JAR" ]; then
+  exec java $MAVEN_OPTS \
+    -classpath "$MAVEN_WRAPPER_JAR" \
+    org.apache.maven.wrapper.MavenWrapperMain "$@"
+else
+  # Fallback: try to download Maven and run directly
+  DIST_URL=$(grep 'distributionUrl' "$MAVEN_WRAPPER_PROPERTIES" | cut -d'=' -f2- | tr -d '[:space:]')
+  DIST_DIR="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/dists"
+  DIST_NAME=$(basename "$DIST_URL" .zip)
+  MAVEN_HOME="$DIST_DIR/$DIST_NAME"
+
+  if [ ! -d "$MAVEN_HOME" ]; then
+    echo "Downloading Maven distribution..."
+    mkdir -p "$DIST_DIR"
+    DIST_ZIP="$DIST_DIR/$(basename "$DIST_URL")"
+    if command -v curl > /dev/null 2>&1; then
+      curl -fsSL -o "$DIST_ZIP" "$DIST_URL"
+    elif command -v wget > /dev/null 2>&1; then
+      wget -q -O "$DIST_ZIP" "$DIST_URL"
+    else
+      echo "Error: curl or wget required" >&2
+      exit 1
+    fi
+    unzip -q -d "$DIST_DIR" "$DIST_ZIP"
+    rm -f "$DIST_ZIP"
+  fi
+
+  exec "$MAVEN_HOME/bin/mvn" "$@"
+fi
