@@ -7,6 +7,8 @@ import {
   FileStack,
   ArrowRight,
   Sparkles,
+  ShieldCheck,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   Bar,
@@ -28,6 +30,7 @@ import { RadialScore } from "@/components/radial-score";
 import { useCountUp } from "@/hooks/use-count-up";
 import { PriorityBadge, StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -100,7 +103,13 @@ function StatCard({
     info: "bg-info-soft text-info",
   } as const;
   return (
-    <div className="glass-panel glass-hover p-4" style={{ animationDelay: `${delay}ms` }}>
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: delay / 1000, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -4, transition: { duration: 0.18 } }}
+      className="glass-panel p-4"
+    >
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">{label}</p>
         <span className={`flex size-8 items-center justify-center rounded-lg ${tones[tone]}`}>
@@ -111,7 +120,7 @@ function StatCard({
         {Math.round(animated)}
         {suffix && <span className="text-lg text-muted-foreground">{suffix}</span>}
       </p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -127,7 +136,7 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section className={`glass-panel glass-hover p-5 ${className ?? ""}`}>
+    <section className={`glass-panel glass-hover overflow-hidden p-5 ${className ?? ""}`}>
       <header className="mb-4">
         <h2 className="text-sm font-semibold">{title}</h2>
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
@@ -153,57 +162,102 @@ function Dashboard() {
         </>
       }
     >
-      <div className="mb-4 grid gap-4 lg:grid-cols-[260px_1fr]">
-        <div className="glass-panel glass-hover flex flex-col items-center justify-center p-5">
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        className="dashboard-hero mb-5 grid overflow-hidden lg:grid-cols-[minmax(0,1fr)_310px]"
+      >
+        <div className="relative p-5 sm:p-7">
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div>
+              <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-primary">
+                  <ShieldCheck className="size-3.5" />
+                </span>
+                Reporting command center
+              </div>
+              <div className="max-w-xl">
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-2xl">
+                  Ready to turn ESG evidence into a confident disclosure.
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Your BRSR assessment is progressing steadily. Focus the next review on the
+                  high-priority evidence gaps to improve reporting readiness.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              {categoryScores.map((c, i) => (
+                <motion.div
+                  key={c.category}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + i * 0.08, duration: 0.38 }}
+                  className="rounded-2xl border border-white/8 bg-black/10 p-3.5 backdrop-blur-sm"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">{c.category}</p>
+                    <p className="text-sm font-semibold tabular-nums text-primary">{c.score}%</p>
+                  </div>
+                  <Progress value={c.score} className="mt-3 h-1.5" />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.12, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="relative flex flex-col items-center justify-center border-t border-white/10 bg-black/10 p-6 lg:border-l lg:border-t-0"
+        >
+          <div className="ambient-orb absolute -right-10 -top-10 size-44 rounded-full bg-primary/20 blur-3xl" aria-hidden />
+          <p className="relative z-10 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Readiness signal</p>
           <RadialScore value={ORG.readiness} label="Overall Readiness" />
-          <p className="mt-3 text-center text-xs text-muted-foreground">
+          <Link
+            to="/compliance"
+            className="relative z-10 mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary transition-transform hover:translate-x-0.5"
+          >
+            Review assessment <ArrowUpRight className="size-3.5" />
+          </Link>
+          <p className="relative z-10 mt-4 text-center text-xs text-muted-foreground">
             {ORG.framework} · {ORG.reportingPeriod}
           </p>
-        </div>
-        <div className="glass-panel glass-hover flex flex-col justify-center gap-3 p-5">
-          {categoryScores.map((c, i) => (
-            <div key={c.category}>
-              <div className="flex items-baseline justify-between">
-                <p className="text-sm font-medium">{c.category}</p>
-                <p className="text-sm font-semibold tabular-nums">{c.score}%</p>
-              </div>
-              <Progress
-                value={c.score}
-                className="mt-1.5 h-2 transition-all duration-700"
-                style={{ transitionDelay: `${i * 120}ms` }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+        </motion.div>
+      </motion.section>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="ESG Reporting Readiness" value={ORG.readiness} suffix="%" icon={Gauge} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="ESG Reporting Readiness" value={ORG.readiness} suffix="%" icon={Gauge} delay={80} />
         <StatCard
           label="Requirements Covered"
           value={ORG.requirementsCovered}
           icon={CheckCircle2}
           tone="success"
+          delay={140}
         />
         <StatCard
           label="Partially Covered"
           value={ORG.partiallyCovered}
           icon={AlertTriangle}
           tone="warning"
+          delay={200}
         />
-        <StatCard label="Evidence Missing" value={ORG.evidenceMissing} icon={SearchX} tone="danger" />
+        <StatCard label="Evidence Missing" value={ORG.evidenceMissing} icon={SearchX} tone="danger" delay={260} />
         <StatCard
           label="Documents Analyzed"
           value={ORG.documentsAnalyzed}
           icon={FileStack}
           tone="info"
+          delay={320}
         />
       </div>
 
 
 
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <Panel title="ESG Category Readiness" subtitle="Score by category (%)">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={categoryScores} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
@@ -281,11 +335,11 @@ function Dashboard() {
         </Panel>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-3">
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
         <Panel
           title="Priority Compliance Gaps"
           subtitle="Requirements ranked by remediation priority"
-          className="xl:col-span-2"
+          className=""
         >
           <Table>
             <TableHeader>
