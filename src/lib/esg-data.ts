@@ -992,3 +992,328 @@ export function globalSearch(query: string): SearchResult[] {
   }
   return results.slice(0, 12);
 }
+
+/* ---------------------------------------------------------------------------
+ * Company Comparison (mock data)
+ * ------------------------------------------------------------------------- */
+
+export type RatingBand = "AAA" | "AA" | "A" | "BBB" | "BB" | "B" | "CCC";
+
+export interface CompanyESGEvent {
+  id: string;
+  title: string;
+  category: Category;
+  date: string;
+  severity: "Low" | "Medium" | "High";
+  description: string;
+  scoreImpact?: number;
+  isPositive: boolean;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  ticker: string;
+  industry: string;
+  ratingBand: RatingBand;
+  overallScore: number;
+  environmentalScore: number;
+  socialScore: number;
+  governanceScore: number;
+  previousRating: RatingBand;
+  scoreChange: number;
+  activeControversies: number;
+  keyStrengths: string[];
+  keyWeaknesses: string[];
+  materialIssues: {
+    title: string;
+    score: number;
+    riskLevel: "Strong" | "Moderate" | "Weak";
+  }[];
+  recentEvents: CompanyESGEvent[];
+  historicalScores: { quarter: string; score: number }[];
+}
+
+export const mockCompanies: Company[] = [
+  {
+    id: "infosys",
+    name: "Infosys Limited",
+    ticker: "INFY",
+    industry: "Information Technology",
+    ratingBand: "AA",
+    overallScore: 7.8,
+    environmentalScore: 7.3,
+    socialScore: 8.2,
+    governanceScore: 8.0,
+    previousRating: "AA",
+    scoreChange: 0.3,
+    activeControversies: 1,
+    keyStrengths: [
+      "Strong human-capital practices",
+      "Robust corporate governance",
+      "Renewable-energy transition",
+      "Comprehensive whistleblower mechanism",
+      "Gender diversity in leadership",
+    ],
+    keyWeaknesses: [
+      "Scope 3 emissions disclosure gap",
+      "Supply-chain ESG monitoring",
+      "Limited data privacy certifications",
+    ],
+    materialIssues: [
+      { title: "Carbon Emissions", score: 7.5, riskLevel: "Strong" },
+      { title: "Human Capital", score: 8.4, riskLevel: "Strong" },
+      { title: "Data Privacy & Security", score: 7.9, riskLevel: "Strong" },
+      { title: "Corporate Governance", score: 8.2, riskLevel: "Strong" },
+      { title: "Business Ethics", score: 8.0, riskLevel: "Strong" },
+    ],
+    recentEvents: [
+      {
+        id: "event-inf-1",
+        title: "Renewable Energy Commitment Announced",
+        category: "Environmental",
+        date: "2026-08-15",
+        severity: "Low",
+        description:
+          "Infosys commits to 55% renewable energy by 2030, up from 46% currently",
+        scoreImpact: 0.2,
+        isPositive: true,
+      },
+      {
+        id: "event-inf-2",
+        title: "Women in Leadership Initiative",
+        category: "Social",
+        date: "2026-07-22",
+        severity: "Low",
+        description: "Launched programme to achieve 40% women in leadership roles by 2028",
+        scoreImpact: 0.15,
+        isPositive: true,
+      },
+      {
+        id: "event-inf-3",
+        title: "Supply Chain ESG Audit Gap",
+        category: "Environmental",
+        date: "2026-06-10",
+        severity: "Medium",
+        description: "Audit revealed gaps in Tier 2 supplier ESG assessments",
+        scoreImpact: -0.1,
+        isPositive: false,
+      },
+    ],
+    historicalScores: [
+      { quarter: "Q4 2025", score: 7.5 },
+      { quarter: "Q1 2026", score: 7.6 },
+      { quarter: "Q2 2026", score: 7.7 },
+      { quarter: "Q3 2026", score: 7.8 },
+    ],
+  },
+  {
+    id: "tcs",
+    name: "Tata Consultancy Services",
+    ticker: "TCS",
+    industry: "Information Technology",
+    ratingBand: "A",
+    overallScore: 6.9,
+    environmentalScore: 6.7,
+    socialScore: 7.4,
+    governanceScore: 7.7,
+    previousRating: "A",
+    scoreChange: -0.1,
+    activeControversies: 2,
+    keyStrengths: [
+      "Excellent corporate governance framework",
+      "Strong board composition",
+      "Established ESG reporting",
+      "Comprehensive health & safety programmes",
+    ],
+    keyWeaknesses: [
+      "Lower environmental ambition vs peers",
+      "Limited renewable energy transition",
+      "Gaps in diversity metrics",
+      "Supply chain sustainability concerns",
+    ],
+    materialIssues: [
+      { title: "Carbon Emissions", score: 6.2, riskLevel: "Moderate" },
+      { title: "Human Capital", score: 7.5, riskLevel: "Strong" },
+      { title: "Data Privacy & Security", score: 7.3, riskLevel: "Strong" },
+      { title: "Corporate Governance", score: 7.9, riskLevel: "Strong" },
+      { title: "Business Ethics", score: 7.4, riskLevel: "Strong" },
+    ],
+    recentEvents: [
+      {
+        id: "event-tcs-1",
+        title: "Carbon Neutrality Goal Extended",
+        category: "Environmental",
+        date: "2026-08-01",
+        severity: "Low",
+        description: "Announced net-zero carbon operations target for 2045",
+        scoreImpact: 0.1,
+        isPositive: true,
+      },
+      {
+        id: "event-tcs-2",
+        title: "Data Breach Inquiry",
+        category: "Governance",
+        date: "2026-07-15",
+        severity: "High",
+        description:
+          "Regulatory inquiry into customer data handling practices during Q2 2026",
+        scoreImpact: -0.25,
+        isPositive: false,
+      },
+      {
+        id: "event-tcs-3",
+        title: "Diversity Report Published",
+        category: "Social",
+        date: "2026-06-28",
+        severity: "Low",
+        description: "Published comprehensive diversity and inclusion report; gaps identified",
+        scoreImpact: 0.05,
+        isPositive: true,
+      },
+    ],
+    historicalScores: [
+      { quarter: "Q4 2025", score: 7.0 },
+      { quarter: "Q1 2026", score: 6.95 },
+      { quarter: "Q2 2026", score: 6.92 },
+      { quarter: "Q3 2026", score: 6.9 },
+    ],
+  },
+  {
+    id: "wipro",
+    name: "Wipro Limited",
+    ticker: "WPRO",
+    industry: "Information Technology",
+    ratingBand: "BBB",
+    overallScore: 6.2,
+    environmentalScore: 5.9,
+    socialScore: 6.5,
+    governanceScore: 6.8,
+    previousRating: "BBB",
+    scoreChange: 0.0,
+    activeControversies: 3,
+    keyStrengths: [
+      "Transparent governance structure",
+      "Community engagement programmes",
+      "Employee wellness focus",
+    ],
+    keyWeaknesses: [
+      "Weak environmental strategy",
+      "Insufficient renewable energy adoption",
+      "Limited ESG disclosure",
+      "Supply chain risks",
+      "Data privacy concerns",
+    ],
+    materialIssues: [
+      { title: "Carbon Emissions", score: 5.4, riskLevel: "Weak" },
+      { title: "Human Capital", score: 6.8, riskLevel: "Moderate" },
+      { title: "Data Privacy & Security", score: 6.1, riskLevel: "Moderate" },
+      { title: "Corporate Governance", score: 6.9, riskLevel: "Moderate" },
+      { title: "Business Ethics", score: 6.5, riskLevel: "Moderate" },
+    ],
+    recentEvents: [
+      {
+        id: "event-wipro-1",
+        title: "ESG Strategy Overhaul Announced",
+        category: "Environmental",
+        date: "2026-08-10",
+        severity: "Low",
+        description:
+          "New 5-year ESG roadmap launched with increased environmental focus and targets",
+        scoreImpact: 0.15,
+        isPositive: true,
+      },
+      {
+        id: "event-wipro-2",
+        title: "Labor Dispute Settlement",
+        category: "Social",
+        date: "2026-07-05",
+        severity: "Medium",
+        description: "Resolved labor dispute at Bangalore facility with negotiated settlement",
+        scoreImpact: 0.08,
+        isPositive: true,
+      },
+      {
+        id: "event-wipro-3",
+        title: "Environmental Compliance Violation",
+        category: "Environmental",
+        date: "2026-06-01",
+        severity: "High",
+        description:
+          "Regulatory fine for water discharge violations at manufacturing facility",
+        scoreImpact: -0.3,
+        isPositive: false,
+      },
+    ],
+    historicalScores: [
+      { quarter: "Q4 2025", score: 6.2 },
+      { quarter: "Q1 2026", score: 6.1 },
+      { quarter: "Q2 2026", score: 6.15 },
+      { quarter: "Q3 2026", score: 6.2 },
+    ],
+  },
+  {
+    id: "hcl",
+    name: "HCLTech",
+    ticker: "HCLT",
+    industry: "Information Technology",
+    ratingBand: "A",
+    overallScore: 7.1,
+    environmentalScore: 6.8,
+    socialScore: 7.3,
+    governanceScore: 7.5,
+    previousRating: "BBB",
+    scoreChange: 0.5,
+    activeControversies: 1,
+    keyStrengths: [
+      "Rapidly improving ESG practices",
+      "Strong supply chain engagement",
+      "Employee-centric initiatives",
+      "Emerging governance frameworks",
+    ],
+    keyWeaknesses: [
+      "Moderate carbon disclosure maturity",
+      "Limited international ESG benchmarking",
+      "Developing diversity programmes",
+    ],
+    materialIssues: [
+      { title: "Carbon Emissions", score: 6.8, riskLevel: "Moderate" },
+      { title: "Human Capital", score: 7.6, riskLevel: "Strong" },
+      { title: "Data Privacy & Security", score: 7.2, riskLevel: "Strong" },
+      { title: "Corporate Governance", score: 7.4, riskLevel: "Strong" },
+      { title: "Business Ethics", score: 7.3, riskLevel: "Strong" },
+    ],
+    recentEvents: [
+      {
+        id: "event-hcl-1",
+        title: "Green Data Center Initiative",
+        category: "Environmental",
+        date: "2026-08-08",
+        severity: "Low",
+        description: "Commissioned first carbon-neutral data center facility in India",
+        scoreImpact: 0.25,
+        isPositive: true,
+      },
+      {
+        id: "event-hcl-2",
+        title: "Skills Development Programme",
+        category: "Social",
+        date: "2026-07-30",
+        severity: "Low",
+        description: "Launched INR 50 crore skills development programme for underprivileged youth",
+        scoreImpact: 0.2,
+        isPositive: true,
+      },
+    ],
+    historicalScores: [
+      { quarter: "Q4 2025", score: 6.6 },
+      { quarter: "Q1 2026", score: 6.75 },
+      { quarter: "Q2 2026", score: 6.9 },
+      { quarter: "Q3 2026", score: 7.1 },
+    ],
+  },
+];
+
+export function getCompanyById(id: string): Company | undefined {
+  return mockCompanies.find((c) => c.id === id);
+}

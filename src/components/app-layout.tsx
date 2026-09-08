@@ -13,6 +13,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  TrendingUp,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { GlobalSearch } from "@/components/global-search";
@@ -32,6 +33,7 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/compliance", label: "Compliance Analysis", icon: ClipboardCheck },
+  { to: "/comparison", label: "Company Comparison", icon: TrendingUp },
   { to: "/frameworks", label: "ESG Frameworks", icon: Library },
   { to: "/assistant", label: "AI ESG Assistant", icon: Bot },
   { to: "/reports", label: "Reports", icon: FileBarChart2 },
@@ -49,69 +51,69 @@ function SidebarContent({
 
   return (
     <TooltipProvider delayDuration={100}>
-    <div className="flex h-full flex-col">
-      <div
-        className={cn(
-          "flex items-center gap-2.5 py-5 transition-all duration-300",
-          collapsed ? "justify-center px-2" : "px-5",
-        )}
-      >
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-          <Leaf className="size-5" />
+      <div className="flex h-full flex-col">
+        <div
+          className={cn(
+            "flex items-center gap-2.5 py-5 transition-all duration-300",
+            collapsed ? "justify-center px-2" : "px-5",
+          )}
+        >
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <Leaf className="size-5" />
+          </div>
+          {!collapsed && (
+            <div className="leading-tight">
+              <p className="text-[15px] font-semibold tracking-tight">ESGenius</p>
+              <p className="text-[11px] text-muted-foreground">ESG Compliance Assistant</p>
+            </div>
+          )}
         </div>
+
+        <nav className={cn("flex-1 space-y-1 py-2", collapsed ? "px-2" : "px-3")}>
+          {nav.map((item) => {
+            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            const link = (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={onNavigate}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                  collapsed && "justify-center px-2",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                )}
+              >
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
+                <item.icon className="size-[18px] shrink-0" />
+                {!collapsed && item.label}
+              </Link>
+            );
+
+            return collapsed ? (
+              <Tooltip key={item.to}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            ) : (
+              link
+            );
+          })}
+        </nav>
+
         {!collapsed && (
-          <div className="leading-tight">
-            <p className="text-[15px] font-semibold tracking-tight">ESGenius</p>
-            <p className="text-[11px] text-muted-foreground">ESG Compliance Assistant</p>
+          <div className="glass-panel m-3 p-3">
+            <p className="text-xs font-medium">AI-Assisted Assessment</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              ESGenius supports compliance professionals with evidence-linked analysis. It does not
+              replace human review.
+            </p>
           </div>
         )}
       </div>
-
-      <nav className={cn("flex-1 space-y-1 py-2", collapsed ? "px-2" : "px-3")}>
-        {nav.map((item) => {
-          const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
-          const link = (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={cn(
-                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                collapsed && "justify-center px-2",
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-              )}
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-              )}
-              <item.icon className="size-[18px] shrink-0" />
-              {!collapsed && item.label}
-            </Link>
-          );
-
-          return collapsed ? (
-            <Tooltip key={item.to}>
-              <TooltipTrigger asChild>{link}</TooltipTrigger>
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          ) : (
-            link
-          );
-        })}
-      </nav>
-
-      {!collapsed && (
-        <div className="glass-panel m-3 p-3">
-          <p className="text-xs font-medium">AI-Assisted Assessment</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            ESGenius supports compliance professionals with evidence-linked analysis. It does not
-            replace human review.
-          </p>
-        </div>
-      )}
-    </div>
     </TooltipProvider>
   );
 }

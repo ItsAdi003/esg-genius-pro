@@ -17,12 +17,18 @@ public class Organization {
     @Column(length = 50)
     private String cin;
 
+    @Column(length = 20)
+    private String ticker;
+
+    private String industry;
+
     private String sector;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected Organization() {}
+    protected Organization() {
+    }
 
     public Organization(String name, String cin, String sector) {
         this.name = name;
@@ -31,16 +37,60 @@ public class Organization {
         this.createdAt = Instant.now();
     }
 
-    public Long getId() { return id; }
+    public Organization(String name, String ticker, String industry, String sector, String cin) {
+        this.name = name;
+        this.ticker = ticker;
+        this.industry = industry;
+        this.sector = sector;
+        this.cin = cin;
+        this.createdAt = Instant.now();
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getCin() { return cin; }
-    public void setCin(String cin) { this.cin = cin; }
+    public String getName() {
+        return name;
+    }
 
-    public String getSector() { return sector; }
-    public void setSector(String sector) { this.sector = sector; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
+    public String getCin() {
+        return cin;
+    }
+
+    public void setCin(String cin) {
+        this.cin = cin;
+    }
+
+    public String getTicker() {
+        return ticker;
+    }
+
+    public void setTicker(String ticker) {
+        this.ticker = ticker;
+    }
+
+    public String getIndustry() {
+        return industry;
+    }
+
+    public void setIndustry(String industry) {
+        this.industry = industry;
+    }
+
+    public String getSector() {
+        return sector;
+    }
+
+    public void setSector(String sector) {
+        this.sector = sector;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

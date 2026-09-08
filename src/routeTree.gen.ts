@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AssistantRouteImport } from './routes/assistant'
+import { Route as ComparisonRouteImport } from './routes/comparison'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ComplianceIndexRouteImport } from './routes/compliance/index'
 import { Route as ComplianceRequirementIdRouteImport } from './routes/compliance/$requirementId'
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
 const AssistantRoute = AssistantRouteImport.update({
   id: '/assistant',
   path: '/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComparisonRoute = ComparisonRouteImport.update({
+  id: '/comparison',
+  path: '/comparison',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -80,6 +86,7 @@ const ReportsGapAssessmentRoute = ReportsGapAssessmentRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
+  '/comparison': typeof ComparisonRoute
   '/settings': typeof SettingsRoute
   '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
+  '/comparison': typeof ComparisonRoute
   '/settings': typeof SettingsRoute
   '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
+  '/comparison': typeof ComparisonRoute
   '/settings': typeof SettingsRoute
   '/compliance/$requirementId': typeof ComplianceRequirementIdRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/assistant'
+    | '/comparison'
     | '/settings'
     | '/compliance/$requirementId'
     | '/documents/$documentId'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/assistant'
+    | '/comparison'
     | '/settings'
     | '/compliance/$requirementId'
     | '/documents/$documentId'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/assistant'
+    | '/comparison'
     | '/settings'
     | '/compliance/$requirementId'
     | '/documents/$documentId'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssistantRoute: typeof AssistantRoute
+  ComparisonRoute: typeof ComparisonRoute
   SettingsRoute: typeof SettingsRoute
   ComplianceRequirementIdRoute: typeof ComplianceRequirementIdRoute
   DocumentsDocumentIdRoute: typeof DocumentsDocumentIdRoute
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/assistant'
       fullPath: '/assistant'
       preLoaderRoute: typeof AssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comparison': {
+      id: '/comparison'
+      path: '/comparison'
+      fullPath: '/comparison'
+      preLoaderRoute: typeof ComparisonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
+  ComparisonRoute: ComparisonRoute,
   SettingsRoute: SettingsRoute,
   ComplianceRequirementIdRoute: ComplianceRequirementIdRoute,
   DocumentsDocumentIdRoute: DocumentsDocumentIdRoute,
