@@ -11,6 +11,9 @@ const statusStyles: Record<string, string> = {
   Analyzed: "bg-success-soft text-success border-success/25",
   Processing: "bg-info-soft text-info border-info/25",
   Queued: "bg-muted text-muted-foreground border-border",
+  Uploaded: "bg-muted text-muted-foreground border-border",
+  Ready: "bg-success-soft text-success border-success/25",
+  Failed: "bg-danger-soft text-danger border-danger/25",
   Active: "bg-success-soft text-success border-success/25",
   Planned: "bg-muted text-muted-foreground border-border",
 };
