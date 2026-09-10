@@ -4,10 +4,12 @@ import dev.esgenius.dto.CompanySummaryResponse;
 import dev.esgenius.dto.CompanyComparisonResponse;
 import dev.esgenius.dto.CompanyEsgProfileResponse;
 import dev.esgenius.dto.EsgRatingHistoryResponse;
+import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.service.CompanyEsgService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
@@ -36,6 +38,12 @@ class FlywaySeedDataIntegrationTest {
 
     @Autowired
     private CompanyEsgService companyEsgService;
+
+    @Autowired
+    private DocumentRepository documentRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void flywaySeedDataIsPresentAfterAllMigrations() {
@@ -96,5 +104,14 @@ class FlywaySeedDataIntegrationTest {
         assertThat(insight).doesNotContain("Tata Consultancy Services leads on Governance");
         assertThat(insight).doesNotContain("remains comparatively strong in Governance");
         assertThat(insight).contains("Tata Consultancy Services does not lead on Environmental, Social or Governance");
+    }
+
+    @Test
+    void v7DocumentTableIsAvailableAfterMigration() {
+        String version = jdbcTemplate.queryForObject(
+                "SELECT version FROM flyway_schema_history WHERE version = '7'",
+                String.class);
+        assertThat(version).isEqualTo("7");
+        assertThat(documentRepository.findAll()).isNotNull();
     }
 }

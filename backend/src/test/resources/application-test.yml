@@ -14,3 +14,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+app:
+  storage:
+    upload-dir: target/test-uploads
