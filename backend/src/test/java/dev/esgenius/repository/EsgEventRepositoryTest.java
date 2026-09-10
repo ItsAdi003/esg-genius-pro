@@ -3,6 +3,7 @@ package dev.esgenius.repository;
 import dev.esgenius.entity.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -35,7 +36,7 @@ class EsgEventRepositoryTest {
                 LocalDate.of(2026, 8, 1), -0.3, true));
 
         // Test
-        List<EsgEvent> recent = eventRepository.findRecentEventsByOrganization(saved, 2);
+        List<EsgEvent> recent = eventRepository.findByOrganizationOrderByEventDateDesc(saved, PageRequest.of(0, 2));
 
         // Verify
         assertEquals(2, recent.size());

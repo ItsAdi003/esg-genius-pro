@@ -79,6 +79,9 @@ class CompanyControllerTest {
                 .param("companyA", companyId.toString())
                 .param("companyB", companyId.toString()))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.error", is("Bad Request")))
+                .andExpect(jsonPath("$.message", is("Cannot compare a company with itself")))
                 .andDo(print());
     }
 

@@ -2,6 +2,7 @@ package dev.esgenius.service;
 
 import dev.esgenius.dto.*;
 import dev.esgenius.entity.*;
+import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
 import dev.esgenius.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,13 +80,11 @@ class CompanyEsgServiceTest {
 
     @Test
     void testListCompanies() {
-        // Test
         List<CompanySummaryResponse> companies = companyEsgService.listCompanies();
 
-        // Verify
-        assertEquals(2, companies.size());
-        assertTrue(companies.stream().anyMatch(c -> "Company A".equals(c.name())));
-        assertTrue(companies.stream().anyMatch(c -> "Company B".equals(c.name())));
+        assertTrue(companies.size() >= 2);
+        assertTrue(companies.stream().anyMatch(c -> "CMPA".equals(c.ticker()) && "Company A".equals(c.name())));
+        assertTrue(companies.stream().anyMatch(c -> "CMPB".equals(c.ticker()) && "Company B".equals(c.name())));
     }
 
     @Test
@@ -117,7 +116,7 @@ class CompanyEsgServiceTest {
     @Test
     void testCompareCompanies_SameCompanyRejects() {
         // Test & Verify
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(BadRequestException.class,
                 () -> companyEsgService.compareCompanies(company1.getId(), company1.getId()));
     }
 

@@ -2,6 +2,7 @@ package dev.esgenius.repository;
 
 import dev.esgenius.entity.EsgEvent;
 import dev.esgenius.entity.Organization;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,14 +20,7 @@ public interface EsgEventRepository extends JpaRepository<EsgEvent, Long> {
     /**
      * Find recent ESG events for an organization (last N events).
      */
-    @Query("""
-                SELECT e FROM EsgEvent e
-                WHERE e.organization = :organization
-                ORDER BY e.eventDate DESC
-                LIMIT :limit
-            """)
-    List<EsgEvent> findRecentEventsByOrganization(@Param("organization") Organization organization,
-            @Param("limit") int limit);
+    List<EsgEvent> findByOrganizationOrderByEventDateDesc(Organization organization, Pageable pageable);
 
     /**
      * Find events within a date range.

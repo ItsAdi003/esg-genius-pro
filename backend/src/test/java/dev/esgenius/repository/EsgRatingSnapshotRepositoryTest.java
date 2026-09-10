@@ -37,7 +37,7 @@ class EsgRatingSnapshotRepositoryTest {
         ratingSnapshotRepository.save(snapshot2);
 
         // Test
-        Optional<EsgRatingSnapshot> latest = ratingSnapshotRepository.findLatestByOrganization(saved);
+        Optional<EsgRatingSnapshot> latest = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(saved);
 
         // Verify
         assertTrue(latest.isPresent());

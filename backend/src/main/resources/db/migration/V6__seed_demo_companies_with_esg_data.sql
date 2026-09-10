@@ -1,141 +1,506 @@
 -- V6: Seed demo companies with prototype ESG rating data
--- 
+--
 -- IMPORTANT: All scores, ratings, and events in this migration are ILLUSTRATIVE
 -- PROTOTYPE DATA used to validate the ESGenius rating architecture. They are NOT
 -- official MSCI or third-party ESG ratings, and do NOT represent real current
 -- company performance or events. This is demonstration data only.
+--
+-- Preserves the ABC Industries demo organization from V2.
+-- Resolves organizations and key issues by stable natural identifiers (ticker, code).
 
--- Delete existing organizations and re-seed with comparison data
-DELETE FROM esg_event;
-DELETE FROM company_key_issue_assessment;
-DELETE FROM esg_rating_snapshot;
-DELETE FROM esg_key_issue;
-DELETE FROM organization;
-
--- Seed four demo companies (Indian IT services)
+-- Seed four listed comparison companies (Indian IT services)
 INSERT INTO organization (name, ticker, industry, sector)
-VALUES
-    ('Infosys Limited', 'INFY', 'Information Technology', 'IT Services'),
-    ('Tata Consultancy Services', 'TCS', 'Information Technology', 'IT Services'),
-    ('Wipro Limited', 'WPRO', 'Information Technology', 'IT Services'),
-    ('HCLTech', 'HCLT', 'Information Technology', 'IT Services');
+SELECT 'Infosys Limited', 'INFY', 'Information Technology', 'IT Services'
+WHERE NOT EXISTS (SELECT 1 FROM organization WHERE ticker = 'INFY');
+
+INSERT INTO organization (name, ticker, industry, sector)
+SELECT 'Tata Consultancy Services', 'TCS', 'Information Technology', 'IT Services'
+WHERE NOT EXISTS (SELECT 1 FROM organization WHERE ticker = 'TCS');
+
+INSERT INTO organization (name, ticker, industry, sector)
+SELECT 'Wipro Limited', 'WPRO', 'Information Technology', 'IT Services'
+WHERE NOT EXISTS (SELECT 1 FROM organization WHERE ticker = 'WPRO');
+
+INSERT INTO organization (name, ticker, industry, sector)
+SELECT 'HCLTech', 'HCLT', 'Information Technology', 'IT Services'
+WHERE NOT EXISTS (SELECT 1 FROM organization WHERE ticker = 'HCLT');
 
 -- Seed ESG Key Issues (5 material issues)
 INSERT INTO esg_key_issue (code, name, pillar, description)
-VALUES
-    ('CARBON_EMISSIONS', 'Carbon Emissions', 'ENVIRONMENTAL', 'Scope 1, 2, and 3 greenhouse gas emissions'),
-    ('HUMAN_CAPITAL', 'Human Capital', 'SOCIAL', 'Employee practices, training, retention, diversity'),
-    ('DATA_PRIVACY', 'Data Privacy & Security', 'GOVERNANCE', 'Information security and customer data protection'),
-    ('CORP_GOVERNANCE', 'Corporate Governance', 'GOVERNANCE', 'Board independence, ethics, compliance'),
-    ('BUSINESS_ETHICS', 'Business Ethics', 'GOVERNANCE', 'Anti-corruption, supply chain integrity, compliance');
+SELECT 'CARBON_EMISSIONS', 'Carbon Emissions', 'ENVIRONMENTAL', 'Scope 1, 2, and 3 greenhouse gas emissions'
+WHERE NOT EXISTS (SELECT 1 FROM esg_key_issue WHERE code = 'CARBON_EMISSIONS');
+
+INSERT INTO esg_key_issue (code, name, pillar, description)
+SELECT 'HUMAN_CAPITAL', 'Human Capital', 'SOCIAL', 'Employee practices, training, retention, diversity'
+WHERE NOT EXISTS (SELECT 1 FROM esg_key_issue WHERE code = 'HUMAN_CAPITAL');
+
+INSERT INTO esg_key_issue (code, name, pillar, description)
+SELECT 'DATA_PRIVACY', 'Data Privacy & Security', 'GOVERNANCE', 'Information security and customer data protection'
+WHERE NOT EXISTS (SELECT 1 FROM esg_key_issue WHERE code = 'DATA_PRIVACY');
+
+INSERT INTO esg_key_issue (code, name, pillar, description)
+SELECT 'CORP_GOVERNANCE', 'Corporate Governance', 'GOVERNANCE', 'Board independence, ethics, compliance'
+WHERE NOT EXISTS (SELECT 1 FROM esg_key_issue WHERE code = 'CORP_GOVERNANCE');
+
+INSERT INTO esg_key_issue (code, name, pillar, description)
+SELECT 'BUSINESS_ETHICS', 'Business Ethics', 'GOVERNANCE', 'Anti-corruption, supply chain integrity, compliance'
+WHERE NOT EXISTS (SELECT 1 FROM esg_key_issue WHERE code = 'BUSINESS_ETHICS');
 
 -- =============================================================================
 -- INFOSYS LIMITED (INFY) - Prototype Rating: AA (7.8 overall)
 -- =============================================================================
 
--- Rating history: Q4 2025 – Q3 2026
 INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
-VALUES
-    (1, 7.5, 7.0, 8.0, 7.8, 'AA', '2025-12-31', 7.2),
-    (1, 7.6, 7.1, 8.1, 7.9, 'AA', '2026-03-31', 7.5),
-    (1, 7.7, 7.2, 8.2, 8.0, 'AA', '2026-06-30', 7.6),
-    (1, 7.8, 7.3, 8.2, 8.0, 'AA', '2026-09-07', 7.7);
+SELECT o.id, 7.5, 7.0, 8.0, 7.8, 'AA', DATE '2025-12-31', 7.2
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2025-12-31'
+  );
 
--- Key issue assessments for Infosys
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 7.6, 7.1, 8.1, 7.9, 'AA', DATE '2026-03-31', 7.5
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-03-31'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 7.7, 7.2, 8.2, 8.0, 'AA', DATE '2026-06-30', 7.6
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-06-30'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 7.8, 7.3, 8.2, 8.0, 'AA', DATE '2026-09-07', 7.7
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
-VALUES
-    (1, 1, 7.5, 'MODERATE', '2026-09-07'),   -- Carbon Emissions: Moderate risk
-    (1, 2, 8.4, 'LOW', '2026-09-07'),        -- Human Capital: Low risk (strong practice)
-    (1, 3, 7.9, 'LOW', '2026-09-07'),        -- Data Privacy: Low risk
-    (1, 4, 8.2, 'LOW', '2026-09-07'),        -- Corporate Governance: Low risk
-    (1, 5, 8.0, 'LOW', '2026-09-07');        -- Business Ethics: Low risk
+SELECT o.id, k.id, 7.5, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'INFY' AND k.code = 'CARBON_EMISSIONS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
 
--- Demo ESG events for Infosys
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 8.4, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'INFY' AND k.code = 'HUMAN_CAPITAL'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.9, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'INFY' AND k.code = 'DATA_PRIVACY'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 8.2, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'INFY' AND k.code = 'CORP_GOVERNANCE'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 8.0, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'INFY' AND k.code = 'BUSINESS_ETHICS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
-VALUES
-    (1, 'Renewable Energy Commitment Announcement', 'Prototype data: Announced renewable energy target of 55% by 2030', 'ENVIRONMENTAL', 'LOW', '2026-08-15', 0.2, TRUE),
-    (1, 'Women in Leadership Initiative', 'Prototype data: Launched programme to achieve 40% women in leadership', 'SOCIAL', 'LOW', '2026-07-22', 0.15, TRUE),
-    (1, 'Supply Chain ESG Audit Gap Identified', 'Prototype data: Audit identified gaps in Tier 2 supplier assessments', 'ENVIRONMENTAL', 'MEDIUM', '2026-06-10', -0.1, TRUE);
+SELECT o.id, 'Renewable Energy Commitment Announcement', 'Prototype data: Announced renewable energy target of 55% by 2030', 'ENVIRONMENTAL', 'LOW', DATE '2026-08-15', 0.2, TRUE
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Renewable Energy Commitment Announcement'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Women in Leadership Initiative', 'Prototype data: Launched programme to achieve 40% women in leadership', 'SOCIAL', 'LOW', DATE '2026-07-22', 0.15, TRUE
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Women in Leadership Initiative'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Supply Chain ESG Audit Gap Identified', 'Prototype data: Audit identified gaps in Tier 2 supplier assessments', 'ENVIRONMENTAL', 'MEDIUM', DATE '2026-06-10', -0.1, TRUE
+FROM organization o
+WHERE o.ticker = 'INFY'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Supply Chain ESG Audit Gap Identified'
+  );
 
 -- =============================================================================
 -- TATA CONSULTANCY SERVICES (TCS) - Prototype Rating: A (6.9 overall)
 -- =============================================================================
 
--- Rating history: Q4 2025 – Q3 2026
 INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
-VALUES
-    (2, 7.0, 6.8, 7.2, 7.5, 'A', '2025-12-31', 7.1),
-    (2, 6.95, 6.75, 7.3, 7.6, 'A', '2026-03-31', 7.0),
-    (2, 6.92, 6.7, 7.4, 7.7, 'A', '2026-06-30', 6.95),
-    (2, 6.9, 6.7, 7.4, 7.7, 'A', '2026-09-07', 6.92);
+SELECT o.id, 7.0, 6.8, 7.2, 7.5, 'A', DATE '2025-12-31', 7.1
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2025-12-31'
+  );
 
--- Key issue assessments for TCS
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.95, 6.75, 7.3, 7.6, 'A', DATE '2026-03-31', 7.0
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-03-31'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.92, 6.7, 7.4, 7.7, 'A', DATE '2026-06-30', 6.95
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-06-30'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.9, 6.7, 7.4, 7.7, 'A', DATE '2026-09-07', 6.92
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
-VALUES
-    (2, 1, 6.2, 'MODERATE', '2026-09-07'),   -- Carbon Emissions: Moderate risk
-    (2, 2, 7.5, 'LOW', '2026-09-07'),        -- Human Capital: Low risk
-    (2, 3, 7.3, 'LOW', '2026-09-07'),        -- Data Privacy: Low risk (with recent inquiry)
-    (2, 4, 7.9, 'LOW', '2026-09-07'),        -- Corporate Governance: Low risk
-    (2, 5, 7.4, 'LOW', '2026-09-07');        -- Business Ethics: Low risk
+SELECT o.id, k.id, 6.2, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'TCS' AND k.code = 'CARBON_EMISSIONS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
 
--- Demo ESG events for TCS
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.5, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'TCS' AND k.code = 'HUMAN_CAPITAL'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.3, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'TCS' AND k.code = 'DATA_PRIVACY'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.9, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'TCS' AND k.code = 'CORP_GOVERNANCE'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.4, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'TCS' AND k.code = 'BUSINESS_ETHICS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
-VALUES
-    (2, 'Net-Zero Carbon Operations Target Announced', 'Prototype data: Extended carbon neutrality goal to 2045', 'ENVIRONMENTAL', 'LOW', '2026-08-01', 0.1, TRUE),
-    (2, 'Customer Data Handling Regulatory Inquiry', 'Prototype data: Regulatory inquiry into Q2 2026 data practices', 'GOVERNANCE', 'HIGH', '2026-07-15', -0.25, TRUE),
-    (2, 'Diversity Report Published', 'Prototype data: Comprehensive diversity and inclusion report published', 'SOCIAL', 'LOW', '2026-06-28', 0.05, TRUE);
+SELECT o.id, 'Net-Zero Carbon Operations Target Announced', 'Prototype data: Extended carbon neutrality goal to 2045', 'ENVIRONMENTAL', 'LOW', DATE '2026-08-01', 0.1, TRUE
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Net-Zero Carbon Operations Target Announced'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Customer Data Handling Regulatory Inquiry', 'Prototype data: Regulatory inquiry into Q2 2026 data practices', 'GOVERNANCE', 'HIGH', DATE '2026-07-15', -0.25, TRUE
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Customer Data Handling Regulatory Inquiry'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Diversity Report Published', 'Prototype data: Comprehensive diversity and inclusion report published', 'SOCIAL', 'LOW', DATE '2026-06-28', 0.05, TRUE
+FROM organization o
+WHERE o.ticker = 'TCS'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Diversity Report Published'
+  );
 
 -- =============================================================================
 -- WIPRO LIMITED (WPRO) - Prototype Rating: BBB (6.2 overall)
 -- =============================================================================
 
--- Rating history: Q4 2025 – Q3 2026
 INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
-VALUES
-    (3, 6.2, 5.8, 6.4, 6.8, 'BBB', '2025-12-31', 6.1),
-    (3, 6.1, 5.7, 6.3, 6.8, 'BBB', '2026-03-31', 6.2),
-    (3, 6.15, 5.8, 6.4, 6.9, 'BBB', '2026-06-30', 6.1),
-    (3, 6.2, 5.9, 6.5, 6.8, 'BBB', '2026-09-07', 6.15);
+SELECT o.id, 6.2, 5.8, 6.4, 6.8, 'BBB', DATE '2025-12-31', 6.1
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2025-12-31'
+  );
 
--- Key issue assessments for Wipro
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.1, 5.7, 6.3, 6.8, 'BBB', DATE '2026-03-31', 6.2
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-03-31'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.15, 5.8, 6.4, 6.9, 'BBB', DATE '2026-06-30', 6.1
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-06-30'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.2, 5.9, 6.5, 6.8, 'BBB', DATE '2026-09-07', 6.15
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
-VALUES
-    (3, 1, 5.4, 'HIGH', '2026-09-07'),       -- Carbon Emissions: High risk
-    (3, 2, 6.8, 'MODERATE', '2026-09-07'),   -- Human Capital: Moderate risk
-    (3, 3, 6.1, 'MODERATE', '2026-09-07'),   -- Data Privacy: Moderate risk
-    (3, 4, 6.9, 'MODERATE', '2026-09-07'),   -- Corporate Governance: Moderate risk
-    (3, 5, 6.5, 'MODERATE', '2026-09-07');   -- Business Ethics: Moderate risk
+SELECT o.id, k.id, 5.4, 'HIGH', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'WPRO' AND k.code = 'CARBON_EMISSIONS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
 
--- Demo ESG events for Wipro
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 6.8, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'WPRO' AND k.code = 'HUMAN_CAPITAL'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 6.1, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'WPRO' AND k.code = 'DATA_PRIVACY'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 6.9, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'WPRO' AND k.code = 'CORP_GOVERNANCE'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 6.5, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'WPRO' AND k.code = 'BUSINESS_ETHICS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
-VALUES
-    (3, 'ESG Strategy Overhaul Announced', 'Prototype data: New 5-year ESG roadmap with increased environmental targets', 'ENVIRONMENTAL', 'LOW', '2026-08-10', 0.15, TRUE),
-    (3, 'Labor Dispute Settlement', 'Prototype data: Resolved Bangalore facility labor dispute with settlement', 'SOCIAL', 'MEDIUM', '2026-07-05', 0.08, TRUE),
-    (3, 'Environmental Compliance Violation Fine', 'Prototype data: Regulatory fine for water discharge violations', 'ENVIRONMENTAL', 'HIGH', '2026-06-01', -0.3, TRUE);
+SELECT o.id, 'ESG Strategy Overhaul Announced', 'Prototype data: New 5-year ESG roadmap with increased environmental targets', 'ENVIRONMENTAL', 'LOW', DATE '2026-08-10', 0.15, TRUE
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'ESG Strategy Overhaul Announced'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Labor Dispute Settlement', 'Prototype data: Resolved Bangalore facility labor dispute with settlement', 'SOCIAL', 'MEDIUM', DATE '2026-07-05', 0.08, TRUE
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Labor Dispute Settlement'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Environmental Compliance Violation Fine', 'Prototype data: Regulatory fine for water discharge violations', 'ENVIRONMENTAL', 'HIGH', DATE '2026-06-01', -0.3, TRUE
+FROM organization o
+WHERE o.ticker = 'WPRO'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Environmental Compliance Violation Fine'
+  );
 
 -- =============================================================================
 -- HCLTECH (HCLT) - Prototype Rating: A (7.1 overall)
 -- =============================================================================
 
--- Rating history: Q4 2025 – Q3 2026
 INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
-VALUES
-    (4, 6.6, 6.3, 6.9, 7.2, 'A', '2025-12-31', 6.5),
-    (4, 6.75, 6.5, 7.1, 7.3, 'A', '2026-03-31', 6.6),
-    (4, 6.9, 6.7, 7.2, 7.4, 'A', '2026-06-30', 6.75),
-    (4, 7.1, 6.8, 7.3, 7.5, 'A', '2026-09-07', 6.9);
+SELECT o.id, 6.6, 6.3, 6.9, 7.2, 'A', DATE '2025-12-31', 6.5
+FROM organization o
+WHERE o.ticker = 'HCLT'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2025-12-31'
+  );
 
--- Key issue assessments for HCLTech
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.75, 6.5, 7.1, 7.3, 'A', DATE '2026-03-31', 6.6
+FROM organization o
+WHERE o.ticker = 'HCLT'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-03-31'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 6.9, 6.7, 7.2, 7.4, 'A', DATE '2026-06-30', 6.75
+FROM organization o
+WHERE o.ticker = 'HCLT'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-06-30'
+  );
+
+INSERT INTO esg_rating_snapshot (organization_id, overall_score, environmental_score, social_score, governance_score, rating_band, assessment_date, previous_overall_score)
+SELECT o.id, 7.1, 6.8, 7.3, 7.5, 'A', DATE '2026-09-07', 6.9
+FROM organization o
+WHERE o.ticker = 'HCLT'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_rating_snapshot s
+    WHERE s.organization_id = o.id AND s.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
-VALUES
-    (4, 1, 6.8, 'MODERATE', '2026-09-07'),   -- Carbon Emissions: Moderate risk
-    (4, 2, 7.6, 'LOW', '2026-09-07'),        -- Human Capital: Low risk
-    (4, 3, 7.2, 'LOW', '2026-09-07'),        -- Data Privacy: Low risk
-    (4, 4, 7.4, 'LOW', '2026-09-07'),        -- Corporate Governance: Low risk
-    (4, 5, 7.3, 'LOW', '2026-09-07');        -- Business Ethics: Low risk
+SELECT o.id, k.id, 6.8, 'MODERATE', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'HCLT' AND k.code = 'CARBON_EMISSIONS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
 
--- Demo ESG events for HCLTech
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.6, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'HCLT' AND k.code = 'HUMAN_CAPITAL'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.2, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'HCLT' AND k.code = 'DATA_PRIVACY'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.4, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'HCLT' AND k.code = 'CORP_GOVERNANCE'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
+INSERT INTO company_key_issue_assessment (organization_id, key_issue_id, score, risk_level, assessment_date)
+SELECT o.id, k.id, 7.3, 'LOW', DATE '2026-09-07'
+FROM organization o
+CROSS JOIN esg_key_issue k
+WHERE o.ticker = 'HCLT' AND k.code = 'BUSINESS_ETHICS'
+  AND NOT EXISTS (
+    SELECT 1 FROM company_key_issue_assessment a
+    WHERE a.organization_id = o.id AND a.key_issue_id = k.id AND a.assessment_date = DATE '2026-09-07'
+  );
+
 INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
-VALUES
-    (4, 'First Carbon-Neutral Data Center Commissioned', 'Prototype data: Commissioned first carbon-neutral facility in India', 'ENVIRONMENTAL', 'LOW', '2026-08-08', 0.25, TRUE),
-    (4, 'Skills Development Programme Launched', 'Prototype data: INR 50 crore skills programme for underprivileged youth', 'SOCIAL', 'LOW', '2026-07-30', 0.2, TRUE);
+SELECT o.id, 'First Carbon-Neutral Data Center Commissioned', 'Prototype data: Commissioned first carbon-neutral facility in India', 'ENVIRONMENTAL', 'LOW', DATE '2026-08-08', 0.25, TRUE
+FROM organization o
+WHERE o.ticker = 'HCLT'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'First Carbon-Neutral Data Center Commissioned'
+  );
+
+INSERT INTO esg_event (organization_id, title, description, pillar, severity, event_date, score_impact, is_prototype)
+SELECT o.id, 'Skills Development Programme Launched', 'Prototype data: INR 50 crore skills programme for underprivileged youth', 'SOCIAL', 'LOW', DATE '2026-07-30', 0.2, TRUE
+FROM organization o
+WHERE o.ticker = 'HCLT'
+  AND NOT EXISTS (
+    SELECT 1 FROM esg_event e
+    WHERE e.organization_id = o.id AND e.title = 'Skills Development Programme Launched'
+  );

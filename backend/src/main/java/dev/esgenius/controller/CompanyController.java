@@ -1,6 +1,7 @@
 package dev.esgenius.controller;
 
 import dev.esgenius.dto.*;
+import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.service.CompanyEsgService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -55,7 +56,7 @@ public class CompanyController {
             @RequestParam Long companyB) {
 
         if (companyA.equals(companyB)) {
-            throw new IllegalArgumentException("Cannot compare a company with itself");
+            throw new BadRequestException("Cannot compare a company with itself");
         }
 
         return ResponseEntity.ok(companyEsgService.compareCompanies(companyA, companyB));

@@ -15,13 +15,7 @@ public interface EsgRatingSnapshotRepository extends JpaRepository<EsgRatingSnap
     /**
      * Find the latest rating snapshot for an organization.
      */
-    @Query("""
-                SELECT e FROM EsgRatingSnapshot e
-                WHERE e.organization = :organization
-                ORDER BY e.assessmentDate DESC
-                LIMIT 1
-            """)
-    Optional<EsgRatingSnapshot> findLatestByOrganization(@Param("organization") Organization organization);
+    Optional<EsgRatingSnapshot> findFirstByOrganizationOrderByAssessmentDateDesc(Organization organization);
 
     /**
      * Find all rating snapshots for an organization, ordered by date (descending).

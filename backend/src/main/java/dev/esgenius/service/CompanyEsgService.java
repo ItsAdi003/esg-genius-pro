@@ -2,8 +2,10 @@ package dev.esgenius.service;
 
 import dev.esgenius.dto.*;
 import dev.esgenius.entity.*;
+import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
 import dev.esgenius.repository.*;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -89,7 +91,7 @@ public class CompanyEsgService {
 
         // Reject if same company
         if (companyAId.equals(companyBId)) {
-            throw new IllegalArgumentException("Cannot compare a company with itself");
+            throw new BadRequestException("Cannot compare a company with itself");
         }
 
         // Get profiles for both companies
@@ -106,7 +108,7 @@ public class CompanyEsgService {
      * Get current ESG rating for a company.
      */
     private EsgRatingResponse getCurrentRating(Organization company) {
-        return ratingSnapshotRepository.findLatestByOrganization(company)
+        return ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(company)
                 .map(snapshot -> new EsgRatingResponse(
                         snapshot.getOverallScore(),
                         snapshot.getEnvironmentalScore(),
@@ -154,7 +156,7 @@ public class CompanyEsgService {
      * Get recent ESG events for a company.
      */
     private List<EsgEventResponse> getRecentEvents(Organization company, int limit) {
-        return eventRepository.findRecentEventsByOrganization(company, limit).stream()
+        return eventRepository.findByOrganizationOrderByEventDateDesc(company, PageRequest.of(0, limit)).stream()
                 .map(event -> new EsgEventResponse(
                         event.getId(),
                         event.getTitle(),
@@ -174,9 +176,9 @@ public class CompanyEsgService {
      */
     private String generateComparisonInsight(Organization companyA, Organization companyB) {
         // Get latest ratings
-        EsgRatingSnapshot ratingA = ratingSnapshotRepository.findLatestByOrganization(companyA)
+        EsgRatingSnapshot ratingA = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(companyA)
                 .orElseThrow(() -> new ResourceNotFoundException("No rating data for: " + companyA.getId()));
-        EsgRatingSnapshot ratingB = ratingSnapshotRepository.findLatestByOrganization(companyB)
+        EsgRatingSnapshot ratingB = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(companyB)
                 .orElseThrow(() -> new ResourceNotFoundException("No rating data for: " + companyB.getId()));
 
         // Determine leader and follower
