@@ -114,4 +114,17 @@ class FlywaySeedDataIntegrationTest {
         assertThat(version).isEqualTo("7");
         assertThat(documentRepository.findAll()).isNotNull();
     }
+
+    @Test
+    void v8ComplianceAnalysisSchemaIsAvailableAfterMigration() {
+        String version = jdbcTemplate.queryForObject(
+                "SELECT version FROM flyway_schema_history WHERE version = '8'",
+                String.class);
+        assertThat(version).isEqualTo("8");
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM compliance_analysis", Integer.class))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM requirement_assessment", Integer.class))
+                .isZero();
+    }
 }
