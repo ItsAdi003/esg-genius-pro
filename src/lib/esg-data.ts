@@ -1,4 +1,4 @@
-export const ORG = {
+﻿export const ORG = {
   name: "ABC Industries Ltd.",
   framework: "SEBI BRSR",
   reportingPeriod: "FY 2025-26",
@@ -667,14 +667,14 @@ export const cannedAnswers: Record<string, ChatMessage> = {
       "Two BRSR requirements currently have no supporting evidence in the analysed document set: ENV-005 Scope 3 GHG Emissions and GOV-003 Whistleblower Mechanism. A third, SOC-003 Human Rights Due Diligence, retrieved only a commitment statement and is flagged for human review. All three are high priority.",
     citations: [
       {
-        requirement: "ENV-005 — Scope 3 GHG Emissions",
+        requirement: "ENV-005 â€” Scope 3 GHG Emissions",
         document: "No supporting evidence retrieved",
         page: 0,
         snippet:
           "No passage across 12 analysed documents quantifies value-chain emissions or names the Scope 3 categories assessed.",
       },
       {
-        requirement: "GOV-003 — Whistleblower Mechanism",
+        requirement: "GOV-003 â€” Whistleblower Mechanism",
         document: "No supporting evidence retrieved",
         page: 0,
         snippet:
@@ -688,14 +688,14 @@ export const cannedAnswers: Record<string, ChatMessage> = {
       "Environmental readiness is 72%, the lowest of the three categories. ENV-005 (Scope 3) has no evidence, while ENV-002 (renewable vs non-renewable split) and ENV-007 (waste recycling volumes) are partially covered because the underlying numbers are narrative rather than quantified.",
     citations: [
       {
-        requirement: "ENV-002 — Renewable vs Non-Renewable Energy Breakdown",
+        requirement: "ENV-002 â€” Renewable vs Non-Renewable Energy Breakdown",
         document: "Sustainability Report FY2025-26",
         page: 28,
         snippet:
           "ABC Industries consumed 120,000 kWh of electricity during FY2025-26, of which approximately 30% was supplied from renewable sources.",
       },
       {
-        requirement: "ENV-007 — Waste Recycling Data",
+        requirement: "ENV-007 â€” Waste Recycling Data",
         document: "Environmental Policy",
         page: 6,
         snippet:
@@ -709,7 +709,7 @@ export const cannedAnswers: Record<string, ChatMessage> = {
       "ENV-002 is marked Partially Covered at 87% confidence. The retrieved passage discloses total electricity consumption and a renewable share, but no separate non-renewable total is stated, which BRSR requires as a distinct value.",
     citations: [
       {
-        requirement: "ENV-002 — Renewable vs Non-Renewable Energy Breakdown",
+        requirement: "ENV-002 â€” Renewable vs Non-Renewable Energy Breakdown",
         document: "Sustainability Report FY2025-26",
         page: 28,
         snippet:
@@ -723,7 +723,7 @@ export const cannedAnswers: Record<string, ChatMessage> = {
       "ENV-003 Scope 1 GHG Emissions is assessed as Covered at 94% confidence. The disclosure states the absolute figure in tCO2e and names the calculation methodology.",
     citations: [
       {
-        requirement: "ENV-003 — Scope 1 GHG Emissions",
+        requirement: "ENV-003 â€” Scope 1 GHG Emissions",
         document: "Sustainability Report FY2025-26",
         page: 31,
         snippet:
@@ -734,10 +734,10 @@ export const cannedAnswers: Record<string, ChatMessage> = {
   "Summarize our top five compliance gaps.": {
     role: "assistant",
     content:
-      "1. ENV-005 Scope 3 GHG Emissions — evidence not found, high priority.\n2. GOV-003 Whistleblower Mechanism — evidence not found, high priority.\n3. SOC-003 Human Rights Due Diligence — human review required, high priority.\n4. ENV-002 Renewable vs Non-Renewable Energy Breakdown — partially covered, medium priority.\n5. ENV-007 Waste Recycling Data — partially covered, medium priority.\n\nClosing the two environmental partials and the Scope 3 gap has the largest effect on the 78% overall readiness score.",
+      "1. ENV-005 Scope 3 GHG Emissions â€” evidence not found, high priority.\n2. GOV-003 Whistleblower Mechanism â€” evidence not found, high priority.\n3. SOC-003 Human Rights Due Diligence â€” human review required, high priority.\n4. ENV-002 Renewable vs Non-Renewable Energy Breakdown â€” partially covered, medium priority.\n5. ENV-007 Waste Recycling Data â€” partially covered, medium priority.\n\nClosing the two environmental partials and the Scope 3 gap has the largest effect on the 78% overall readiness score.",
     citations: [
       {
-        requirement: "ENV-005 — Scope 3 GHG Emissions",
+        requirement: "ENV-005 â€” Scope 3 GHG Emissions",
         document: "No supporting evidence retrieved",
         page: 0,
         snippet: "Highest-weighted missing disclosure under BRSR Principle 6.",
@@ -752,7 +752,7 @@ export const defaultAnswer: ChatMessage = {
     "Based on the 12 analysed documents for ABC Industries Ltd., overall ESG reporting readiness against SEBI BRSR is 78%: 42 requirements covered, 8 partially covered and 6 without retrieved evidence. Ask about a specific requirement ID or ESG category for an evidence-backed breakdown.",
   citations: [
     {
-      requirement: "Portfolio summary — SEBI BRSR",
+      requirement: "Portfolio summary â€” SEBI BRSR",
       document: "Sustainability Report FY2025-26",
       page: 27,
       snippet:
@@ -806,7 +806,7 @@ export interface DocumentDetail {
 const genericPages = (name: string, total: number): DocumentPage[] =>
   Array.from({ length: Math.min(total, 6) }, (_, i) => ({
     page: i + 1,
-    heading: `${name} — Section ${i + 1}`,
+    heading: `${name} â€” Section ${i + 1}`,
     body: [
       "This is a mock rendering of the extracted document page used for the ESGenius prototype. Text layout, tables and figures are simulated.",
       "Disclosures on this page were indexed by the extraction pipeline and are available for evidence retrieval during compliance analysis.",
@@ -819,7 +819,7 @@ export const documentDetails: Record<string, DocumentDetail> = {
     pagesContent: [
       {
         page: 1,
-        heading: "Sustainability Report FY2025-26 — Overview",
+        heading: "Sustainability Report FY2025-26 â€” Overview",
         body: [
           "ABC Industries Ltd. presents its sustainability performance for the financial year 2025-26, prepared with reference to the SEBI Business Responsibility and Sustainability Reporting (BRSR) format.",
           "The reporting boundary covers all owned manufacturing facilities, warehouses and corporate offices in India.",
@@ -845,8 +845,8 @@ export const documentDetails: Record<string, DocumentDetail> = {
         page: 31,
         heading: "GHG Emissions",
         body: [
-          "Scope 1 emissions for FY2025-26 were 420 tCO₂e, arising primarily from diesel generator sets and process fuel combustion.",
-          "Scope 2 (location-based) emissions were 1,180 tCO₂e. Scope 3 emissions have not been quantified for this reporting period.",
+          "Scope 1 emissions for FY2025-26 were 420 tCOâ‚‚e, arising primarily from diesel generator sets and process fuel combustion.",
+          "Scope 2 (location-based) emissions were 1,180 tCOâ‚‚e. Scope 3 emissions have not been quantified for this reporting period.",
         ],
       },
       {
@@ -866,7 +866,7 @@ export const documentDetails: Record<string, DocumentDetail> = {
       },
     ],
     extractedText:
-      "ABC Industries Ltd. — Sustainability Report FY2025-26. Prepared with reference to SEBI BRSR. Total energy consumption 148,500 GJ. Renewable share 30%. Scope 1 emissions 420 tCO₂e. Scope 2 emissions 1,180 tCO₂e. Scope 3 emissions not quantified. Total water consumption 8,500 KL with 1,900 KL recycled. Safety training coverage 96% of workforce. Board oversight of sustainability performance exercised through the Risk Management Committee.",
+      "ABC Industries Ltd. â€” Sustainability Report FY2025-26. Prepared with reference to SEBI BRSR. Total energy consumption 148,500 GJ. Renewable share 30%. Scope 1 emissions 420 tCOâ‚‚e. Scope 2 emissions 1,180 tCOâ‚‚e. Scope 3 emissions not quantified. Total water consumption 8,500 KL with 1,900 KL recycled. Safety training coverage 96% of workforce. Board oversight of sustainability performance exercised through the Risk Management Committee.",
     entities: [
       { name: "ABC Industries Ltd.", type: "Organization", page: 1 },
       { name: "SEBI BRSR", type: "Framework", page: 1 },
@@ -878,8 +878,8 @@ export const documentDetails: Record<string, DocumentDetail> = {
     metrics: [
       { label: "Total Energy Consumption", value: "120,000 kWh", page: 27, category: "Environmental" },
       { label: "Renewable Energy", value: "30%", page: 28, category: "Environmental" },
-      { label: "Scope 1 Emissions", value: "420 tCO₂e", page: 31, category: "Environmental" },
-      { label: "Scope 2 Emissions", value: "1,180 tCO₂e", page: 31, category: "Environmental" },
+      { label: "Scope 1 Emissions", value: "420 tCOâ‚‚e", page: 31, category: "Environmental" },
+      { label: "Scope 2 Emissions", value: "1,180 tCOâ‚‚e", page: 31, category: "Environmental" },
       { label: "Water Consumption", value: "8,500 KL", page: 36, category: "Environmental" },
       { label: "Safety Training Coverage", value: "96% of workforce", page: 52, category: "Social" },
     ],
@@ -901,7 +901,7 @@ export function getDocumentDetail(doc: DocumentRecord): DocumentDetail {
   if (existing) return existing;
   return {
     pagesContent: genericPages(doc.name, doc.pages),
-    extractedText: `${doc.name} (${doc.year}) — extracted text preview. This document has been indexed across ${doc.pages} pages and is available as supporting evidence for ${doc.category.toLowerCase()} disclosures under SEBI BRSR.`,
+    extractedText: `${doc.name} (${doc.year}) â€” extracted text preview. This document has been indexed across ${doc.pages} pages and is available as supporting evidence for ${doc.category.toLowerCase()} disclosures under SEBI BRSR.`,
     entities: [
       { name: "ABC Industries Ltd.", type: "Organization", page: 1 },
       { name: "SEBI BRSR", type: "Framework", page: 1 },
@@ -910,7 +910,7 @@ export function getDocumentDetail(doc: DocumentRecord): DocumentDetail {
     metrics: [
       { label: "Total Energy Consumption", value: "120,000 kWh", page: 4, category: "Environmental" },
       { label: "Renewable Energy", value: "30%", page: 5, category: "Environmental" },
-      { label: "Scope 1 Emissions", value: "420 tCO₂e", page: 6, category: "Environmental" },
+      { label: "Scope 1 Emissions", value: "420 tCOâ‚‚e", page: 6, category: "Environmental" },
       { label: "Water Consumption", value: "8,500 KL", page: 6, category: "Environmental" },
     ],
     history: [
@@ -949,8 +949,8 @@ export function globalSearch(query: string): SearchResult[] {
       results.push({
         group: "Requirements",
         id: r.id,
-        title: `${r.id} — ${r.title}`,
-        subtitle: `${r.category} · ${r.status}`,
+        title: `${r.id} â€” ${r.title}`,
+        subtitle: `${r.category} Â· ${r.status}`,
         to: "/compliance/$requirementId",
         params: { requirementId: r.id },
       });
@@ -962,7 +962,7 @@ export function globalSearch(query: string): SearchResult[] {
         group: "Documents",
         id: d.id,
         title: d.name,
-        subtitle: `${d.type} · ${d.year}`,
+        subtitle: `${d.type} Â· ${d.year}`,
         to: "/documents/$documentId",
         params: { documentId: d.id },
       });
@@ -974,7 +974,7 @@ export function globalSearch(query: string): SearchResult[] {
         group: "Reports",
         id: rep.id,
         title: rep.name,
-        subtitle: `${rep.id} · ${rep.period}`,
+        subtitle: `${rep.id} Â· ${rep.period}`,
         to: "/reports",
       });
     }
@@ -991,329 +991,4 @@ export function globalSearch(query: string): SearchResult[] {
     }
   }
   return results.slice(0, 12);
-}
-
-/* ---------------------------------------------------------------------------
- * Company Comparison (mock data)
- * ------------------------------------------------------------------------- */
-
-export type RatingBand = "AAA" | "AA" | "A" | "BBB" | "BB" | "B" | "CCC";
-
-export interface CompanyESGEvent {
-  id: string;
-  title: string;
-  category: Category;
-  date: string;
-  severity: "Low" | "Medium" | "High";
-  description: string;
-  scoreImpact?: number;
-  isPositive: boolean;
-}
-
-export interface Company {
-  id: string;
-  name: string;
-  ticker: string;
-  industry: string;
-  ratingBand: RatingBand;
-  overallScore: number;
-  environmentalScore: number;
-  socialScore: number;
-  governanceScore: number;
-  previousRating: RatingBand;
-  scoreChange: number;
-  activeControversies: number;
-  keyStrengths: string[];
-  keyWeaknesses: string[];
-  materialIssues: {
-    title: string;
-    score: number;
-    riskLevel: "Strong" | "Moderate" | "Weak";
-  }[];
-  recentEvents: CompanyESGEvent[];
-  historicalScores: { quarter: string; score: number }[];
-}
-
-export const mockCompanies: Company[] = [
-  {
-    id: "infosys",
-    name: "Infosys Limited",
-    ticker: "INFY",
-    industry: "Information Technology",
-    ratingBand: "AA",
-    overallScore: 7.8,
-    environmentalScore: 7.3,
-    socialScore: 8.2,
-    governanceScore: 8.0,
-    previousRating: "AA",
-    scoreChange: 0.3,
-    activeControversies: 1,
-    keyStrengths: [
-      "Strong human-capital practices",
-      "Robust corporate governance",
-      "Renewable-energy transition",
-      "Comprehensive whistleblower mechanism",
-      "Gender diversity in leadership",
-    ],
-    keyWeaknesses: [
-      "Scope 3 emissions disclosure gap",
-      "Supply-chain ESG monitoring",
-      "Limited data privacy certifications",
-    ],
-    materialIssues: [
-      { title: "Carbon Emissions", score: 7.5, riskLevel: "Strong" },
-      { title: "Human Capital", score: 8.4, riskLevel: "Strong" },
-      { title: "Data Privacy & Security", score: 7.9, riskLevel: "Strong" },
-      { title: "Corporate Governance", score: 8.2, riskLevel: "Strong" },
-      { title: "Business Ethics", score: 8.0, riskLevel: "Strong" },
-    ],
-    recentEvents: [
-      {
-        id: "event-inf-1",
-        title: "Renewable Energy Commitment Announced",
-        category: "Environmental",
-        date: "2026-08-15",
-        severity: "Low",
-        description:
-          "Infosys commits to 55% renewable energy by 2030, up from 46% currently",
-        scoreImpact: 0.2,
-        isPositive: true,
-      },
-      {
-        id: "event-inf-2",
-        title: "Women in Leadership Initiative",
-        category: "Social",
-        date: "2026-07-22",
-        severity: "Low",
-        description: "Launched programme to achieve 40% women in leadership roles by 2028",
-        scoreImpact: 0.15,
-        isPositive: true,
-      },
-      {
-        id: "event-inf-3",
-        title: "Supply Chain ESG Audit Gap",
-        category: "Environmental",
-        date: "2026-06-10",
-        severity: "Medium",
-        description: "Audit revealed gaps in Tier 2 supplier ESG assessments",
-        scoreImpact: -0.1,
-        isPositive: false,
-      },
-    ],
-    historicalScores: [
-      { quarter: "Q4 2025", score: 7.5 },
-      { quarter: "Q1 2026", score: 7.6 },
-      { quarter: "Q2 2026", score: 7.7 },
-      { quarter: "Q3 2026", score: 7.8 },
-    ],
-  },
-  {
-    id: "tcs",
-    name: "Tata Consultancy Services",
-    ticker: "TCS",
-    industry: "Information Technology",
-    ratingBand: "A",
-    overallScore: 6.9,
-    environmentalScore: 6.7,
-    socialScore: 7.4,
-    governanceScore: 7.7,
-    previousRating: "A",
-    scoreChange: -0.1,
-    activeControversies: 2,
-    keyStrengths: [
-      "Excellent corporate governance framework",
-      "Strong board composition",
-      "Established ESG reporting",
-      "Comprehensive health & safety programmes",
-    ],
-    keyWeaknesses: [
-      "Lower environmental ambition vs peers",
-      "Limited renewable energy transition",
-      "Gaps in diversity metrics",
-      "Supply chain sustainability concerns",
-    ],
-    materialIssues: [
-      { title: "Carbon Emissions", score: 6.2, riskLevel: "Moderate" },
-      { title: "Human Capital", score: 7.5, riskLevel: "Strong" },
-      { title: "Data Privacy & Security", score: 7.3, riskLevel: "Strong" },
-      { title: "Corporate Governance", score: 7.9, riskLevel: "Strong" },
-      { title: "Business Ethics", score: 7.4, riskLevel: "Strong" },
-    ],
-    recentEvents: [
-      {
-        id: "event-tcs-1",
-        title: "Carbon Neutrality Goal Extended",
-        category: "Environmental",
-        date: "2026-08-01",
-        severity: "Low",
-        description: "Announced net-zero carbon operations target for 2045",
-        scoreImpact: 0.1,
-        isPositive: true,
-      },
-      {
-        id: "event-tcs-2",
-        title: "Data Breach Inquiry",
-        category: "Governance",
-        date: "2026-07-15",
-        severity: "High",
-        description:
-          "Regulatory inquiry into customer data handling practices during Q2 2026",
-        scoreImpact: -0.25,
-        isPositive: false,
-      },
-      {
-        id: "event-tcs-3",
-        title: "Diversity Report Published",
-        category: "Social",
-        date: "2026-06-28",
-        severity: "Low",
-        description: "Published comprehensive diversity and inclusion report; gaps identified",
-        scoreImpact: 0.05,
-        isPositive: true,
-      },
-    ],
-    historicalScores: [
-      { quarter: "Q4 2025", score: 7.0 },
-      { quarter: "Q1 2026", score: 6.95 },
-      { quarter: "Q2 2026", score: 6.92 },
-      { quarter: "Q3 2026", score: 6.9 },
-    ],
-  },
-  {
-    id: "wipro",
-    name: "Wipro Limited",
-    ticker: "WPRO",
-    industry: "Information Technology",
-    ratingBand: "BBB",
-    overallScore: 6.2,
-    environmentalScore: 5.9,
-    socialScore: 6.5,
-    governanceScore: 6.8,
-    previousRating: "BBB",
-    scoreChange: 0.0,
-    activeControversies: 3,
-    keyStrengths: [
-      "Transparent governance structure",
-      "Community engagement programmes",
-      "Employee wellness focus",
-    ],
-    keyWeaknesses: [
-      "Weak environmental strategy",
-      "Insufficient renewable energy adoption",
-      "Limited ESG disclosure",
-      "Supply chain risks",
-      "Data privacy concerns",
-    ],
-    materialIssues: [
-      { title: "Carbon Emissions", score: 5.4, riskLevel: "Weak" },
-      { title: "Human Capital", score: 6.8, riskLevel: "Moderate" },
-      { title: "Data Privacy & Security", score: 6.1, riskLevel: "Moderate" },
-      { title: "Corporate Governance", score: 6.9, riskLevel: "Moderate" },
-      { title: "Business Ethics", score: 6.5, riskLevel: "Moderate" },
-    ],
-    recentEvents: [
-      {
-        id: "event-wipro-1",
-        title: "ESG Strategy Overhaul Announced",
-        category: "Environmental",
-        date: "2026-08-10",
-        severity: "Low",
-        description:
-          "New 5-year ESG roadmap launched with increased environmental focus and targets",
-        scoreImpact: 0.15,
-        isPositive: true,
-      },
-      {
-        id: "event-wipro-2",
-        title: "Labor Dispute Settlement",
-        category: "Social",
-        date: "2026-07-05",
-        severity: "Medium",
-        description: "Resolved labor dispute at Bangalore facility with negotiated settlement",
-        scoreImpact: 0.08,
-        isPositive: true,
-      },
-      {
-        id: "event-wipro-3",
-        title: "Environmental Compliance Violation",
-        category: "Environmental",
-        date: "2026-06-01",
-        severity: "High",
-        description:
-          "Regulatory fine for water discharge violations at manufacturing facility",
-        scoreImpact: -0.3,
-        isPositive: false,
-      },
-    ],
-    historicalScores: [
-      { quarter: "Q4 2025", score: 6.2 },
-      { quarter: "Q1 2026", score: 6.1 },
-      { quarter: "Q2 2026", score: 6.15 },
-      { quarter: "Q3 2026", score: 6.2 },
-    ],
-  },
-  {
-    id: "hcl",
-    name: "HCLTech",
-    ticker: "HCLT",
-    industry: "Information Technology",
-    ratingBand: "A",
-    overallScore: 7.1,
-    environmentalScore: 6.8,
-    socialScore: 7.3,
-    governanceScore: 7.5,
-    previousRating: "BBB",
-    scoreChange: 0.5,
-    activeControversies: 1,
-    keyStrengths: [
-      "Rapidly improving ESG practices",
-      "Strong supply chain engagement",
-      "Employee-centric initiatives",
-      "Emerging governance frameworks",
-    ],
-    keyWeaknesses: [
-      "Moderate carbon disclosure maturity",
-      "Limited international ESG benchmarking",
-      "Developing diversity programmes",
-    ],
-    materialIssues: [
-      { title: "Carbon Emissions", score: 6.8, riskLevel: "Moderate" },
-      { title: "Human Capital", score: 7.6, riskLevel: "Strong" },
-      { title: "Data Privacy & Security", score: 7.2, riskLevel: "Strong" },
-      { title: "Corporate Governance", score: 7.4, riskLevel: "Strong" },
-      { title: "Business Ethics", score: 7.3, riskLevel: "Strong" },
-    ],
-    recentEvents: [
-      {
-        id: "event-hcl-1",
-        title: "Green Data Center Initiative",
-        category: "Environmental",
-        date: "2026-08-08",
-        severity: "Low",
-        description: "Commissioned first carbon-neutral data center facility in India",
-        scoreImpact: 0.25,
-        isPositive: true,
-      },
-      {
-        id: "event-hcl-2",
-        title: "Skills Development Programme",
-        category: "Social",
-        date: "2026-07-30",
-        severity: "Low",
-        description: "Launched INR 50 crore skills development programme for underprivileged youth",
-        scoreImpact: 0.2,
-        isPositive: true,
-      },
-    ],
-    historicalScores: [
-      { quarter: "Q4 2025", score: 6.6 },
-      { quarter: "Q1 2026", score: 6.75 },
-      { quarter: "Q2 2026", score: 6.9 },
-      { quarter: "Q3 2026", score: 7.1 },
-    ],
-  },
-];
-
-export function getCompanyById(id: string): Company | undefined {
-  return mockCompanies.find((c) => c.id === id);
 }

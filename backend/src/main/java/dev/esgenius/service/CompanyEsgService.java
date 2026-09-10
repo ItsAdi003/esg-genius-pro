@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -23,6 +22,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 public class CompanyEsgService {
+
+    private static final double PILLAR_LEAD_THRESHOLD = 0.05;
 
     private final OrganizationRepository organizationRepository;
     private final EsgRatingSnapshotRepository ratingSnapshotRepository;
@@ -121,19 +122,17 @@ public class CompanyEsgService {
     }
 
     /**
-     * Get rating history for trend chart.
-     * Formats assessment dates as quarters (e.g., "Q4 2025").
+     * Get rating history for trend charts.
+     *
+     * Ordering: chronological oldest → newest by {@code assessmentDate}
+     * (not quarter-label lexicographic order).
+     * Quarter labels (e.g. "Q4 2025") are presentation-only.
      */
     private List<EsgRatingHistoryResponse> getRatingHistory(Organization company) {
-        List<EsgRatingSnapshot> snapshots = ratingSnapshotRepository
-                .findByOrganizationOrderByAssessmentDateDesc(company);
-
-        return snapshots.stream()
-                .map(snapshot -> {
-                    String quarter = formatDateAsQuarter(snapshot.getAssessmentDate());
-                    return new EsgRatingHistoryResponse(quarter, snapshot.getOverallScore());
-                })
-                .sorted(Comparator.comparing(EsgRatingHistoryResponse::quarter))
+        return ratingSnapshotRepository.findByOrganizationOrderByAssessmentDateAsc(company).stream()
+                .map(snapshot -> new EsgRatingHistoryResponse(
+                        formatDateAsQuarter(snapshot.getAssessmentDate()),
+                        snapshot.getOverallScore()))
                 .collect(Collectors.toList());
     }
 
@@ -170,91 +169,117 @@ public class CompanyEsgService {
     }
 
     /**
-     * Generate deterministic comparison insight based on mock data.
-     * 
-     * No LLM. Pure logic based on scores, controversies, etc.
+     * Generate deterministic comparison insight from latest rating snapshots.
+     *
+     * Pillar statements compare the two companies directly. A company is only
+     * described as leading on a pillar when its score is higher than the other's.
      */
     private String generateComparisonInsight(Organization companyA, Organization companyB) {
-        // Get latest ratings
         EsgRatingSnapshot ratingA = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(companyA)
                 .orElseThrow(() -> new ResourceNotFoundException("No rating data for: " + companyA.getId()));
         EsgRatingSnapshot ratingB = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(companyB)
                 .orElseThrow(() -> new ResourceNotFoundException("No rating data for: " + companyB.getId()));
 
-        // Determine leader and follower
-        boolean aIsLeader = ratingA.getOverallScore() > ratingB.getOverallScore();
-        Organization leader = aIsLeader ? companyA : companyB;
-        Organization follower = aIsLeader ? companyB : companyA;
-        EsgRatingSnapshot leaderRating = aIsLeader ? ratingA : ratingB;
-        EsgRatingSnapshot followerRating = aIsLeader ? ratingB : ratingA;
-
-        // Build reasons
-        List<String> reasons = new ArrayList<>();
-
-        // Environmental comparison
-        double envGap = Math.abs(leaderRating.getEnvironmentalScore() - followerRating.getEnvironmentalScore());
-        if (envGap > 0.5) {
-            reasons.add("stronger Environmental scores");
+        double overallDiff = ratingA.getOverallScore() - ratingB.getOverallScore();
+        if (Math.abs(overallDiff) <= PILLAR_LEAD_THRESHOLD) {
+            return String.format(
+                    "%s and %s have similar prototype ESGenius overall scores (%.1f vs %.1f).",
+                    companyA.getName(),
+                    companyB.getName(),
+                    ratingA.getOverallScore(),
+                    ratingB.getOverallScore());
         }
 
-        // Social comparison
-        double socGap = Math.abs(leaderRating.getSocialScore() - followerRating.getSocialScore());
-        if (socGap > 0.5) {
-            reasons.add("better Social performance");
-        }
+        boolean aLeadsOverall = overallDiff > 0;
+        Organization leader = aLeadsOverall ? companyA : companyB;
+        Organization other = aLeadsOverall ? companyB : companyA;
+        EsgRatingSnapshot leaderRating = aLeadsOverall ? ratingA : ratingB;
+        EsgRatingSnapshot otherRating = aLeadsOverall ? ratingB : ratingA;
 
-        // Governance comparison
-        double govGap = Math.abs(leaderRating.getGovernanceScore() - followerRating.getGovernanceScore());
-        if (govGap > 0.5) {
-            reasons.add("superior Governance");
-        }
+        List<String> leaderAdvantages = new ArrayList<>();
+        addPillarAdvantage(leaderAdvantages, "Environmental",
+                leaderRating.getEnvironmentalScore(), otherRating.getEnvironmentalScore());
+        addPillarAdvantage(leaderAdvantages, "Social",
+                leaderRating.getSocialScore(), otherRating.getSocialScore());
+        addPillarAdvantage(leaderAdvantages, "Governance",
+                leaderRating.getGovernanceScore(), otherRating.getGovernanceScore());
 
-        // Controversy comparison
         int leaderEvents = eventRepository.findByOrganizationOrderByEventDateDesc(leader).size();
-        int followerEvents = eventRepository.findByOrganizationOrderByEventDateDesc(follower).size();
-        if (leaderEvents < followerEvents) {
-            reasons.add("fewer high-severity ESG controversies (" + leaderEvents + " vs " + followerEvents + ")");
+        int otherEvents = eventRepository.findByOrganizationOrderByEventDateDesc(other).size();
+        if (leaderEvents < otherEvents) {
+            leaderAdvantages.add(String.format("fewer recorded ESG events (%d vs %d)", leaderEvents, otherEvents));
         }
 
-        // If no specific reasons, use generic reason
-        if (reasons.isEmpty()) {
-            reasons.add("consistent execution across ESG pillars");
+        if (leaderAdvantages.isEmpty()) {
+            leaderAdvantages.add(String.format(
+                    "a higher overall score (%.1f vs %.1f) with broadly similar pillar scores",
+                    leaderRating.getOverallScore(),
+                    otherRating.getOverallScore()));
         }
 
-        // Build main insight
-        String insight = String.format(
-                "%s currently has a higher prototype ESGenius score primarily because of %s",
+        StringBuilder insight = new StringBuilder();
+        insight.append(String.format(
+                "%s has a higher prototype ESGenius overall score primarily due to %s.",
                 leader.getName(),
-                String.join(", ", reasons));
+                joinNaturalList(leaderAdvantages)));
 
-        // Add follower strength
-        double followerEnv = followerRating.getEnvironmentalScore();
-        double followerSoc = followerRating.getSocialScore();
-        double followerGov = followerRating.getGovernanceScore();
+        List<String> otherPillarLeads = new ArrayList<>();
+        addPillarLead(otherPillarLeads, "Environmental",
+                otherRating.getEnvironmentalScore(), leaderRating.getEnvironmentalScore());
+        addPillarLead(otherPillarLeads, "Social",
+                otherRating.getSocialScore(), leaderRating.getSocialScore());
+        addPillarLead(otherPillarLeads, "Governance",
+                otherRating.getGovernanceScore(), leaderRating.getGovernanceScore());
 
-        List<String> strengths = new ArrayList<>();
-        if (followerGov > followerEnv && followerGov > followerSoc) {
-            strengths.add("Governance");
-        }
-        if (followerSoc > followerEnv && followerSoc > followerGov) {
-            strengths.add("Social");
-        }
-        if (followerEnv > followerSoc && followerEnv > followerGov) {
-            strengths.add("Environmental");
-        }
-
-        if (!strengths.isEmpty()) {
-            insight += String.format(
-                    ". %s remains comparatively strong in %s but has lower scores in selected material issues.",
-                    follower.getName(),
-                    String.join(" and ", strengths));
+        if (otherPillarLeads.isEmpty()) {
+            insight.append(String.format(
+                    " %s does not lead on Environmental, Social or Governance in this comparison.",
+                    other.getName()));
         } else {
-            insight += String.format(
-                    ". %s remains comparatively strong in multiple areas but lags in overall execution.",
-                    follower.getName());
+            insight.append(String.format(
+                    " %s leads on %s.",
+                    other.getName(),
+                    joinNaturalList(otherPillarLeads)));
         }
 
-        return insight;
+        return insight.toString();
+    }
+
+    private void addPillarAdvantage(
+            List<String> advantages,
+            String pillar,
+            double leaderScore,
+            double otherScore) {
+        if (leaderScore - otherScore > PILLAR_LEAD_THRESHOLD) {
+            advantages.add(String.format(
+                    "stronger %s (%.1f vs %.1f)",
+                    pillar,
+                    leaderScore,
+                    otherScore));
+        }
+    }
+
+    private void addPillarLead(
+            List<String> leads,
+            String pillar,
+            double score,
+            double opponentScore) {
+        if (score - opponentScore > PILLAR_LEAD_THRESHOLD) {
+            leads.add(String.format("%s (%.1f vs %.1f)", pillar, score, opponentScore));
+        }
+    }
+
+    private String joinNaturalList(List<String> items) {
+        if (items.isEmpty()) {
+            return "";
+        }
+        if (items.size() == 1) {
+            return items.get(0);
+        }
+        if (items.size() == 2) {
+            return items.get(0) + " and " + items.get(1);
+        }
+        return String.join(", ", items.subList(0, items.size() - 1)) + ", and " + items.get(items.size() - 1);
     }
 
     /**

@@ -23,6 +23,12 @@ public interface EsgRatingSnapshotRepository extends JpaRepository<EsgRatingSnap
     List<EsgRatingSnapshot> findByOrganizationOrderByAssessmentDateDesc(Organization organization);
 
     /**
+     * Find all rating snapshots for an organization, ordered by date (ascending).
+     * Used for rating history trend data (oldest → newest).
+     */
+    List<EsgRatingSnapshot> findByOrganizationOrderByAssessmentDateAsc(Organization organization);
+
+    /**
      * Find rating snapshots within a date range.
      */
     @Query("""

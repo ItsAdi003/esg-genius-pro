@@ -1,6 +1,9 @@
 package dev.esgenius.repository;
 
 import dev.esgenius.dto.CompanySummaryResponse;
+import dev.esgenius.dto.CompanyComparisonResponse;
+import dev.esgenius.dto.CompanyEsgProfileResponse;
+import dev.esgenius.dto.EsgRatingHistoryResponse;
 import dev.esgenius.service.CompanyEsgService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,5 +67,34 @@ class FlywaySeedDataIntegrationTest {
                         "Tata Consultancy Services",
                         "Wipro Limited",
                         "HCLTech"));
+    }
+
+    @Test
+    void infyRatingHistoryIsChronologicalOldestToNewest() {
+        var infy = organizationRepository.findByTicker("INFY").orElseThrow();
+
+        CompanyEsgProfileResponse profile = companyEsgService.getCompanyEsgProfile(infy.getId());
+
+        assertThat(profile.ratingHistory()).extracting(EsgRatingHistoryResponse::quarter)
+                .containsExactly("Q4 2025", "Q1 2026", "Q2 2026", "Q3 2026");
+        assertThat(profile.ratingHistory()).extracting(EsgRatingHistoryResponse::score)
+                .containsExactly(7.5, 7.6, 7.7, 7.8);
+    }
+
+    @Test
+    void infyVsTcsComparisonInsightMatchesPillarScores() {
+        var infy = organizationRepository.findByTicker("INFY").orElseThrow();
+        var tcs = organizationRepository.findByTicker("TCS").orElseThrow();
+
+        CompanyComparisonResponse comparison = companyEsgService.compareCompanies(infy.getId(), tcs.getId());
+        String insight = comparison.comparisonInsight();
+
+        assertThat(insight).contains("Infosys Limited");
+        assertThat(insight).contains("stronger Environmental (7.3 vs 6.7)");
+        assertThat(insight).contains("stronger Social (8.2 vs 7.4)");
+        assertThat(insight).contains("stronger Governance (8.0 vs 7.7)");
+        assertThat(insight).doesNotContain("Tata Consultancy Services leads on Governance");
+        assertThat(insight).doesNotContain("remains comparatively strong in Governance");
+        assertThat(insight).contains("Tata Consultancy Services does not lead on Environmental, Social or Governance");
     }
 }

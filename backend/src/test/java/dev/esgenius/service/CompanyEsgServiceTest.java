@@ -101,6 +101,23 @@ class CompanyEsgServiceTest {
     }
 
     @Test
+    void testRatingHistoryOrderedOldestToNewestByAssessmentDate() {
+        ratingSnapshotRepository.save(
+                new EsgRatingSnapshot(company1, 7.2, 7.0, 7.1, 7.3, EsgRatingBand.A, LocalDate.of(2025, 12, 31), 7.0));
+        ratingSnapshotRepository.save(
+                new EsgRatingSnapshot(company1, 7.3, 7.1, 7.2, 7.4, EsgRatingBand.A, LocalDate.of(2026, 3, 31), 7.2));
+        ratingSnapshotRepository.save(
+                new EsgRatingSnapshot(company1, 7.4, 7.2, 7.3, 7.5, EsgRatingBand.AA, LocalDate.of(2026, 6, 30), 7.3));
+
+        CompanyEsgProfileResponse profile = companyEsgService.getCompanyEsgProfile(company1.getId());
+
+        assertEquals(
+                List.of("Q4 2025", "Q1 2026", "Q2 2026", "Q3 2026"),
+                profile.ratingHistory().stream().map(EsgRatingHistoryResponse::quarter).toList());
+        assertEquals(List.of(7.2, 7.3, 7.4, 7.5), profile.ratingHistory().stream().map(EsgRatingHistoryResponse::score).toList());
+    }
+
+    @Test
     void testCompareCompanies() {
         // Test
         CompanyComparisonResponse comparison = companyEsgService.compareCompanies(company1.getId(), company2.getId());
@@ -129,18 +146,35 @@ class CompanyEsgServiceTest {
 
     @Test
     void testComparisonInsightLogic() {
-        // Company A has higher overall score, better env/social, fewer high-severity
-        // events
-        // Expected: insight should mention A has higher score with reasons
-
-        // Test
         CompanyComparisonResponse comparison = companyEsgService.compareCompanies(company1.getId(), company2.getId());
 
-        // Verify
         String insight = comparison.comparisonInsight();
         assertTrue(insight.contains("Company A"));
         assertTrue(insight.contains("higher"));
-        // Since Company A has better scores in env and social
-        assertTrue(insight.toLowerCase().contains("strong") || insight.toLowerCase().contains("higher"));
+        assertTrue(insight.contains("stronger Environmental"));
+        assertTrue(insight.contains("stronger Social"));
+        assertFalse(insight.contains("Company B leads on Governance"));
+        assertFalse(insight.contains("Company B leads on Environmental"));
+        assertFalse(insight.contains("Company B leads on Social"));
+        assertTrue(insight.contains("Company B does not lead on Environmental, Social or Governance"));
+    }
+
+    @Test
+    void testComparisonInsightReportsPillarLeadOnlyWhenScoreIsHigher() {
+        Organization leader = organizationRepository.save(new Organization("Leader Co", "LEAD", "IT", "Tech", null));
+        Organization other = organizationRepository.save(new Organization("Other Co", "OTHR", "IT", "Tech", null));
+
+        ratingSnapshotRepository.save(
+                new EsgRatingSnapshot(leader, 7.0, 7.5, 6.5, 6.8, EsgRatingBand.A, LocalDate.of(2026, 9, 7), 6.9));
+        ratingSnapshotRepository.save(
+                new EsgRatingSnapshot(other, 6.8, 6.0, 7.2, 7.0, EsgRatingBand.A, LocalDate.of(2026, 9, 7), 6.7));
+
+        String insight = companyEsgService.compareCompanies(leader.getId(), other.getId()).comparisonInsight();
+
+        assertTrue(insight.contains("Leader Co"));
+        assertTrue(insight.contains("stronger Environmental"));
+        assertTrue(insight.contains("Other Co leads on Social (7.2 vs 6.5)"));
+        assertTrue(insight.contains("Governance (7.0 vs 6.8)"));
+        assertFalse(insight.contains("Environmental (6.0 vs 7.5)"));
     }
 }
