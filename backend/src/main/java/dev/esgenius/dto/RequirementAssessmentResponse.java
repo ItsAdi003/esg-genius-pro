@@ -8,6 +8,10 @@ public record RequirementAssessmentResponse(
         String requirementTitle,
         String category,
         String assessmentStatus,
+        Double confidence,
+        String explanation,
+        String gap,
+        String recommendation,
         Double retrievalScore,
         String evidenceText,
         List<EvidenceChunkResponse> evidenceChunks) {

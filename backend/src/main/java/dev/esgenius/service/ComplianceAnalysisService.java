@@ -12,6 +12,10 @@ import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
+import dev.esgenius.config.GeminiProperties;
+import dev.esgenius.service.compliance.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +27,8 @@ import java.util.stream.Collectors;
 @Service
 public class ComplianceAnalysisService {
 
+    private static final Logger log = LoggerFactory.getLogger(ComplianceAnalysisService.class);
+
     private final ComplianceAnalysisRepository analysisRepository;
     private final RequirementAssessmentRepository assessmentRepository;
     private final DocumentRepository documentRepository;
@@ -30,6 +36,11 @@ public class ComplianceAnalysisService {
     private final FrameworkRequirementRepository requirementRepository;
     private final TextChunkingService chunkingService;
     private final LexicalEvidenceRetrievalService retrievalService;
+    private final ComplianceClassificationProvider classificationProvider;
+    private final DeterministicNoEvidenceClassifier noEvidenceClassifier;
+    private final ClassificationFailureHandler failureHandler;
+    private final ClassificationEvidenceBuilder classificationEvidenceBuilder;
+    private final GeminiProperties geminiProperties;
     private final ObjectMapper objectMapper;
 
     public ComplianceAnalysisService(
@@ -40,6 +51,11 @@ public class ComplianceAnalysisService {
             FrameworkRequirementRepository requirementRepository,
             TextChunkingService chunkingService,
             LexicalEvidenceRetrievalService retrievalService,
+            ComplianceClassificationProvider classificationProvider,
+            DeterministicNoEvidenceClassifier noEvidenceClassifier,
+            ClassificationFailureHandler failureHandler,
+            ClassificationEvidenceBuilder classificationEvidenceBuilder,
+            GeminiProperties geminiProperties,
             ObjectMapper objectMapper) {
         this.analysisRepository = analysisRepository;
         this.assessmentRepository = assessmentRepository;
@@ -48,6 +64,11 @@ public class ComplianceAnalysisService {
         this.requirementRepository = requirementRepository;
         this.chunkingService = chunkingService;
         this.retrievalService = retrievalService;
+        this.classificationProvider = classificationProvider;
+        this.noEvidenceClassifier = noEvidenceClassifier;
+        this.failureHandler = failureHandler;
+        this.classificationEvidenceBuilder = classificationEvidenceBuilder;
+        this.geminiProperties = geminiProperties;
         this.objectMapper = objectMapper;
     }
 
@@ -82,14 +103,15 @@ public class ComplianceAnalysisService {
                 List<RetrievedChunk> retrieved = retrievalService.retrieve(requirement, chunks);
 
                 if (retrieved.isEmpty()) {
-                    assessment.setAssessmentStatus(AssessmentStatus.NO_EVIDENCE_FOUND);
                     assessment.setRetrievalScore(0.0);
+                    applyClassificationResult(assessment, noEvidenceClassifier.classify(requirement));
                 } else {
-                    assessment.setAssessmentStatus(AssessmentStatus.EVIDENCE_RETRIEVED);
                     double topScore = retrieved.get(0).score();
                     assessment.setRetrievalScore(topScore);
                     assessment.setEvidenceText(buildEvidenceText(retrieved));
                     assessment.setEvidenceChunks(serializeEvidenceChunks(retrieved));
+                    applyClassificationResult(assessment, classifyWithEvidence(requirement, retrieved, chunks));
+                    paceBeforeNextClassification();
                 }
 
                 analysis.addAssessment(assessment);
@@ -114,6 +136,55 @@ public class ComplianceAnalysisService {
         ComplianceAnalysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis not found: " + analysisId));
         return toResponse(analysis);
+    }
+
+    private ComplianceClassificationResult classifyWithEvidence(
+            FrameworkRequirement requirement, List<RetrievedChunk> retrieved, List<TextChunk> sourceChunks) {
+        try {
+            List<String> expandedPassages = classificationEvidenceBuilder.buildExpandedPassages(retrieved, sourceChunks);
+            ComplianceClassificationRequest request = new ComplianceClassificationRequest(
+                    requirement.getRequirementCode(),
+                    requirement.getTitle(),
+                    requirement.getDescription(),
+                    requirement.getFrameworkText(),
+                    expandedPassages);
+            return classificationProvider.classify(request);
+        } catch (ComplianceClassificationException ex) {
+            log.warn(
+                    "Classification fallback for requirementCode={} category={} httpStatus={} attempt={} detail={}",
+                    requirement.getRequirementCode(),
+                    ex.getCategory(),
+                    ex.getHttpStatus(),
+                    ex.getAttempt(),
+                    ex.getSafeDetail());
+            return failureHandler.handleFailure();
+        }
+    }
+
+    private void paceBeforeNextClassification() {
+        long delayMs = geminiProperties.getInterRequestDelay().toMillis();
+        if (delayMs <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Classification pacing interrupted", interrupted);
+        }
+    }
+
+    private void applyClassificationResult(
+            RequirementAssessment assessment, ComplianceClassificationResult result) {
+        if (result.status().isLegacyRetrievalStatus()) {
+            throw new IllegalStateException(
+                    "Cannot persist legacy retrieval assessment status: " + result.status());
+        }
+        assessment.setAssessmentStatus(result.status());
+        assessment.setConfidence(result.confidence());
+        assessment.setExplanation(result.explanation());
+        assessment.setGap(result.gap());
+        assessment.setRecommendation(result.recommendation());
     }
 
     private Framework resolveFramework(StartAnalysisRequest request) {
@@ -185,6 +256,10 @@ public class ComplianceAnalysisService {
                 requirement.getTitle(),
                 requirement.getCategory().name(),
                 assessment.getAssessmentStatus().name(),
+                assessment.getConfidence(),
+                assessment.getExplanation(),
+                assessment.getGap(),
+                assessment.getRecommendation(),
                 assessment.getRetrievalScore(),
                 assessment.getEvidenceText(),
                 deserializeEvidenceChunks(assessment.getEvidenceChunks()));

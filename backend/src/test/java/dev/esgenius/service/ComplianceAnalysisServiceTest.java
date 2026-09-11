@@ -85,7 +85,9 @@ class ComplianceAnalysisServiceTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertThat(scope1.assessmentStatus()).isEqualTo("EVIDENCE_RETRIEVED");
+        assertThat(scope1.assessmentStatus()).isEqualTo("COVERED");
+        assertThat(scope1.confidence()).isNotNull();
+        assertThat(scope1.explanation()).isNotBlank();
         assertThat(scope1.retrievalScore()).isGreaterThan(0.0);
         assertThat(scope1.evidenceText()).containsIgnoringCase("Scope 1");
         assertThat(scope1.evidenceChunks()).isNotEmpty();

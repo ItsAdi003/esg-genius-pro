@@ -28,6 +28,17 @@ server:
 app:
   storage:
     upload-dir: uploads
+  ai:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.5-flash}
+      connect-timeout: 10s
+      read-timeout: 60s
+      thinking-level: low
+      max-retries: 2
+      initial-retry-backoff: 500ms
+      max-retry-backoff: 8s
+      inter-request-delay: 300ms
 
 management:
   endpoints:

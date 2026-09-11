@@ -81,6 +81,10 @@ public class RequirementAssessment {
         return confidence;
     }
 
+    public void setConfidence(Double confidence) {
+        this.confidence = confidence;
+    }
+
     public String getEvidenceText() {
         return evidenceText;
     }
@@ -101,12 +105,24 @@ public class RequirementAssessment {
         return explanation;
     }
 
+    public void setExplanation(String explanation) {
+        this.explanation = explanation;
+    }
+
     public String getGap() {
         return gap;
     }
 
+    public void setGap(String gap) {
+        this.gap = gap;
+    }
+
     public String getRecommendation() {
         return recommendation;
+    }
+
+    public void setRecommendation(String recommendation) {
+        this.recommendation = recommendation;
     }
 
     public Double getRetrievalScore() {

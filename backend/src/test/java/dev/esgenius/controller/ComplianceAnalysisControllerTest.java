@@ -87,12 +87,11 @@ class ComplianceAnalysisControllerTest {
                 .andExpect(jsonPath("$.requirementCount", is(14)))
                 .andExpect(jsonPath("$.assessments", hasSize(14)))
                 .andExpect(jsonPath("$.assessments[?(@.requirementCode=='ENV-003')].assessmentStatus")
-                        .value(hasItem("EVIDENCE_RETRIEVED")))
+                        .value(hasItem("COVERED")))
                 .andExpect(jsonPath("$.assessments[?(@.requirementCode=='ENV-003')].evidenceText")
                         .value(hasItem(containsString("Scope 1"))))
-                .andExpect(jsonPath("$.assessments[0].confidence").doesNotExist())
-                .andExpect(jsonPath("$.assessments[0].gap").doesNotExist())
-                .andExpect(jsonPath("$.assessments[0].recommendation").doesNotExist());
+                .andExpect(jsonPath("$.assessments[0].confidence", notNullValue()))
+                .andExpect(jsonPath("$.assessments[0].explanation", notNullValue()));
     }
 
     @Test
@@ -115,7 +114,9 @@ class ComplianceAnalysisControllerTest {
                 .andExpect(jsonPath("$.assessments[0].requirementCode", notNullValue()))
                 .andExpect(jsonPath("$.assessments[0].requirementTitle", notNullValue()))
                 .andExpect(jsonPath("$.assessments[0].category", notNullValue()))
-                .andExpect(jsonPath("$.assessments[0].retrievalScore", notNullValue()));
+                .andExpect(jsonPath("$.assessments[0].retrievalScore", notNullValue()))
+                .andExpect(jsonPath("$.assessments[0].confidence", notNullValue()))
+                .andExpect(jsonPath("$.assessments[0].explanation", notNullValue()));
     }
 
     @Test
