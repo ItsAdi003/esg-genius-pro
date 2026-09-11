@@ -7,7 +7,9 @@ import dev.esgenius.dto.*;
 import dev.esgenius.entity.*;
 import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
+import dev.esgenius.entity.DocumentPage;
 import dev.esgenius.repository.ComplianceAnalysisRepository;
+import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
@@ -34,6 +36,7 @@ public class ComplianceAnalysisService {
     private final ComplianceAnalysisRepository analysisRepository;
     private final RequirementAssessmentRepository assessmentRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentPageRepository documentPageRepository;
     private final FrameworkRepository frameworkRepository;
     private final FrameworkRequirementRepository requirementRepository;
     private final TextChunkingService chunkingService;
@@ -49,6 +52,7 @@ public class ComplianceAnalysisService {
             ComplianceAnalysisRepository analysisRepository,
             RequirementAssessmentRepository assessmentRepository,
             DocumentRepository documentRepository,
+            DocumentPageRepository documentPageRepository,
             FrameworkRepository frameworkRepository,
             FrameworkRequirementRepository requirementRepository,
             TextChunkingService chunkingService,
@@ -62,6 +66,7 @@ public class ComplianceAnalysisService {
         this.analysisRepository = analysisRepository;
         this.assessmentRepository = assessmentRepository;
         this.documentRepository = documentRepository;
+        this.documentPageRepository = documentPageRepository;
         this.frameworkRepository = frameworkRepository;
         this.requirementRepository = requirementRepository;
         this.chunkingService = chunkingService;
@@ -97,7 +102,7 @@ public class ComplianceAnalysisService {
         ComplianceAnalysis analysis = new ComplianceAnalysis(document, framework);
         analysisRepository.save(analysis);
 
-        List<TextChunk> chunks = chunkingService.chunk(document.getExtractedText());
+        List<TextChunk> chunks = buildChunksForDocument(document);
 
         try {
             for (FrameworkRequirement requirement : requirements) {
@@ -232,6 +237,17 @@ public class ComplianceAnalysisService {
         throw new BadRequestException("frameworkId or frameworkCode is required");
     }
 
+    private List<TextChunk> buildChunksForDocument(Document document) {
+        List<DocumentPage> pages = documentPageRepository.findByDocumentOrderByPageNumberAsc(document);
+        if (!pages.isEmpty()) {
+            List<ExtractedPdfPage> pageSources = pages.stream()
+                    .map(page -> new ExtractedPdfPage(page.getPageNumber(), page.getExtractedText()))
+                    .toList();
+            return chunkingService.chunkPages(pageSources);
+        }
+        return chunkingService.chunk(document.getExtractedText());
+    }
+
     private String buildEvidenceText(List<RetrievedChunk> chunks) {
         return chunks.stream()
                 .map(RetrievedChunk::text)
@@ -240,7 +256,8 @@ public class ComplianceAnalysisService {
 
     private String serializeEvidenceChunks(List<RetrievedChunk> chunks) {
         List<EvidenceChunkResponse> payload = chunks.stream()
-                .map(chunk -> new EvidenceChunkResponse(chunk.chunkIndex(), chunk.text(), chunk.score()))
+                .map(chunk -> new EvidenceChunkResponse(
+                        chunk.chunkIndex(), chunk.pageNumber(), chunk.text(), chunk.score()))
                 .toList();
         try {
             return objectMapper.writeValueAsString(payload);

@@ -12,19 +12,59 @@ public class TextChunkingService {
     static final int TARGET_MAX_CHARS = 1800;
     static final int OVERLAP_CHARS = 200;
 
+    /**
+     * Legacy full-text chunking for documents without per-page rows.
+     * Chunks may span logical page boundaries; {@code pageNumber} is always null.
+     */
     public List<TextChunk> chunk(String text) {
+        List<String> scopedTexts = chunkText(text);
+        if (scopedTexts.isEmpty()) {
+            return List.of();
+        }
+        List<TextChunk> chunks = new ArrayList<>(scopedTexts.size());
+        for (int i = 0; i < scopedTexts.size(); i++) {
+            chunks.add(new TextChunk(i, scopedTexts.get(i), null));
+        }
+        return chunks;
+    }
+
+    /**
+     * Page-aware chunking: each chunk belongs to exactly one PDF page (1-based).
+     * Pages are never merged; overlap does not cross page boundaries.
+     */
+    public List<TextChunk> chunkPages(List<ExtractedPdfPage> pages) {
+        if (pages == null || pages.isEmpty()) {
+            return List.of();
+        }
+
+        List<TextChunk> chunks = new ArrayList<>();
+        int chunkIndex = 0;
+
+        for (ExtractedPdfPage page : pages) {
+            if (page.text() == null || page.text().isBlank()) {
+                continue;
+            }
+            List<String> pageChunkTexts = chunkText(page.text());
+            for (String chunkText : pageChunkTexts) {
+                chunks.add(new TextChunk(chunkIndex++, chunkText, page.pageNumber()));
+            }
+        }
+
+        return chunks;
+    }
+
+    private List<String> chunkText(String text) {
         if (text == null || text.isBlank()) {
             return List.of();
         }
 
         String normalized = text.replace("\r\n", "\n").trim();
         if (normalized.length() <= TARGET_MAX_CHARS) {
-            return List.of(new TextChunk(0, normalized));
+            return List.of(normalized);
         }
 
-        List<TextChunk> chunks = new ArrayList<>();
+        List<String> chunks = new ArrayList<>();
         int start = 0;
-        int chunkIndex = 0;
 
         while (start < normalized.length()) {
             int proposedEnd = Math.min(start + TARGET_MAX_CHARS, normalized.length());
@@ -36,7 +76,7 @@ public class TextChunkingService {
 
             String chunkText = normalized.substring(start, end).trim();
             if (!chunkText.isEmpty()) {
-                chunks.add(new TextChunk(chunkIndex++, chunkText));
+                chunks.add(chunkText);
             }
 
             if (end >= normalized.length()) {
@@ -51,7 +91,7 @@ public class TextChunkingService {
             start = nextStart;
         }
 
-        return chunks.isEmpty() ? List.of(new TextChunk(0, normalized)) : chunks;
+        return chunks.isEmpty() ? List.of(normalized) : chunks;
     }
 
     private int findBreakPoint(String text, int start, int proposedEnd) {

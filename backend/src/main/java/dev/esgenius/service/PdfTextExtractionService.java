@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Extracts machine-readable text from PDF files using Apache PDFBox.
@@ -15,12 +17,22 @@ import java.nio.file.Path;
 @Service
 public class PdfTextExtractionService {
 
-    public PdfExtractionResult extract(Path pdfPath) throws IOException {
+    public ExtractedPdf extract(Path pdfPath) throws IOException {
         try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            String text = stripper.getText(document).trim();
             int pageCount = document.getNumberOfPages();
-            return new PdfExtractionResult(text, pageCount);
+            PDFTextStripper stripper = new PDFTextStripper();
+
+            String fullText = stripper.getText(document).trim();
+
+            List<ExtractedPdfPage> pages = new ArrayList<>(pageCount);
+            for (int pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+                stripper.setStartPage(pageNumber);
+                stripper.setEndPage(pageNumber);
+                String pageText = stripper.getText(document).trim();
+                pages.add(new ExtractedPdfPage(pageNumber, pageText));
+            }
+
+            return new ExtractedPdf(pageCount, fullText, pages);
         }
     }
 }

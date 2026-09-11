@@ -8,6 +8,7 @@ import dev.esgenius.entity.*;
 import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
 import dev.esgenius.repository.ComplianceAnalysisRepository;
+import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
@@ -38,6 +39,9 @@ class ComplianceAnalysisServiceTest {
     private DocumentRepository documentRepository;
 
     @Autowired
+    private DocumentPageRepository documentPageRepository;
+
+    @Autowired
     private FrameworkRepository frameworkRepository;
 
     @Autowired
@@ -59,6 +63,7 @@ class ComplianceAnalysisServiceTest {
     void setUp() {
         assessmentRepository.deleteAll();
         analysisRepository.deleteAll();
+        documentPageRepository.deleteAll();
         documentRepository.deleteAll();
 
         organization = organizationRepository.findByTicker("INFY").orElseThrow();

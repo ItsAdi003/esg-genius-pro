@@ -3,11 +3,13 @@ package dev.esgenius.service;
 import dev.esgenius.dto.DocumentDetailResponse;
 import dev.esgenius.dto.DocumentSummaryResponse;
 import dev.esgenius.entity.Document;
+import dev.esgenius.entity.DocumentPage;
 import dev.esgenius.entity.DocumentStatus;
 import dev.esgenius.entity.DocumentType;
 import dev.esgenius.entity.Organization;
 import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
+import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import org.springframework.stereotype.Service;
@@ -33,16 +35,19 @@ public class DocumentService {
             "No extractable text found. Scanned or image-only PDFs are unsupported in this phase.";
 
     private final DocumentRepository documentRepository;
+    private final DocumentPageRepository documentPageRepository;
     private final OrganizationRepository organizationRepository;
     private final LocalFileStorageService fileStorageService;
     private final PdfTextExtractionService pdfTextExtractionService;
 
     public DocumentService(
             DocumentRepository documentRepository,
+            DocumentPageRepository documentPageRepository,
             OrganizationRepository organizationRepository,
             LocalFileStorageService fileStorageService,
             PdfTextExtractionService pdfTextExtractionService) {
         this.documentRepository = documentRepository;
+        this.documentPageRepository = documentPageRepository;
         this.organizationRepository = organizationRepository;
         this.fileStorageService = fileStorageService;
         this.pdfTextExtractionService = pdfTextExtractionService;
@@ -122,23 +127,31 @@ public class DocumentService {
         document.setStatus(DocumentStatus.PROCESSING);
 
         try {
-            PdfExtractionResult extractionResult = pdfTextExtractionService.extract(storedPath);
+            ExtractedPdf extractionResult = pdfTextExtractionService.extract(storedPath);
             document.setPageCount(extractionResult.pageCount());
 
-            if (extractionResult.text().length() < MIN_EXTRACTED_TEXT_LENGTH) {
+            if (extractionResult.fullText().length() < MIN_EXTRACTED_TEXT_LENGTH) {
                 document.setStatus(DocumentStatus.FAILED);
                 document.setFailureReason(SCANNED_PDF_MESSAGE);
                 document.setProcessedAt(Instant.now());
                 return;
             }
 
-            document.setExtractedText(extractionResult.text());
+            document.setExtractedText(extractionResult.fullText());
+            persistDocumentPages(document, extractionResult.pages());
             document.setStatus(DocumentStatus.READY);
             document.setProcessedAt(Instant.now());
         } catch (IOException ex) {
             document.setStatus(DocumentStatus.FAILED);
             document.setFailureReason("PDF extraction failed: " + ex.getMessage());
             document.setProcessedAt(Instant.now());
+        }
+    }
+
+    private void persistDocumentPages(Document document, List<ExtractedPdfPage> pages) {
+        documentPageRepository.deleteByDocument(document);
+        for (ExtractedPdfPage page : pages) {
+            documentPageRepository.save(new DocumentPage(document, page.pageNumber(), page.text()));
         }
     }
 

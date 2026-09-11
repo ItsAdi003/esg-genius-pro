@@ -87,6 +87,55 @@ class TextChunkingServiceTest {
         }
     }
 
+    @Test
+    void legacyChunkingLeavesPageNumberNull() {
+        List<TextChunk> chunks = chunkingService.chunk(buildLongText());
+
+        assertThat(chunks).isNotEmpty();
+        assertThat(chunks).allMatch(chunk -> chunk.pageNumber() == null);
+    }
+
+    @Test
+    void pageAwareChunkingDoesNotCrossPageBoundaries() {
+        List<TextChunk> chunks = chunkingService.chunkPages(List.of(
+                new ExtractedPdfPage(1, "Page one disclosure about renewable energy procurement."),
+                new ExtractedPdfPage(2, "Page two disclosure about Scope 1 emissions from owned facilities.")));
+
+        assertThat(chunks).hasSize(2);
+        assertThat(chunks.get(0).pageNumber()).isEqualTo(1);
+        assertThat(chunks.get(0).text()).contains("renewable energy");
+        assertThat(chunks.get(1).pageNumber()).isEqualTo(2);
+        assertThat(chunks.get(1).text()).contains("Scope 1");
+    }
+
+    @Test
+    void longPageSplitsIntoMultipleChunksWithSamePageNumber() {
+        StringBuilder pageText = new StringBuilder();
+        for (int i = 0; i < 80; i++) {
+            pageText.append("Paragraph ").append(i)
+                    .append(": Scope 1 emissions from owned facilities were reduced through efficiency projects.\n\n");
+        }
+
+        List<TextChunk> chunks = chunkingService.chunkPages(List.of(new ExtractedPdfPage(27, pageText.toString())));
+
+        assertThat(chunks.size()).isGreaterThan(1);
+        assertThat(chunks).allMatch(chunk -> chunk.pageNumber() == 27);
+        for (int i = 0; i < chunks.size(); i++) {
+            assertThat(chunks.get(i).chunkIndex()).isEqualTo(i);
+        }
+    }
+
+    @Test
+    void shortPagesRemainSeparateChunks() {
+        List<TextChunk> chunks = chunkingService.chunkPages(List.of(
+                new ExtractedPdfPage(3, "Short page three text."),
+                new ExtractedPdfPage(4, "Short page four text.")));
+
+        assertThat(chunks).hasSize(2);
+        assertThat(chunks.get(0).pageNumber()).isEqualTo(3);
+        assertThat(chunks.get(1).pageNumber()).isEqualTo(4);
+    }
+
     private String buildLongText() {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < 30; i++) {

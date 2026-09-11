@@ -15,8 +15,16 @@ export type AssessmentStatus =
 
 export interface EvidenceChunk {
   chunkIndex: number;
+  pageNumber: number | null;
   text: string;
   retrievalScore: number;
+}
+
+export function formatEvidenceSourceLabel(chunk: EvidenceChunk): string {
+  if (chunk.pageNumber != null) {
+    return `Page ${chunk.pageNumber}`;
+  }
+  return `Source chunk ${chunk.chunkIndex}`;
 }
 
 export interface RequirementAssessment {

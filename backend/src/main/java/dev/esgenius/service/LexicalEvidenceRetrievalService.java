@@ -66,7 +66,8 @@ public class LexicalEvidenceRetrievalService {
             ChunkEvaluation evaluation = evaluateBestPassage(
                     chunk, requirement, query, idf, averageChunkLength, requiredAnchorGroups, forbiddenPhrases);
             if (evaluation.passesAnchorGate() && evaluation.score() >= MIN_SCORE_THRESHOLD) {
-                scored.add(new RetrievedChunk(chunk.chunkIndex(), evaluation.passageText(), evaluation.score()));
+                scored.add(new RetrievedChunk(
+                        chunk.chunkIndex(), evaluation.passageText(), evaluation.score(), chunk.pageNumber()));
             }
         }
 

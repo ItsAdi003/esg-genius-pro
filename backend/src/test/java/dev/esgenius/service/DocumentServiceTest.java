@@ -5,6 +5,8 @@ import dev.esgenius.dto.DocumentSummaryResponse;
 import dev.esgenius.entity.Organization;
 import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
+import dev.esgenius.entity.DocumentPage;
+import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import dev.esgenius.support.TestPdfFixtures;
@@ -30,6 +32,9 @@ class DocumentServiceTest {
     private DocumentRepository documentRepository;
 
     @Autowired
+    private DocumentPageRepository documentPageRepository;
+
+    @Autowired
     private OrganizationRepository organizationRepository;
 
     @Autowired
@@ -39,6 +44,7 @@ class DocumentServiceTest {
 
     @BeforeEach
     void setUp() {
+        documentPageRepository.deleteAll();
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
     }
@@ -70,6 +76,11 @@ class DocumentServiceTest {
 
         String storedFilename = documentRepository.findById(response.id()).orElseThrow().getStoredFilename();
         assertTrue(fileStorageService.exists(storedFilename));
+
+        List<DocumentPage> pages = documentPageRepository.findByDocumentOrderByPageNumberAsc(
+                documentRepository.findById(response.id()).orElseThrow());
+        assertEquals(1, pages.size());
+        assertEquals(1, pages.get(0).getPageNumber());
     }
 
     @Test
@@ -93,6 +104,41 @@ class DocumentServiceTest {
 
         assertEquals(uploaded.id(), detail.id());
         assertTrue(detail.extractedText().contains(TestPdfFixtures.LINE_ONE));
+    }
+
+    @Test
+    void uploadPersistsDocumentPages() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "multi-page.pdf",
+                "application/pdf",
+                TestPdfFixtures.createMultiPagePdfBytes());
+
+        DocumentDetailResponse response = documentService.uploadDocument(
+                file, organization.getId(), "BRSR", 2025);
+
+        List<DocumentPage> pages = documentPageRepository.findByDocumentOrderByPageNumberAsc(
+                documentRepository.findById(response.id()).orElseThrow());
+
+        assertEquals(2, pages.size());
+        assertEquals(1, pages.get(0).getPageNumber());
+        assertTrue(pages.get(0).getExtractedText().contains(TestPdfFixtures.LINE_ONE));
+        assertEquals(2, pages.get(1).getPageNumber());
+        assertTrue(pages.get(1).getExtractedText().contains(TestPdfFixtures.PAGE_TWO_LINE));
+    }
+
+    @Test
+    void deleteDocumentCascadesPageRows() throws Exception {
+        DocumentDetailResponse uploaded = uploadMultiPageDocument();
+
+        assertFalse(documentPageRepository.findByDocumentOrderByPageNumberAsc(
+                documentRepository.findById(uploaded.id()).orElseThrow()).isEmpty());
+
+        documentService.deleteDocument(uploaded.id());
+
+        assertFalse(documentRepository.existsById(uploaded.id()));
+        assertTrue(documentPageRepository.findAll().stream()
+                .noneMatch(page -> page.getDocument().getId().equals(uploaded.id())));
     }
 
     @Test
@@ -141,5 +187,14 @@ class DocumentServiceTest {
                 "application/pdf",
                 TestPdfFixtures.createSamplePdfBytes());
         return documentService.uploadDocument(file, organization.getId(), "SUSTAINABILITY_REPORT", 2024);
+    }
+
+    private DocumentDetailResponse uploadMultiPageDocument() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "multi-page.pdf",
+                "application/pdf",
+                TestPdfFixtures.createMultiPagePdfBytes());
+        return documentService.uploadDocument(file, organization.getId(), "BRSR", 2025);
     }
 }

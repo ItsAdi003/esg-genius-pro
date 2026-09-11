@@ -23,6 +23,7 @@ import {
   formatConfidencePercent,
   formatEsgCategory,
   formatInstant,
+  formatEvidenceSourceLabel,
   formatRetrievalScore,
   getComplianceAnalysis,
   isLegacyRetrievalStatus,
@@ -236,7 +237,7 @@ function RequirementDetails() {
                       className="rounded-lg border-l-4 border-primary bg-accent/50 p-4"
                     >
                       <p className="text-xs font-medium text-muted-foreground">
-                        Source chunk {chunk.chunkIndex}
+                        {formatEvidenceSourceLabel(chunk)}
                         <span className="ml-2 tabular-nums">
                           · score {formatRetrievalScore(chunk.retrievalScore)}
                         </span>

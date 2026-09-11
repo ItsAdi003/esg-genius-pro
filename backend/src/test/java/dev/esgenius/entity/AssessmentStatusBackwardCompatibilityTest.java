@@ -4,6 +4,7 @@ import dev.esgenius.dto.ComplianceAnalysisResponse;
 import dev.esgenius.dto.RequirementAssessmentResponse;
 import dev.esgenius.dto.StartAnalysisRequest;
 import dev.esgenius.repository.ComplianceAnalysisRepository;
+import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
 import dev.esgenius.repository.FrameworkRepository;
@@ -41,6 +42,9 @@ class AssessmentStatusBackwardCompatibilityTest {
     private DocumentRepository documentRepository;
 
     @Autowired
+    private DocumentPageRepository documentPageRepository;
+
+    @Autowired
     private FrameworkRepository frameworkRepository;
 
     @Autowired
@@ -67,6 +71,7 @@ class AssessmentStatusBackwardCompatibilityTest {
     private void cleanData() {
         assessmentRepository.deleteAll();
         analysisRepository.deleteAll();
+        documentPageRepository.deleteAll();
         documentRepository.deleteAll();
     }
 
