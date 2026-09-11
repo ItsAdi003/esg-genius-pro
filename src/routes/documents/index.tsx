@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { companyEsgQueryKeys, getCompanies } from "@/lib/company-esg-api";
+import { createComplianceAnalysis } from "@/lib/compliance-api";
 import {
   deleteDocument,
   documentQueryKeys,
@@ -96,6 +97,20 @@ function Documents() {
   });
 
   const documents = documentsQuery.data ?? [];
+
+  const analyzeMutation = useMutation({
+    mutationFn: createComplianceAnalysis,
+    onSuccess: (analysis) => {
+      toast.success("Compliance analysis completed");
+      navigate({
+        to: "/compliance",
+        search: { analysisId: String(analysis.id) },
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to run compliance analysis");
+    },
+  });
 
   const deleteMutation = useMutation({
     mutationFn: deleteDocument,
@@ -247,10 +262,10 @@ function Documents() {
                   <DocumentRow
                     key={document.id}
                     document={document}
-                    onAnalyze={() => {
-                      toast.success(`Analysis started for ${document.originalFilename}`);
-                      navigate({ to: "/compliance" });
-                    }}
+                    analyzePending={
+                      analyzeMutation.isPending && analyzeMutation.variables === document.id
+                    }
+                    onAnalyze={() => analyzeMutation.mutate(document.id)}
                     onDelete={() => setPendingDelete(document.id)}
                   />
                 ))}
@@ -290,10 +305,12 @@ function Documents() {
 
 function DocumentRow({
   document,
+  analyzePending,
   onAnalyze,
   onDelete,
 }: {
   document: DocumentSummary;
+  analyzePending: boolean;
   onAnalyze: () => void;
   onDelete: () => void;
 }) {
@@ -339,8 +356,14 @@ function DocumentRow({
               <Eye className="size-4" /> View
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" onClick={onAnalyze} disabled={document.status !== "READY"}>
-            <ScanSearch className="size-4" /> Analyze
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAnalyze}
+            disabled={document.status !== "READY" || analyzePending}
+          >
+            <ScanSearch className="size-4" />
+            {analyzePending ? "Analyzing…" : "Analyze"}
           </Button>
           <Button
             variant="ghost"

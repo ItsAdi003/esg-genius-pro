@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { createComplianceAnalysis } from "@/lib/compliance-api";
 import {
   deleteDocument,
   documentQueryKeys,
@@ -61,6 +62,20 @@ function DocumentDetailPage() {
     queryKey: isValidId ? documentQueryKeys.detail(documentId) : [...documentQueryKeys.all, "detail", "invalid"],
     queryFn: () => getDocument(documentId),
     enabled: isValidId,
+  });
+
+  const analyzeMutation = useMutation({
+    mutationFn: () => createComplianceAnalysis(documentId, "BRSR"),
+    onSuccess: (analysis) => {
+      toast.success("Compliance analysis completed");
+      navigate({
+        to: "/compliance",
+        search: { analysisId: String(analysis.id) },
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to run compliance analysis");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -143,13 +158,11 @@ function DocumentDetailPage() {
             </Link>
           </Button>
           <Button
-            disabled={document.status !== "READY"}
-            onClick={() => {
-              toast.success(`Analysis started for ${document.originalFilename}`);
-              navigate({ to: "/compliance" });
-            }}
+            disabled={document.status !== "READY" || analyzeMutation.isPending}
+            onClick={() => analyzeMutation.mutate()}
           >
-            <ScanSearch className="size-4" /> Run Compliance Analysis
+            <ScanSearch className="size-4" />
+            {analyzeMutation.isPending ? "Analyzing document…" : "Run Compliance Analysis"}
           </Button>
           <Button
             variant="ghost"

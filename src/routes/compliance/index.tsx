@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Search, ArrowRight, FileText, MinusCircle } from "lucide-react";
+import { Search, ArrowRight, FileText, MinusCircle, RefreshCw, AlertCircle } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
-import { ConfidenceMeter, PriorityBadge, StatusBadge } from "@/components/status-badge";
+import { ConfidenceMeter, StatusBadge } from "@/components/status-badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -20,9 +23,32 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ORG, requirements } from "@/lib/esg-data";
+import {
+  complianceQueryKeys,
+  formatAnalysisStatus,
+  formatAssessmentStatus,
+  formatConfidencePercent,
+  formatEsgCategory,
+  formatInstant,
+  formatRetrievalScore,
+  getComplianceAnalysis,
+  isLegacyRetrievalStatus,
+  summarizeAssessments,
+  type AssessmentStatus,
+} from "@/lib/compliance-api";
+
+type ComplianceSearch = {
+  analysisId?: string;
+};
 
 export const Route = createFileRoute("/compliance/")({
+  validateSearch: (search: Record<string, unknown>): ComplianceSearch => {
+    const analysisId = search.analysisId;
+    return {
+      analysisId:
+        typeof analysisId === "string" && analysisId.trim().length > 0 ? analysisId.trim() : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Compliance Gap Analysis | ESGenius" },
@@ -42,24 +68,140 @@ export const Route = createFileRoute("/compliance/")({
   component: ComplianceAnalysis,
 });
 
+const STATUS_FILTER_OPTIONS: { value: AssessmentStatus | "all"; label: string }[] = [
+  { value: "all", label: "All Statuses" },
+  { value: "COVERED", label: "Covered" },
+  { value: "PARTIALLY_COVERED", label: "Partially Covered" },
+  { value: "NOT_COVERED", label: "Not Covered" },
+  { value: "HUMAN_REVIEW_REQUIRED", label: "Human Review Required" },
+  { value: "EVIDENCE_RETRIEVED", label: "Evidence Retrieved (legacy)" },
+  { value: "NO_EVIDENCE_FOUND", label: "No Evidence Found (legacy)" },
+];
+
 function ComplianceAnalysis() {
+  const { analysisId: analysisIdParam } = Route.useSearch();
   const [category, setCategory] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [priority, setPriority] = useState("all");
+  const [status, setStatus] = useState<AssessmentStatus | "all">("all");
   const [query, setQuery] = useState("");
+
+  const parsedAnalysisId =
+    analysisIdParam != null ? Number(analysisIdParam) : Number.NaN;
+  const isValidAnalysisId = Number.isInteger(parsedAnalysisId) && parsedAnalysisId > 0;
+
+  const analysisQuery = useQuery({
+    queryKey: isValidAnalysisId
+      ? complianceQueryKeys.analysis(parsedAnalysisId)
+      : [...complianceQueryKeys.all, "analysis", "none"],
+    queryFn: () => getComplianceAnalysis(parsedAnalysisId),
+    enabled: isValidAnalysisId,
+  });
+
+  const analysis = analysisQuery.data;
+  const assessments = analysis?.assessments ?? [];
 
   const rows = useMemo(
     () =>
-      requirements.filter(
-        (r) =>
-          (category === "all" || r.category === category) &&
-          (status === "all" || r.status === status) &&
-          (priority === "all" || r.priority === priority) &&
-          (query.trim() === "" ||
-            `${r.id} ${r.title}`.toLowerCase().includes(query.trim().toLowerCase())),
-      ),
-    [category, status, priority, query],
+      assessments.filter((assessment) => {
+        const categoryLabel = formatEsgCategory(assessment.category);
+        const matchesCategory = category === "all" || categoryLabel === category;
+        const matchesStatus =
+          status === "all" || assessment.assessmentStatus === status;
+        const haystack = `${assessment.requirementCode} ${assessment.requirementTitle}`.toLowerCase();
+        const matchesQuery =
+          query.trim() === "" || haystack.includes(query.trim().toLowerCase());
+        return matchesCategory && matchesStatus && matchesQuery;
+      }),
+    [assessments, category, status, query],
   );
+
+  const summary = useMemo(() => summarizeAssessments(assessments), [assessments]);
+  const hasLegacyStatuses = summary.evidenceRetrieved > 0 || summary.noEvidenceFound > 0;
+
+  if (!analysisIdParam) {
+    return (
+      <AppLayout
+        title="Compliance Analysis"
+        description="AI-assisted assessment of disclosures against framework requirements"
+      >
+        <div className="glass-panel p-10 text-center">
+          <AlertCircle className="mx-auto size-10 text-muted-foreground" />
+          <p className="mt-4 text-sm font-medium">No compliance analysis selected</p>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+            Upload or open a READY document and run a BRSR analysis to view real compliance
+            results.
+          </p>
+          <Button className="mt-6" asChild>
+            <Link to="/documents">Go to Documents</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!isValidAnalysisId) {
+    return (
+      <AppLayout title="Invalid analysis" description="">
+        <div className="glass-panel p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            The analysis ID in the URL is invalid.
+          </p>
+          <Button className="mt-4" asChild>
+            <Link to="/documents">Go to Documents</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (analysisQuery.isLoading) {
+    return (
+      <AppLayout
+        title="Compliance Analysis"
+        description="Loading analysis results from the backend"
+      >
+        <div className="space-y-4">
+          <Skeleton className="h-28 w-full" />
+          <div className="grid gap-4 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-20 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-[50vh] w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (analysisQuery.isError) {
+    const notFound =
+      analysisQuery.error.message.toLowerCase().includes("not found") ||
+      (analysisQuery.error as { status?: number }).status === 404;
+
+    return (
+      <AppLayout
+        title={notFound ? "Analysis not found" : "Unable to load analysis"}
+        description=""
+      >
+        <div className="glass-panel p-8 text-center">
+          <p className="text-sm text-muted-foreground">{analysisQuery.error.message}</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {!notFound && (
+              <Button variant="outline" onClick={() => void analysisQuery.refetch()}>
+                <RefreshCw className="size-4" /> Retry
+              </Button>
+            )}
+            <Button asChild>
+              <Link to="/documents">Go to Documents</Link>
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!analysis) {
+    return null;
+  }
 
   return (
     <AppLayout
@@ -71,28 +213,93 @@ function ComplianceAnalysis() {
         </Button>
       }
     >
+      {analysis.status === "FAILED" && analysis.failureReason && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Analysis failed</AlertTitle>
+          <AlertDescription>{analysis.failureReason}</AlertDescription>
+        </Alert>
+      )}
+
+      {hasLegacyStatuses && (
+        <Alert className="mb-4">
+          <AlertTitle>Legacy retrieval-only analysis</AlertTitle>
+          <AlertDescription>
+            Some requirements use Phase 3C-1 retrieval statuses (Evidence Retrieved / No Evidence
+            Found). These rows show document evidence only — AI classification fields may be absent.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="surface-card flex flex-wrap items-center gap-x-10 gap-y-4 p-5">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Framework</p>
-          <p className="mt-1 font-medium">{ORG.framework}</p>
+          <p className="mt-1 font-medium">{analysis.frameworkName}</p>
+          <p className="text-xs text-muted-foreground">{analysis.frameworkCode}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Organization</p>
-          <p className="mt-1 font-medium">{ORG.name}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Document</p>
+          <p className="mt-1 font-medium">Document #{analysis.documentId}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Reporting Period</p>
-          <p className="mt-1 font-medium">{ORG.reportingPeriod}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Analysis Status</p>
+          <p className="mt-1 font-medium">{formatAnalysisStatus(analysis.status)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Started</p>
+          <p className="mt-1 font-medium">{formatInstant(analysis.startedAt)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Completed</p>
+          <p className="mt-1 font-medium">{formatInstant(analysis.completedAt)}</p>
         </div>
         <div className="ml-auto text-right">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Overall ESG Reporting Readiness
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Requirements</p>
+          <p className="mt-1 text-3xl font-semibold tabular-nums text-primary">
+            {analysis.requirementCount}
           </p>
-          <p className="mt-1 text-3xl font-semibold tabular-nums text-primary">{ORG.readiness}%</p>
         </div>
       </div>
 
-      <div className="surface-card mt-4 grid gap-3 p-4 md:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Covered", value: summary.covered, tone: "text-success" },
+          { label: "Partially Covered", value: summary.partiallyCovered, tone: "text-warning" },
+          { label: "Not Covered", value: summary.notCovered, tone: "text-danger" },
+          {
+            label: "Human Review Required",
+            value: summary.humanReviewRequired,
+            tone: "text-warning",
+          },
+        ].map((card) => (
+          <div key={card.label} className="surface-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
+            <p className={`mt-2 text-2xl font-semibold tabular-nums ${card.tone}`}>{card.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {hasLegacyStatuses && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="surface-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Evidence Retrieved (legacy)
+            </p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground">
+              {summary.evidenceRetrieved}
+            </p>
+          </div>
+          <div className="surface-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              No Evidence Found (legacy)
+            </p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground">
+              {summary.noEvidenceFound}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="surface-card mt-4 grid gap-3 p-4 md:grid-cols-3">
         <div className="relative md:col-span-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -113,27 +320,19 @@ function ComplianceAnalysis() {
             <SelectItem value="Governance">Governance</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={status} onValueChange={setStatus}>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as AssessmentStatus | "all")}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Covered">Covered</SelectItem>
-            <SelectItem value="Partially Covered">Partially Covered</SelectItem>
-            <SelectItem value="Evidence Not Found">Evidence Not Found</SelectItem>
-            <SelectItem value="Human Review Required">Human Review Required</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={priority} onValueChange={setPriority}>
-          <SelectTrigger>
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Priorities</SelectItem>
-            <SelectItem value="High">High</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Low">Low</SelectItem>
+            {STATUS_FILTER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -142,7 +341,7 @@ function ComplianceAnalysis() {
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <p className="text-sm font-semibold">Requirement Assessment</p>
           <p className="text-xs text-muted-foreground">
-            {rows.length} of {requirements.length} requirements
+            {rows.length} of {assessments.length} requirements
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -154,52 +353,63 @@ function ComplianceAnalysis() {
                 <TableHead>ESG Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Confidence</TableHead>
+                <TableHead>Retrieval</TableHead>
                 <TableHead className="min-w-[200px]">Evidence</TableHead>
-                <TableHead>Priority</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.id}</TableCell>
-                  <TableCell className="font-medium">{r.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.category}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={r.status} />
-                  </TableCell>
-                  <TableCell>
-                    <ConfidenceMeter value={r.confidence} />
-                  </TableCell>
-                  <TableCell>
-                    {r.evidence ? (
-                      <div className="flex items-start gap-2 text-xs">
-                        <FileText className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                        <span>
-                          {r.evidence.document}
-                          <span className="block text-muted-foreground">
-                            Page {r.evidence.page}
-                          </span>
+              {rows.map((assessment) => {
+                const legacy = isLegacyRetrievalStatus(assessment.assessmentStatus);
+                const confidence = legacy
+                  ? null
+                  : formatConfidencePercent(assessment.confidence);
+                const evidencePreview = assessment.evidenceText?.trim();
+
+                return (
+                  <TableRow key={assessment.requirementCode}>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {assessment.requirementCode}
+                    </TableCell>
+                    <TableCell className="font-medium">{assessment.requirementTitle}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatEsgCategory(assessment.category)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={formatAssessmentStatus(assessment.assessmentStatus)} />
+                    </TableCell>
+                    <TableCell>
+                      <ConfidenceMeter value={confidence} />
+                    </TableCell>
+                    <TableCell className="text-xs tabular-nums text-muted-foreground">
+                      {formatRetrievalScore(assessment.retrievalScore)}
+                    </TableCell>
+                    <TableCell>
+                      {evidencePreview ? (
+                        <div className="flex items-start gap-2 text-xs">
+                          <FileText className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                          <span className="line-clamp-2 text-muted-foreground">{evidencePreview}</span>
+                        </div>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MinusCircle className="size-3.5" /> No retrieved evidence
                         </span>
-                      </div>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <MinusCircle className="size-3.5" /> Evidence not found
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <PriorityBadge priority={r.priority} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to="/compliance/$requirementId" params={{ requirementId: r.id }}>
-                        View Details <ArrowRight className="size-3.5" />
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          to="/compliance/$requirementId"
+                          params={{ requirementId: assessment.requirementCode }}
+                          search={{ analysisId: String(analysis.id) }}
+                        >
+                          View Details <ArrowRight className="size-3.5" />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">

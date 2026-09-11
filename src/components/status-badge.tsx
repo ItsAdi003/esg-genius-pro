@@ -4,8 +4,11 @@ import type { Priority, Status } from "@/lib/esg-data";
 const statusStyles: Record<string, string> = {
   Covered: "bg-success-soft text-success border-success/25",
   "Partially Covered": "bg-warning-soft text-warning border-warning/30",
+  "Not Covered": "bg-danger-soft text-danger border-danger/25",
   "Evidence Not Found": "bg-danger-soft text-danger border-danger/25",
-  "Human Review Required": "bg-info-soft text-info border-info/25",
+  "No Evidence Found": "bg-muted text-muted-foreground border-border",
+  "Evidence Retrieved": "bg-muted text-muted-foreground border-border",
+  "Human Review Required": "bg-warning-soft text-warning border-warning/30",
   Missing: "bg-danger-soft text-danger border-danger/25",
   Partial: "bg-warning-soft text-warning border-warning/30",
   Analyzed: "bg-success-soft text-success border-success/25",
@@ -44,7 +47,11 @@ export function PriorityBadge({ priority }: { priority: Priority | string }) {
   );
 }
 
-export function ConfidenceMeter({ value }: { value: number }) {
+export function ConfidenceMeter({ value }: { value: number | null | undefined }) {
+  if (value == null) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
   const tone = value >= 90 ? "bg-success" : value >= 80 ? "bg-primary" : "bg-warning";
   return (
     <div className="flex items-center gap-2">
