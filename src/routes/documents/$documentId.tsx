@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, RefreshCw, ScanSearch, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, RefreshCw, ScanSearch, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
@@ -18,7 +18,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { createComplianceAnalysis } from "@/lib/compliance-api";
+import {
+  complianceQueryKeys,
+  createComplianceAnalysis,
+  formatAnalysisStatus,
+  formatAnalysisSummaryCounts,
+  getDocumentAnalyses,
+} from "@/lib/compliance-api";
 import {
   deleteDocument,
   documentQueryKeys,
@@ -64,13 +70,22 @@ function DocumentDetailPage() {
     enabled: isValidId,
   });
 
+  const analysesQuery = useQuery({
+    queryKey: isValidId ? complianceQueryKeys.documentAnalyses(documentId) : [...complianceQueryKeys.all, "invalid"],
+    queryFn: () => getDocumentAnalyses(documentId),
+    enabled: isValidId,
+  });
+
   const analyzeMutation = useMutation({
     mutationFn: () => createComplianceAnalysis(documentId, "BRSR"),
     onSuccess: (analysis) => {
+      void queryClient.invalidateQueries({
+        queryKey: complianceQueryKeys.documentAnalyses(documentId),
+      });
       toast.success("Compliance analysis completed");
       navigate({
         to: "/compliance",
-        search: { analysisId: String(analysis.id) },
+        search: { analysisId: analysis.id },
       });
     },
     onError: (error: Error) => {
@@ -145,6 +160,7 @@ function DocumentDetailPage() {
   const document = documentQuery.data;
   const statusLabel = formatDocumentStatus(document.status);
   const isFailed = document.status === "FAILED";
+  const hasAnalysisHistory = (analysesQuery.data?.length ?? 0) > 0;
 
   return (
     <AppLayout
@@ -158,11 +174,16 @@ function DocumentDetailPage() {
             </Link>
           </Button>
           <Button
+            variant={hasAnalysisHistory ? "outline" : "default"}
             disabled={document.status !== "READY" || analyzeMutation.isPending}
             onClick={() => analyzeMutation.mutate()}
           >
             <ScanSearch className="size-4" />
-            {analyzeMutation.isPending ? "Analyzing document…" : "Run Compliance Analysis"}
+            {analyzeMutation.isPending
+              ? "Analyzing document…"
+              : hasAnalysisHistory
+                ? "Run New Analysis"
+                : "Run Compliance Analysis"}
           </Button>
           <Button
             variant="ghost"
@@ -228,6 +249,102 @@ function DocumentDetailPage() {
                 ? "Text extraction is still in progress."
                 : "No extracted text is available for this document."}
             </p>
+          )}
+        </div>
+      </section>
+
+      <section className="glass-panel mt-4 overflow-hidden">
+        <div className="border-b border-border/70 px-5 py-4">
+          <h2 className="text-sm font-semibold">Compliance Analysis History</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Saved analyses can be reopened without running the AI pipeline again.
+          </p>
+        </div>
+
+        <div className="p-5">
+          {analysesQuery.isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : analysesQuery.isError ? (
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">
+                {analysesQuery.error.message || "Unable to load analysis history"}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => void analysesQuery.refetch()}
+              >
+                <RefreshCw className="size-4" /> Retry
+              </Button>
+            </div>
+          ) : !analysesQuery.data || analysesQuery.data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No compliance analyses yet.
+              <br />
+              Run a BRSR analysis when you&apos;re ready.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {analysesQuery.data.map((analysis) => {
+                const statusLabel = formatAnalysisStatus(analysis.status);
+                const displayInstant =
+                  analysis.status === "COMPLETED" && analysis.completedAt
+                    ? analysis.completedAt
+                    : analysis.startedAt;
+                const countSummary = formatAnalysisSummaryCounts(analysis);
+                const requirementLabel =
+                  analysis.requirementCount === 1
+                    ? "1 requirement"
+                    : `${analysis.requirementCount} requirements`;
+
+                return (
+                  <li
+                    key={analysis.id}
+                    className="flex flex-col gap-3 rounded-lg border border-border/70 bg-background/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">
+                          {analysis.frameworkCode} Analysis #{analysis.id}
+                        </p>
+                        <StatusBadge status={statusLabel} />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {statusLabel} · {formatInstant(displayInstant)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {requirementLabel}
+                        {countSummary ? ` · ${countSummary}` : ""}
+                      </p>
+                      {analysis.status === "FAILED" && analysis.failureReason && (
+                        <p className="text-sm text-danger">{analysis.failureReason}</p>
+                      )}
+                      {analysis.status === "IN_PROGRESS" && (
+                        <p className="text-sm text-muted-foreground">
+                          This analysis is still running. Check back shortly.
+                        </p>
+                      )}
+                    </div>
+
+                    {analysis.status === "COMPLETED" && (
+                      <Button variant="secondary" size="sm" className="shrink-0" asChild>
+                        <Link
+                          to="/compliance"
+                          search={{ analysisId: analysis.id }}
+                        >
+                          <ExternalLink className="size-4" />
+                          View Results
+                        </Link>
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       </section>

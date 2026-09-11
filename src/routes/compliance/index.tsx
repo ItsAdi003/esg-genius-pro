@@ -33,22 +33,19 @@ import {
   formatRetrievalScore,
   getComplianceAnalysis,
   isLegacyRetrievalStatus,
+  parseAnalysisIdSearch,
   summarizeAssessments,
   type AssessmentStatus,
 } from "@/lib/compliance-api";
 
 type ComplianceSearch = {
-  analysisId?: string;
+  analysisId?: number;
 };
 
 export const Route = createFileRoute("/compliance/")({
-  validateSearch: (search: Record<string, unknown>): ComplianceSearch => {
-    const analysisId = search.analysisId;
-    return {
-      analysisId:
-        typeof analysisId === "string" && analysisId.trim().length > 0 ? analysisId.trim() : undefined,
-    };
-  },
+  validateSearch: (search: Record<string, unknown>): ComplianceSearch => ({
+    analysisId: parseAnalysisIdSearch(search.analysisId),
+  }),
   head: () => ({
     meta: [
       { title: "Compliance Gap Analysis | ESGenius" },
@@ -79,21 +76,17 @@ const STATUS_FILTER_OPTIONS: { value: AssessmentStatus | "all"; label: string }[
 ];
 
 function ComplianceAnalysis() {
-  const { analysisId: analysisIdParam } = Route.useSearch();
+  const { analysisId } = Route.useSearch();
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState<AssessmentStatus | "all">("all");
   const [query, setQuery] = useState("");
 
-  const parsedAnalysisId =
-    analysisIdParam != null ? Number(analysisIdParam) : Number.NaN;
-  const isValidAnalysisId = Number.isInteger(parsedAnalysisId) && parsedAnalysisId > 0;
-
   const analysisQuery = useQuery({
-    queryKey: isValidAnalysisId
-      ? complianceQueryKeys.analysis(parsedAnalysisId)
+    queryKey: analysisId != null
+      ? complianceQueryKeys.analysis(analysisId)
       : [...complianceQueryKeys.all, "analysis", "none"],
-    queryFn: () => getComplianceAnalysis(parsedAnalysisId),
-    enabled: isValidAnalysisId,
+    queryFn: () => getComplianceAnalysis(analysisId!),
+    enabled: analysisId != null,
   });
 
   const analysis = analysisQuery.data;
@@ -117,7 +110,7 @@ function ComplianceAnalysis() {
   const summary = useMemo(() => summarizeAssessments(assessments), [assessments]);
   const hasLegacyStatuses = summary.evidenceRetrieved > 0 || summary.noEvidenceFound > 0;
 
-  if (!analysisIdParam) {
+  if (analysisId == null) {
     return (
       <AppLayout
         title="Compliance Analysis"
@@ -131,21 +124,6 @@ function ComplianceAnalysis() {
             results.
           </p>
           <Button className="mt-6" asChild>
-            <Link to="/documents">Go to Documents</Link>
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!isValidAnalysisId) {
-    return (
-      <AppLayout title="Invalid analysis" description="">
-        <div className="glass-panel p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            The analysis ID in the URL is invalid.
-          </p>
-          <Button className="mt-4" asChild>
             <Link to="/documents">Go to Documents</Link>
           </Button>
         </div>
@@ -401,7 +379,7 @@ function ComplianceAnalysis() {
                         <Link
                           to="/compliance/$requirementId"
                           params={{ requirementId: assessment.requirementCode }}
-                          search={{ analysisId: String(analysis.id) }}
+                          search={{ analysisId: analysis.id }}
                         >
                           View Details <ArrowRight className="size-3.5" />
                         </Link>

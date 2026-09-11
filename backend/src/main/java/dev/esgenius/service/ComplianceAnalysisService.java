@@ -21,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -138,6 +140,29 @@ public class ComplianceAnalysisService {
         return toResponse(analysis);
     }
 
+    @Transactional(readOnly = true)
+    public List<ComplianceAnalysisSummaryResponse> listAnalysesForDocument(Long documentId) {
+        if (!documentRepository.existsById(documentId)) {
+            throw new ResourceNotFoundException("Document not found: " + documentId);
+        }
+
+        List<ComplianceAnalysis> analyses =
+                analysisRepository.findByDocumentIdWithFrameworkOrderByStartedAtDesc(documentId);
+        if (analyses.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> analysisIds = analyses.stream().map(ComplianceAnalysis::getId).toList();
+        Map<Long, AssessmentStatusCounts> statusCountsByAnalysis = loadAssessmentStatusCounts(analysisIds);
+
+        return analyses.stream()
+                .map(analysis -> toSummaryResponse(
+                        documentId,
+                        analysis,
+                        statusCountsByAnalysis.getOrDefault(analysis.getId(), AssessmentStatusCounts.empty())))
+                .toList();
+    }
+
     private ComplianceClassificationResult classifyWithEvidence(
             FrameworkRequirement requirement, List<RetrievedChunk> retrieved, List<TextChunk> sourceChunks) {
         try {
@@ -224,6 +249,41 @@ public class ComplianceAnalysisService {
         }
     }
 
+    private Map<Long, AssessmentStatusCounts> loadAssessmentStatusCounts(List<Long> analysisIds) {
+        Map<Long, AssessmentStatusCounts> countsByAnalysis = new HashMap<>();
+        for (Object[] row : assessmentRepository.countByStatusForAnalysisIds(analysisIds)) {
+            Long analysisId = (Long) row[0];
+            AssessmentStatus status = (AssessmentStatus) row[1];
+            int count = ((Number) row[2]).intValue();
+            countsByAnalysis
+                    .computeIfAbsent(analysisId, ignored -> new AssessmentStatusCounts())
+                    .add(status, count);
+        }
+        return countsByAnalysis;
+    }
+
+    private ComplianceAnalysisSummaryResponse toSummaryResponse(
+            Long documentId, ComplianceAnalysis analysis, AssessmentStatusCounts statusCounts) {
+        Framework framework = analysis.getFramework();
+        return new ComplianceAnalysisSummaryResponse(
+                analysis.getId(),
+                documentId,
+                framework.getId(),
+                framework.getCode(),
+                framework.getName(),
+                analysis.getStatus().name(),
+                analysis.getStartedAt(),
+                analysis.getCompletedAt(),
+                analysis.getFailureReason(),
+                statusCounts.total(),
+                statusCounts.covered,
+                statusCounts.partiallyCovered,
+                statusCounts.notCovered,
+                statusCounts.humanReviewRequired,
+                statusCounts.evidenceRetrieved,
+                statusCounts.noEvidenceFound);
+    }
+
     private ComplianceAnalysisResponse toResponse(ComplianceAnalysis analysis) {
         Framework framework = analysis.getFramework();
         List<RequirementAssessment> assessments = assessmentRepository
@@ -273,6 +333,39 @@ public class ComplianceAnalysisService {
             return objectMapper.readValue(json, new TypeReference<List<EvidenceChunkResponse>>() {});
         } catch (JsonProcessingException ex) {
             return List.of();
+        }
+    }
+
+    private static final class AssessmentStatusCounts {
+        int covered;
+        int partiallyCovered;
+        int notCovered;
+        int humanReviewRequired;
+        int evidenceRetrieved;
+        int noEvidenceFound;
+
+        static AssessmentStatusCounts empty() {
+            return new AssessmentStatusCounts();
+        }
+
+        void add(AssessmentStatus status, int count) {
+            switch (status) {
+                case COVERED -> covered += count;
+                case PARTIALLY_COVERED -> partiallyCovered += count;
+                case NOT_COVERED -> notCovered += count;
+                case HUMAN_REVIEW_REQUIRED -> humanReviewRequired += count;
+                case EVIDENCE_RETRIEVED -> evidenceRetrieved += count;
+                case NO_EVIDENCE_FOUND -> noEvidenceFound += count;
+            }
+        }
+
+        int total() {
+            return covered
+                    + partiallyCovered
+                    + notCovered
+                    + humanReviewRequired
+                    + evidenceRetrieved
+                    + noEvidenceFound;
         }
     }
 }

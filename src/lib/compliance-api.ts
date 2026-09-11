@@ -48,6 +48,25 @@ export interface ComplianceAnalysis {
   assessments: RequirementAssessment[];
 }
 
+export interface ComplianceAnalysisSummary {
+  id: number;
+  documentId: number;
+  frameworkId: number;
+  frameworkCode: string;
+  frameworkName: string;
+  status: AnalysisStatus;
+  startedAt: string;
+  completedAt: string | null;
+  failureReason: string | null;
+  requirementCount: number;
+  coveredCount: number;
+  partiallyCoveredCount: number;
+  notCoveredCount: number;
+  humanReviewRequiredCount: number;
+  evidenceRetrievedCount: number;
+  noEvidenceFoundCount: number;
+}
+
 /** Backend StartAnalysisRequest — frameworkId or frameworkCode required */
 export interface StartAnalysisRequest {
   frameworkId?: number | null;
@@ -73,9 +92,29 @@ export class ComplianceApiError extends Error {
   }
 }
 
+/** TanStack Router JSON-stringifies string search values (e.g. analysisId="10"). Use number in navigation. */
+export function parseAnalysisIdSearch(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value > 0 ? value : undefined;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().replace(/^"|"$/g, "");
+    if (!normalized) {
+      return undefined;
+    }
+    const parsed = Number(normalized);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
 export const complianceQueryKeys = {
   all: ["compliance"] as const,
   analysis: (analysisId: number) => [...complianceQueryKeys.all, "analysis", analysisId] as const,
+  documentAnalyses: (documentId: number) =>
+    [...complianceQueryKeys.all, "documentAnalyses", documentId] as const,
 };
 
 async function parseJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
@@ -117,6 +156,14 @@ export async function createComplianceAnalysis(
 export async function getComplianceAnalysis(analysisId: number): Promise<ComplianceAnalysis> {
   const response = await fetch(apiUrl(`/api/v1/analyses/${analysisId}`));
   return parseJsonResponse(response, `Failed to fetch analysis ${analysisId}`);
+}
+
+/**
+ * GET /api/v1/documents/{documentId}/analyses
+ */
+export async function getDocumentAnalyses(documentId: number): Promise<ComplianceAnalysisSummary[]> {
+  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}/analyses`));
+  return parseJsonResponse(response, `Failed to fetch analyses for document ${documentId}`);
 }
 
 export function isLegacyRetrievalStatus(status: AssessmentStatus | string): boolean {
@@ -176,6 +223,33 @@ export function formatConfidencePercent(confidence: number | null | undefined): 
 export function formatRetrievalScore(score: number | null | undefined): string {
   if (score == null) return "—";
   return score.toFixed(2);
+}
+
+export function summarizeAnalysisSummaryCounts(
+  summary: ComplianceAnalysisSummary,
+): AssessmentSummaryCounts {
+  return {
+    covered: summary.coveredCount,
+    partiallyCovered: summary.partiallyCoveredCount,
+    notCovered: summary.notCoveredCount,
+    humanReviewRequired: summary.humanReviewRequiredCount,
+    evidenceRetrieved: summary.evidenceRetrievedCount,
+    noEvidenceFound: summary.noEvidenceFoundCount,
+  };
+}
+
+export function formatAnalysisSummaryCounts(summary: ComplianceAnalysisSummary): string {
+  const counts = summarizeAnalysisSummaryCounts(summary);
+  const parts: string[] = [];
+
+  if (counts.covered > 0) parts.push(`${counts.covered} Covered`);
+  if (counts.partiallyCovered > 0) parts.push(`${counts.partiallyCovered} Partially Covered`);
+  if (counts.notCovered > 0) parts.push(`${counts.notCovered} Not Covered`);
+  if (counts.humanReviewRequired > 0) parts.push(`${counts.humanReviewRequired} Human Review`);
+  if (counts.evidenceRetrieved > 0) parts.push(`${counts.evidenceRetrieved} Evidence Retrieved`);
+  if (counts.noEvidenceFound > 0) parts.push(`${counts.noEvidenceFound} No Evidence Found`);
+
+  return parts.join(" · ");
 }
 
 export function summarizeAssessments(assessments: RequirementAssessment[]): AssessmentSummaryCounts {

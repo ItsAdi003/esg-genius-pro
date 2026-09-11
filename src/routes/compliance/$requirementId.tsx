@@ -26,20 +26,17 @@ import {
   formatRetrievalScore,
   getComplianceAnalysis,
   isLegacyRetrievalStatus,
+  parseAnalysisIdSearch,
 } from "@/lib/compliance-api";
 
 type RequirementSearch = {
-  analysisId?: string;
+  analysisId?: number;
 };
 
 export const Route = createFileRoute("/compliance/$requirementId")({
-  validateSearch: (search: Record<string, unknown>): RequirementSearch => {
-    const analysisId = search.analysisId;
-    return {
-      analysisId:
-        typeof analysisId === "string" && analysisId.trim().length > 0 ? analysisId.trim() : undefined,
-    };
-  },
+  validateSearch: (search: Record<string, unknown>): RequirementSearch => ({
+    analysisId: parseAnalysisIdSearch(search.analysisId),
+  }),
   head: () => ({
     meta: [
       { title: "Requirement Details | ESGenius" },
@@ -83,18 +80,14 @@ function Block({
 
 function RequirementDetails() {
   const { requirementId } = Route.useParams();
-  const { analysisId: analysisIdParam } = Route.useSearch();
-
-  const parsedAnalysisId =
-    analysisIdParam != null ? Number(analysisIdParam) : Number.NaN;
-  const isValidAnalysisId = Number.isInteger(parsedAnalysisId) && parsedAnalysisId > 0;
+  const { analysisId } = Route.useSearch();
 
   const analysisQuery = useQuery({
-    queryKey: isValidAnalysisId
-      ? complianceQueryKeys.analysis(parsedAnalysisId)
+    queryKey: analysisId != null
+      ? complianceQueryKeys.analysis(analysisId)
       : [...complianceQueryKeys.all, "analysis", "none"],
-    queryFn: () => getComplianceAnalysis(parsedAnalysisId),
-    enabled: isValidAnalysisId,
+    queryFn: () => getComplianceAnalysis(analysisId!),
+    enabled: analysisId != null,
   });
 
   const analysis = analysisQuery.data;
@@ -107,7 +100,7 @@ function RequirementDetails() {
     (assessment?.evidenceText != null && assessment.evidenceText.trim().length > 0) ||
     (assessment?.evidenceChunks?.length ?? 0) > 0;
 
-  if (!analysisIdParam) {
+  if (analysisId == null) {
     return (
       <AppLayout title="Analysis required" description="">
         <div className="glass-panel p-8 text-center">
@@ -117,19 +110,6 @@ function RequirementDetails() {
           </p>
           <Button className="mt-4" asChild>
             <Link to="/documents">Go to Documents</Link>
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!isValidAnalysisId) {
-    return (
-      <AppLayout title="Invalid analysis" description="">
-        <div className="glass-panel p-8 text-center">
-          <p className="text-sm text-muted-foreground">The analysis ID in the URL is invalid.</p>
-          <Button className="mt-4" asChild>
-            <Link to="/compliance">Back to compliance</Link>
           </Button>
         </div>
       </AppLayout>
@@ -179,10 +159,10 @@ function RequirementDetails() {
       <AppLayout title="Requirement not found" description="">
         <div className="glass-panel p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Requirement {requirementId} was not found in analysis #{parsedAnalysisId}.
+            Requirement {requirementId} was not found in analysis #{analysisId}.
           </p>
           <Button className="mt-4" asChild>
-            <Link to="/compliance" search={{ analysisId: String(parsedAnalysisId) }}>
+            <Link to="/compliance" search={{ analysisId }}>
               Back to analysis
             </Link>
           </Button>
@@ -197,7 +177,7 @@ function RequirementDetails() {
       description={`${analysis.frameworkName} · ${formatEsgCategory(assessment.category)}`}
       actions={
         <Button variant="outline" asChild>
-          <Link to="/compliance" search={{ analysisId: String(analysis.id) }}>
+          <Link to="/compliance" search={{ analysisId: analysis.id }}>
             <ArrowLeft className="size-4" /> Back to analysis
           </Link>
         </Button>

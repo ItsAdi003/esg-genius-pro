@@ -104,7 +104,7 @@ function Documents() {
       toast.success("Compliance analysis completed");
       navigate({
         to: "/compliance",
-        search: { analysisId: String(analysis.id) },
+        search: { analysisId: analysis.id },
       });
     },
     onError: (error: Error) => {

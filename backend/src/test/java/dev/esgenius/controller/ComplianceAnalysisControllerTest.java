@@ -4,6 +4,7 @@ import dev.esgenius.entity.*;
 import dev.esgenius.repository.ComplianceAnalysisRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
+import dev.esgenius.repository.FrameworkRequirementRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
 import dev.esgenius.support.ComplianceTestFixtures;
@@ -14,9 +15,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -46,6 +49,9 @@ class ComplianceAnalysisControllerTest {
 
     @Autowired
     private RequirementAssessmentRepository assessmentRepository;
+
+    @Autowired
+    private FrameworkRequirementRepository requirementRepository;
 
     private Long documentId;
     private Long frameworkId;
@@ -148,5 +154,121 @@ class ComplianceAnalysisControllerTest {
                         .content("{\"frameworkId\":99999}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message", is("Framework not found: 99999")));
+    }
+
+    @Test
+    void listAnalysesReturnsNewestFirst() throws Exception {
+        Framework framework = frameworkRepository.findById(frameworkId).orElseThrow();
+        Document document = documentRepository.findById(documentId).orElseThrow();
+
+        ComplianceAnalysis older = new ComplianceAnalysis(document, framework);
+        older.setStatus(AnalysisStatus.COMPLETED);
+        ReflectionTestUtils.setField(older, "startedAt", Instant.now().minus(2, ChronoUnit.HOURS));
+        older.setCompletedAt(Instant.now().minus(2, ChronoUnit.HOURS));
+        analysisRepository.save(older);
+
+        ComplianceAnalysis newer = new ComplianceAnalysis(document, framework);
+        newer.setStatus(AnalysisStatus.COMPLETED);
+        ReflectionTestUtils.setField(newer, "startedAt", Instant.now().minus(1, ChronoUnit.HOURS));
+        newer.setCompletedAt(Instant.now().minus(1, ChronoUnit.HOURS));
+        analysisRepository.save(newer);
+
+        mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].id", is(newer.getId().intValue())))
+                .andExpect(jsonPath("$[1].id", is(older.getId().intValue())))
+                .andExpect(jsonPath("$[0].frameworkCode", is("BRSR")))
+                .andExpect(jsonPath("$[0].documentId", is(documentId.intValue())));
+    }
+
+    @Test
+    void listAnalysesReturnsEmptyArrayWhenNoAnalyses() throws Exception {
+        mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void listAnalysesReturns404ForMissingDocument() throws Exception {
+        mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", 99999))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message", is("Document not found: 99999")));
+    }
+
+    @Test
+    void listAnalysesIncludesStatusSummaryCounts() throws Exception {
+        mockMvc.perform(post("/api/v1/documents/{documentId}/analyses", documentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"frameworkCode\":\"BRSR\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].requirementCount", is(14)))
+                .andExpect(jsonPath("$[0].status", is("COMPLETED")))
+                .andExpect(jsonPath("$[0].frameworkName", notNullValue()))
+                .andExpect(jsonPath("$[0].coveredCount", greaterThanOrEqualTo(0)))
+                .andExpect(jsonPath("$[0].humanReviewRequiredCount", greaterThanOrEqualTo(0)));
+    }
+
+    @Test
+    void listAnalysesSupportsLegacyAssessmentStatuses() throws Exception {
+        Framework framework = frameworkRepository.findById(frameworkId).orElseThrow();
+        Document document = documentRepository.findById(documentId).orElseThrow();
+
+        ComplianceAnalysis analysis = new ComplianceAnalysis(document, framework);
+        analysis.setStatus(AnalysisStatus.COMPLETED);
+        analysis.setCompletedAt(Instant.now());
+        analysisRepository.save(analysis);
+
+        FrameworkRequirement withEvidence = requirementRepository.findByFramework(framework).stream()
+                .filter(r -> "ENV-003".equals(r.getRequirementCode()))
+                .findFirst()
+                .orElseThrow();
+        FrameworkRequirement withoutEvidence = requirementRepository.findByFramework(framework).stream()
+                .filter(r -> "SOC-002".equals(r.getRequirementCode()))
+                .findFirst()
+                .orElseThrow();
+
+        RequirementAssessment evidenceAssessment = new RequirementAssessment(analysis, withEvidence);
+        evidenceAssessment.setAssessmentStatus(AssessmentStatus.EVIDENCE_RETRIEVED);
+        evidenceAssessment.setRetrievalScore(47.5);
+        assessmentRepository.save(evidenceAssessment);
+
+        RequirementAssessment noEvidenceAssessment = new RequirementAssessment(analysis, withoutEvidence);
+        noEvidenceAssessment.setAssessmentStatus(AssessmentStatus.NO_EVIDENCE_FOUND);
+        noEvidenceAssessment.setRetrievalScore(0.0);
+        assessmentRepository.save(noEvidenceAssessment);
+
+        mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].requirementCount", is(2)))
+                .andExpect(jsonPath("$[0].evidenceRetrievedCount", is(1)))
+                .andExpect(jsonPath("$[0].noEvidenceFoundCount", is(1)));
+    }
+
+    @Test
+    void listAnalysesIncludesFailedAndInProgressStatuses() throws Exception {
+        Framework framework = frameworkRepository.findById(frameworkId).orElseThrow();
+        Document document = documentRepository.findById(documentId).orElseThrow();
+
+        ComplianceAnalysis failed = new ComplianceAnalysis(document, framework);
+        failed.setStatus(AnalysisStatus.FAILED);
+        failed.setFailureReason("Classification pipeline interrupted");
+        failed.setCompletedAt(Instant.now());
+        analysisRepository.save(failed);
+
+        ComplianceAnalysis inProgress = new ComplianceAnalysis(document, framework);
+        analysisRepository.save(inProgress);
+
+        mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].status", is("IN_PROGRESS")))
+                .andExpect(jsonPath("$[1].status", is("FAILED")))
+                .andExpect(jsonPath("$[1].failureReason", is("Classification pipeline interrupted")));
     }
 }
