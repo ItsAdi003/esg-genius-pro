@@ -18,6 +18,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlobalSearch } from "@/components/global-search";
+import { PrototypeBadge } from "@/components/prototype-notice";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ORG } from "@/lib/esg-data";
 import { cn } from "@/lib/utils";
@@ -36,9 +37,9 @@ const nav = [
   { to: "/compliance", label: "Compliance Analysis", icon: ClipboardCheck },
   { to: "/comparison", label: "Company Comparison", icon: TrendingUp },
   { to: "/frameworks", label: "ESG Frameworks", icon: Library },
-  { to: "/assistant", label: "AI ESG Assistant", icon: Bot },
-  { to: "/reports", label: "Reports", icon: FileBarChart2 },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/assistant", label: "AI ESG Assistant", icon: Bot, preview: true },
+  { to: "/reports", label: "Reports", icon: FileBarChart2, preview: true },
+  { to: "/settings", label: "Settings", icon: Settings, preview: true },
 ];
 
 function SidebarContent({
@@ -91,7 +92,12 @@ function SidebarContent({
                   <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
                 )}
                 <item.icon className="size-[18px] shrink-0" />
-                {!collapsed && item.label}
+                {!collapsed && (
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="truncate">{item.label}</span>
+                    {item.preview && <PrototypeBadge />}
+                  </span>
+                )}
               </Link>
             );
 
@@ -107,11 +113,16 @@ function SidebarContent({
         </nav>
 
         {!collapsed && (
-          <div className="glass-panel m-3 p-3">
-            <p className="text-xs font-medium">AI-Assisted Assessment</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              ESGenius supports compliance professionals with evidence-linked analysis. It does not
-              replace human review.
+          <div className="m-3 space-y-2">
+            <div className="glass-panel p-3">
+              <p className="text-xs font-medium">AI-Assisted Assessment</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                ESGenius supports compliance professionals with evidence-linked analysis. It does not
+                replace human review.
+              </p>
+            </div>
+            <p className="px-1 text-center text-[10px] text-muted-foreground/80">
+              ESGenius · Research Prototype
             </p>
           </div>
         )}

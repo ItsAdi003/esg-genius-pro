@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2, Library, Bot, Archive, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
+import { PrototypeNotice } from "@/components/prototype-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,9 +87,22 @@ function SettingsPage() {
   return (
     <AppLayout
       title="Settings"
-      description="Workspace configuration for ESG compliance analysis"
-      actions={<Button onClick={() => toast.success("Settings saved")}>Save changes</Button>}
+      description="Prototype configuration interface"
+      actions={
+        <Button
+          onClick={() =>
+            toast("Settings are not persisted in this prototype — forms are for demonstration only.")
+          }
+        >
+          Save changes
+        </Button>
+      }
     >
+      <PrototypeNotice title="Prototype configuration interface" className="mb-4">
+        These settings illustrate intended workspace preferences. Changes are not saved to a
+        backend in this research prototype.
+      </PrototypeNotice>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Section
           title="Organization Profile"
@@ -133,7 +147,7 @@ function SettingsPage() {
           icon={Library}
         >
           <div className="space-y-1 divide-y divide-border">
-            <ToggleRow label="SEBI BRSR" hint="Active framework · India · 56 requirements" defaultChecked />
+            <ToggleRow label="SEBI BRSR" hint="Active framework · India · 14 prototype requirements" defaultChecked />
             <ToggleRow label="GRI Standards" hint="Planned · Global" />
             <ToggleRow label="IFRS S1 / S2" hint="Planned · Global" />
             <ToggleRow label="ESRS" hint="Planned · European Union" />

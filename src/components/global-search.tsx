@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { globalSearch, type SearchResult } from "@/lib/esg-data";
+import { searchNavigation, type NavigationSearchResult } from "@/lib/navigation-search";
 
 export function GlobalSearch() {
   const [query, setQuery] = useState("");
@@ -10,7 +10,7 @@ export function GlobalSearch() {
   const navigate = useNavigate();
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const results = useMemo(() => globalSearch(query), [query]);
+  const results = useMemo(() => searchNavigation(query), [query]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -20,13 +20,11 @@ export function GlobalSearch() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const go = (r: SearchResult) => {
+  const go = (r: NavigationSearchResult) => {
     setOpen(false);
     setQuery("");
-    navigate({ to: r.to, params: r.params as never });
+    navigate({ to: r.to });
   };
-
-  const groups = ["Requirements", "Documents", "Reports", "Frameworks"] as const;
 
   return (
     <div ref={boxRef} className="relative hidden max-w-sm flex-1 md:block">
@@ -38,7 +36,7 @@ export function GlobalSearch() {
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search requirements, documents, reports…"
+        placeholder="Search pages and features…"
         className="h-9 bg-card/60 pl-9 backdrop-blur"
       />
       {open && query.trim() !== "" && (
@@ -48,27 +46,21 @@ export function GlobalSearch() {
               No matches for “{query}”.
             </p>
           ) : (
-            groups.map((g) => {
-              const items = results.filter((r) => r.group === g);
-              if (!items.length) return null;
-              return (
-                <div key={g} className="mb-1">
-                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {g}
-                  </p>
-                  {items.map((r) => (
-                    <button
-                      key={`${g}-${r.id}`}
-                      onClick={() => go(r)}
-                      className="block w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent/70"
-                    >
-                      <p className="text-sm font-medium">{r.title}</p>
-                      <p className="text-[11px] text-muted-foreground">{r.subtitle}</p>
-                    </button>
-                  ))}
-                </div>
-              );
-            })
+            <div>
+              <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Navigation
+              </p>
+              {results.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => go(r)}
+                  className="block w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent/70"
+                >
+                  <p className="text-sm font-medium">{r.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{r.subtitle}</p>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Download, Leaf, Printer } from "lucide-react";
-import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
+import { PrototypeNotice } from "@/components/prototype-notice";
 import { PriorityBadge, StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { ORG, aiInsights, requirements } from "@/lib/esg-data";
@@ -55,7 +55,7 @@ function GapAssessmentReport() {
   return (
     <AppLayout
       title="ESG Gap Assessment Report"
-      description="Report preview · generated from AI-assisted analysis"
+      description="Prototype preview · demonstration data only"
       actions={
         <>
           <Button variant="outline" asChild>
@@ -63,15 +63,20 @@ function GapAssessmentReport() {
               <ArrowLeft className="size-4" /> Back to reports
             </Link>
           </Button>
-          <Button variant="outline" onClick={() => toast("Print dialog would open")}>
+          <Button variant="outline" disabled>
             <Printer className="size-4" /> Print
           </Button>
-          <Button onClick={() => toast("Download started")}>
+          <Button disabled>
             <Download className="size-4" /> Download PDF
           </Button>
         </>
       }
     >
+      <PrototypeNotice title="Prototype Preview" className="mb-4 max-w-4xl mx-auto">
+        This layout uses demonstration compliance figures and evidence citations. It does not
+        reflect a real analysis unless you review results in Compliance Analysis.
+      </PrototypeNotice>
+
       <article className="surface-card mx-auto max-w-4xl px-6 py-8 sm:px-10 sm:py-12">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
           <div className="flex items-center gap-3">

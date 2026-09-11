@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Bot, Send, User, FileText, Info } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
+import { PrototypeNotice } from "@/components/prototype-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,7 +35,7 @@ const initial: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Hello Priya. I can answer questions about ABC Industries' ESG reporting readiness against SEBI BRSR. Overall readiness is currently 78%, based on 12 analysed documents. Ask about a requirement, an ESG category, or your open gaps.",
+      "Hello. This is a prototype preview of the ESGenius ESG assistant. Responses below are demonstration content — uploaded-document grounding is planned for a later RAG phase. Try a suggested question to see sample answers.",
   },
 ];
 
@@ -76,8 +77,13 @@ function Assistant() {
   return (
     <AppLayout
       title="ESG Compliance Assistant"
-      description="Evidence-linked answers generated from your documents and ESG framework sources"
+      description="Prototype preview · demonstration responses only"
     >
+      <PrototypeNotice title="Prototype Preview" className="mb-4">
+        The document-grounded ESG assistant is planned for a later RAG phase. Current responses
+        are demonstration content and are not based on your uploaded documents.
+      </PrototypeNotice>
+
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         <section className="surface-card flex h-[68vh] min-h-[520px] flex-col">
           <header className="flex items-center gap-3 border-b border-border px-5 py-3">
@@ -138,8 +144,8 @@ function Assistant() {
             </form>
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Info className="size-3" />
-              Responses are generated using organization documents and ESG framework sources, and
-              support — not replace — human compliance review.
+              Demonstration responses only. A future release will ground answers in uploaded
+              documents and framework sources.
             </p>
           </footer>
         </section>
@@ -158,9 +164,9 @@ function Assistant() {
             ))}
           </div>
           <div className="mt-5 rounded-lg border border-border bg-card p-3">
-            <p className="text-xs font-medium">Grounding sources</p>
+            <p className="text-xs font-medium">Planned grounding sources</p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              12 analysed documents · SEBI BRSR requirement library (56 disclosures)
+              Uploaded documents · BRSR prototype requirement library · compliance analysis results
             </p>
           </div>
         </aside>

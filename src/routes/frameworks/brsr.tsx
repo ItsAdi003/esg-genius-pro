@@ -1,8 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
+import { PrototypeNotice } from "@/components/prototype-notice";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -12,7 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { requirements } from "@/lib/esg-data";
+import {
+  findFrameworkByCode,
+  formatEsgCategory,
+  frameworkQueryKeys,
+  getFrameworkRequirements,
+  listFrameworks,
+  type EsgCategory,
+} from "@/lib/framework-api";
 
 export const Route = createFileRoute("/frameworks/brsr")({
   head: () => ({
@@ -33,14 +44,44 @@ export const Route = createFileRoute("/frameworks/brsr")({
   component: BrsrRequirements,
 });
 
+type CategoryTab = "all" | EsgCategory;
+
+const TAB_TO_CATEGORY: Record<CategoryTab, EsgCategory | null> = {
+  all: null,
+  ENVIRONMENTAL: "ENVIRONMENTAL",
+  SOCIAL: "SOCIAL",
+  GOVERNANCE: "GOVERNANCE",
+};
+
 function BrsrRequirements() {
-  const [tab, setTab] = useState("all");
-  const rows = requirements.filter((r) => tab === "all" || r.category === tab);
+  const [tab, setTab] = useState<CategoryTab>("all");
+
+  const frameworksQuery = useQuery({
+    queryKey: frameworkQueryKeys.list(),
+    queryFn: listFrameworks,
+  });
+
+  const brsrFramework = findFrameworkByCode(frameworksQuery.data ?? [], "BRSR");
+  const category = TAB_TO_CATEGORY[tab];
+
+  const requirementsQuery = useQuery({
+    queryKey: frameworkQueryKeys.requirements(brsrFramework?.id ?? 0, category),
+    queryFn: () => getFrameworkRequirements(brsrFramework!.id, category),
+    enabled: brsrFramework != null,
+  });
+
+  const rows = requirementsQuery.data ?? [];
+  const isLoading = frameworksQuery.isLoading || requirementsQuery.isLoading;
+  const isError = frameworksQuery.isError || requirementsQuery.isError;
 
   return (
     <AppLayout
       title="SEBI BRSR — Framework Requirements"
-      description="Requirements stored in the ESG knowledge base · BRSR 2023 (v1.2)"
+      description={
+        brsrFramework
+          ? `${brsrFramework.fullName} · ${brsrFramework.version}`
+          : "Loading framework metadata…"
+      }
       actions={
         <Button variant="outline" asChild>
           <Link to="/frameworks">
@@ -49,12 +90,36 @@ function BrsrRequirements() {
         </Button>
       }
     >
-      <Tabs value={tab} onValueChange={setTab}>
+      <PrototypeNotice title="Prototype coverage" className="mb-4">
+        This implementation currently includes 14 selected BRSR requirements for MVP validation
+        and does not represent the complete SEBI BRSR framework.
+      </PrototypeNotice>
+
+      {isError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Unable to load BRSR requirements</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span>Check that the backend is running and try again.</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                frameworksQuery.refetch();
+                requirementsQuery.refetch();
+              }}
+            >
+              <RefreshCw className="size-3.5" /> Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Tabs value={tab} onValueChange={(value) => setTab(value as CategoryTab)}>
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="Environmental">Environmental</TabsTrigger>
-          <TabsTrigger value="Social">Social</TabsTrigger>
-          <TabsTrigger value="Governance">Governance</TabsTrigger>
+          <TabsTrigger value="ENVIRONMENTAL">Environmental</TabsTrigger>
+          <TabsTrigger value="SOCIAL">Social</TabsTrigger>
+          <TabsTrigger value="GOVERNANCE">Governance</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -72,33 +137,47 @@ function BrsrRequirements() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.id}</TableCell>
-                  <TableCell className="font-medium">{r.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.category}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{r.description}</TableCell>
-                  <TableCell>
-                    <span
-                      className={
-                        r.mandatory
-                          ? "rounded-full border border-primary/25 bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground"
-                          : "rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-                      }
-                    >
-                      {r.mandatory ? "Mandatory" : "Optional"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{r.version}</TableCell>
-                </TableRow>
-              ))}
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 6 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                : rows.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {r.requirementCode}
+                      </TableCell>
+                      <TableCell className="font-medium">{r.title}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatEsgCategory(r.category)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.description}</TableCell>
+                      <TableCell>
+                        <span
+                          className={
+                            r.mandatory
+                              ? "rounded-full border border-primary/25 bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground"
+                              : "rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                          }
+                        >
+                          {r.mandatory ? "Mandatory" : "Optional"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{r.version}</TableCell>
+                    </TableRow>
+                  ))}
             </TableBody>
           </Table>
         </div>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Showing {rows.length} indexed requirements of 56 total BRSR disclosures in the knowledge
-        base.
+        Showing {rows.length} configured prototype requirement{rows.length === 1 ? "" : "s"}
+        {brsrFramework ? ` for ${brsrFramework.name}` : ""}.
       </p>
     </AppLayout>
   );
