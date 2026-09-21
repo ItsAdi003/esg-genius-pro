@@ -187,7 +187,9 @@ function ComplianceAnalysis() {
       description="AI-assisted assessment of disclosures against framework requirements"
       actions={
         <Button variant="outline" asChild>
-          <Link to="/reports/gap-assessment">Preview Gap Report</Link>
+          <Link to="/reports/gap-assessment" search={{ analysisId: analysis.id }}>
+            View Gap Assessment
+          </Link>
         </Button>
       }
     >

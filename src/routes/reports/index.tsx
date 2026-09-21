@@ -44,9 +44,11 @@ function Reports() {
       title="Reports"
       description="Report generation · planned · UI preview available"
     >
-      <PrototypeNotice title="Report Generation — Planned" className="mb-4">
-        PDF export and automated report generation are not implemented. Template cards and the gap
-        assessment preview show the intended product layout using demonstration data.
+      <PrototypeNotice title="Report Generation — Partial" className="mb-4">
+        Gap Assessment reports can be viewed for an existing compliance analysis (open Compliance
+        Analysis and choose View Gap Assessment). Backend PDF export is not implemented — use your
+        browser&apos;s Print → Save as PDF on the gap assessment page. Other report types below
+        remain planned previews.
       </PrototypeNotice>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -79,8 +81,8 @@ function Reports() {
               </TooltipProvider>
               {t.id === "gap-assessment" ? (
                 <Button variant="outline" asChild>
-                  <Link to="/reports/gap-assessment">
-                    <Eye className="size-4" /> Preview layout
+                  <Link to="/compliance">
+                    <Eye className="size-4" /> Open from Compliance
                   </Link>
                 </Button>
               ) : (
@@ -139,8 +141,8 @@ function Reports() {
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link to="/reports/gap-assessment">
-                          <Eye className="size-4" /> Preview
+                        <Link to="/compliance">
+                          <Eye className="size-4" /> Open Compliance
                         </Link>
                       </Button>
                       <Button variant="ghost" size="sm" disabled>
