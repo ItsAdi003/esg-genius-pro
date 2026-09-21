@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Search, ArrowRight, FileText, MinusCircle, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, ArrowRight, FileText, MinusCircle, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
 import { ConfidenceMeter, StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -36,6 +36,8 @@ import {
   getPrimaryEvidenceChunk,
   isLegacyRetrievalStatus,
   parseAnalysisIdSearch,
+  resolveAnalysisPollingInterval,
+  shouldRetryAnalysisQuery,
   summarizeAssessments,
   type AssessmentStatus,
 } from "@/lib/compliance-api";
@@ -89,6 +91,9 @@ function ComplianceAnalysis() {
       : [...complianceQueryKeys.all, "analysis", "none"],
     queryFn: () => getComplianceAnalysis(analysisId!),
     enabled: analysisId != null,
+    retry: (failureCount, error) => shouldRetryAnalysisQuery(failureCount, error),
+    refetchInterval: (query) =>
+      resolveAnalysisPollingInterval(query.state.data?.status),
   });
 
   const analysis = analysisQuery.data;
@@ -183,18 +188,36 @@ function ComplianceAnalysis() {
     return null;
   }
 
+  const isInProgress = analysis.status === "IN_PROGRESS";
+
   return (
     <AppLayout
       title="Compliance Analysis"
       description="AI-assisted assessment of disclosures against framework requirements"
       actions={
-        <Button variant="outline" asChild>
-          <Link to="/reports/gap-assessment" search={{ analysisId: analysis.id }}>
-            View Gap Assessment
-          </Link>
-        </Button>
+        !isInProgress ? (
+          <Button variant="outline" asChild>
+            <Link to="/reports/gap-assessment" search={{ analysisId: analysis.id }}>
+              View Gap Assessment
+            </Link>
+          </Button>
+        ) : undefined
       }
     >
+      {isInProgress && (
+        <Alert className="mb-4">
+          <Loader2 className="size-4 animate-spin" />
+          <AlertTitle>Analysis in progress</AlertTitle>
+          <AlertDescription>
+            ESGenius is retrieving evidence and evaluating BRSR requirements. This page will update
+            automatically.
+            {analysis.requirementCount > 0 && (
+              <> {analysis.requirementCount} requirements processed so far.</>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {analysis.status === "FAILED" && analysis.failureReason && (
         <Alert variant="destructive" className="mb-4">
           <AlertTitle>Analysis failed</AlertTitle>
@@ -242,45 +265,50 @@ function ComplianceAnalysis() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Covered", value: summary.covered, tone: "text-success" },
-          { label: "Partially Covered", value: summary.partiallyCovered, tone: "text-warning" },
-          { label: "Not Covered", value: summary.notCovered, tone: "text-danger" },
-          {
-            label: "Human Review Required",
-            value: summary.humanReviewRequired,
-            tone: "text-warning",
-          },
-        ].map((card) => (
-          <div key={card.label} className="surface-card p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
-            <p className={`mt-2 text-2xl font-semibold tabular-nums ${card.tone}`}>{card.value}</p>
+      {!isInProgress && (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Covered", value: summary.covered, tone: "text-success" },
+              { label: "Partially Covered", value: summary.partiallyCovered, tone: "text-warning" },
+              { label: "Not Covered", value: summary.notCovered, tone: "text-danger" },
+              {
+                label: "Human Review Required",
+                value: summary.humanReviewRequired,
+                tone: "text-warning",
+              },
+            ].map((card) => (
+              <div key={card.label} className="surface-card p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
+                <p className={`mt-2 text-2xl font-semibold tabular-nums ${card.tone}`}>{card.value}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {hasLegacyStatuses && (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="surface-card p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Evidence Retrieved (legacy)
-            </p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground">
-              {summary.evidenceRetrieved}
-            </p>
-          </div>
-          <div className="surface-card p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              No Evidence Found (legacy)
-            </p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground">
-              {summary.noEvidenceFound}
-            </p>
-          </div>
-        </div>
+          {hasLegacyStatuses && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="surface-card p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Evidence Retrieved (legacy)
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground">
+                  {summary.evidenceRetrieved}
+                </p>
+              </div>
+              <div className="surface-card p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  No Evidence Found (legacy)
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground">
+                  {summary.noEvidenceFound}
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
+      {!isInProgress && (
       <div className="surface-card mt-4 grid gap-3 p-4 md:grid-cols-3">
         <div className="relative md:col-span-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -318,7 +346,9 @@ function ComplianceAnalysis() {
           </SelectContent>
         </Select>
       </div>
+      )}
 
+      {!isInProgress && (
       <div className="surface-card mt-4 overflow-hidden">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <p className="text-sm font-semibold">Requirement Assessment</p>
@@ -414,6 +444,7 @@ function ComplianceAnalysis() {
           </Table>
         </div>
       </div>
+      )}
     </AppLayout>
   );
 }

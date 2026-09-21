@@ -126,8 +126,9 @@ class AssessmentStatusBackwardCompatibilityTest {
     void newAnalysesPersistOnlyFinalClassificationStatuses() {
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
 
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse created = complianceAnalysisService.startAnalysis(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
+        ComplianceAnalysisResponse response = complianceAnalysisService.getAnalysis(created.id());
 
         Set<String> statuses = response.assessments().stream()
                 .map(RequirementAssessmentResponse::assessmentStatus)

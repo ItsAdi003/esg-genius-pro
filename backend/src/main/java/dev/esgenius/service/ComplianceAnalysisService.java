@@ -18,10 +18,10 @@ import dev.esgenius.config.GeminiProperties;
 import dev.esgenius.service.compliance.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 public class ComplianceAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(ComplianceAnalysisService.class);
+    static final String GENERIC_FAILURE_REASON = ComplianceAnalysisPersistenceService.GENERIC_FAILURE_REASON;
 
     private final ComplianceAnalysisRepository analysisRepository;
     private final RequirementAssessmentRepository assessmentRepository;
@@ -47,6 +48,9 @@ public class ComplianceAnalysisService {
     private final ClassificationEvidenceBuilder classificationEvidenceBuilder;
     private final GeminiProperties geminiProperties;
     private final ObjectMapper objectMapper;
+    private final ComplianceAnalysisCreationService creationService;
+    private final ComplianceAnalysisPersistenceService persistenceService;
+    private final ComplianceAnalysisProcessor complianceAnalysisProcessor;
 
     public ComplianceAnalysisService(
             ComplianceAnalysisRepository analysisRepository,
@@ -62,7 +66,10 @@ public class ComplianceAnalysisService {
             ClassificationFailureHandler failureHandler,
             ClassificationEvidenceBuilder classificationEvidenceBuilder,
             GeminiProperties geminiProperties,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ComplianceAnalysisCreationService creationService,
+            ComplianceAnalysisPersistenceService persistenceService,
+            @Lazy ComplianceAnalysisProcessor complianceAnalysisProcessor) {
         this.analysisRepository = analysisRepository;
         this.assessmentRepository = assessmentRepository;
         this.documentRepository = documentRepository;
@@ -77,70 +84,72 @@ public class ComplianceAnalysisService {
         this.classificationEvidenceBuilder = classificationEvidenceBuilder;
         this.geminiProperties = geminiProperties;
         this.objectMapper = objectMapper;
+        this.creationService = creationService;
+        this.persistenceService = persistenceService;
+        this.complianceAnalysisProcessor = complianceAnalysisProcessor;
     }
 
-    @Transactional
     public ComplianceAnalysisResponse startAnalysis(Long documentId, StartAnalysisRequest request) {
+        Long analysisId = creationService.createInProgressAnalysis(documentId, request);
+        ComplianceAnalysisResponse response = getAnalysis(analysisId);
+        complianceAnalysisProcessor.processAnalysis(analysisId);
+        return response;
+    }
+
+    public void executeAnalysis(Long analysisId) {
+        ComplianceAnalysis analysis = analysisRepository.findByIdWithFrameworkAndDocument(analysisId)
+                .orElseThrow(() -> new ResourceNotFoundException("Analysis not found: " + analysisId));
+
+        if (analysis.getStatus() != AnalysisStatus.IN_PROGRESS) {
+            log.warn("Skipping analysis {} because status is {}", analysisId, analysis.getStatus());
+            return;
+        }
+
+        Long documentId = analysis.getDocument().getId();
+        Long frameworkId = analysis.getFramework().getId();
+
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
 
-        if (document.getStatus() != DocumentStatus.READY) {
-            throw new BadRequestException(
-                    "Document must be in READY status before analysis. Current status: " + document.getStatus());
-        }
+        Framework framework = frameworkRepository.findById(frameworkId)
+                .orElseThrow(() -> new ResourceNotFoundException("Framework not found: " + frameworkId));
 
-        if (document.getExtractedText() == null || document.getExtractedText().isBlank()) {
-            throw new BadRequestException("Document has no extracted text available for analysis");
-        }
-
-        Framework framework = resolveFramework(request);
         List<FrameworkRequirement> requirements = requirementRepository.findByFramework(framework);
-        if (requirements.isEmpty()) {
-            throw new BadRequestException("Framework has no requirements: " + framework.getCode());
-        }
-
-        ComplianceAnalysis analysis = new ComplianceAnalysis(document, framework);
-        analysisRepository.save(analysis);
-
         List<TextChunk> chunks = buildChunksForDocument(document);
 
-        try {
-            for (FrameworkRequirement requirement : requirements) {
-                RequirementAssessment assessment = new RequirementAssessment(analysis, requirement);
-                List<RetrievedChunk> retrieved = retrievalService.retrieve(requirement, chunks);
+        for (FrameworkRequirement requirement : requirements) {
+            List<RetrievedChunk> retrieved = retrievalService.retrieve(requirement, chunks);
+            boolean hadEvidence = !retrieved.isEmpty();
 
-                if (retrieved.isEmpty()) {
-                    assessment.setRetrievalScore(0.0);
-                    applyClassificationResult(assessment, noEvidenceClassifier.classify(requirement));
-                } else {
-                    double topScore = retrieved.get(0).score();
-                    assessment.setRetrievalScore(topScore);
-                    assessment.setEvidenceText(buildEvidenceText(retrieved));
-                    assessment.setEvidenceChunks(serializeEvidenceChunks(retrieved));
-                    applyClassificationResult(assessment, classifyWithEvidence(requirement, retrieved, chunks));
-                    paceBeforeNextClassification();
-                }
-
-                analysis.addAssessment(assessment);
+            if (hadEvidence) {
+                double topScore = retrieved.get(0).score();
+                ComplianceClassificationResult classification =
+                        classifyWithEvidence(requirement, retrieved, chunks);
+                persistenceService.persistRequirementAssessment(
+                        analysisId,
+                        requirement.getId(),
+                        topScore,
+                        buildEvidenceText(retrieved),
+                        serializeEvidenceChunks(retrieved),
+                        classification);
+                paceBeforeNextClassification();
+            } else {
+                persistenceService.persistRequirementAssessment(
+                        analysisId,
+                        requirement.getId(),
+                        0.0,
+                        null,
+                        null,
+                        noEvidenceClassifier.classify(requirement));
             }
-
-            analysis.setStatus(AnalysisStatus.COMPLETED);
-            analysis.setCompletedAt(Instant.now());
-            analysisRepository.save(analysis);
-
-            return toResponse(analysis);
-        } catch (RuntimeException ex) {
-            analysis.setStatus(AnalysisStatus.FAILED);
-            analysis.setFailureReason(ex.getMessage());
-            analysis.setCompletedAt(Instant.now());
-            analysisRepository.save(analysis);
-            throw ex;
         }
+
+        persistenceService.finalizeCompleted(analysisId);
     }
 
     @Transactional(readOnly = true)
     public ComplianceAnalysisResponse getAnalysis(Long analysisId) {
-        ComplianceAnalysis analysis = analysisRepository.findById(analysisId)
+        ComplianceAnalysis analysis = analysisRepository.findByIdWithFrameworkAndDocument(analysisId)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis not found: " + analysisId));
         return toResponse(analysis);
     }
@@ -202,39 +211,6 @@ public class ComplianceAnalysisService {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Classification pacing interrupted", interrupted);
         }
-    }
-
-    private void applyClassificationResult(
-            RequirementAssessment assessment, ComplianceClassificationResult result) {
-        if (result.status().isLegacyRetrievalStatus()) {
-            throw new IllegalStateException(
-                    "Cannot persist legacy retrieval assessment status: " + result.status());
-        }
-        assessment.setAssessmentStatus(result.status());
-        assessment.setConfidence(result.confidence());
-        assessment.setExplanation(result.explanation());
-        assessment.setGap(result.gap());
-        assessment.setRecommendation(result.recommendation());
-    }
-
-    private Framework resolveFramework(StartAnalysisRequest request) {
-        if (request == null) {
-            throw new BadRequestException("Request body is required with frameworkId or frameworkCode");
-        }
-
-        if (request.frameworkId() != null) {
-            return frameworkRepository.findById(request.frameworkId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Framework not found: " + request.frameworkId()));
-        }
-
-        if (request.frameworkCode() != null && !request.frameworkCode().isBlank()) {
-            return frameworkRepository.findByCode(request.frameworkCode().trim().toUpperCase())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Framework not found: " + request.frameworkCode()));
-        }
-
-        throw new BadRequestException("frameworkId or frameworkCode is required");
     }
 
     private List<TextChunk> buildChunksForDocument(Document document) {

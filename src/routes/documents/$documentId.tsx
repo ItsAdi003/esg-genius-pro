@@ -98,7 +98,7 @@ function DocumentDetailPage() {
       void queryClient.invalidateQueries({
         queryKey: complianceQueryKeys.documentAnalyses(documentId),
       });
-      toast.success("Compliance analysis completed");
+      toast.success("Compliance analysis started");
       navigate({
         to: "/compliance",
         search: { analysisId: analysis.id },
@@ -202,7 +202,7 @@ function DocumentDetailPage() {
           >
             <ScanSearch className="size-4" />
             {analyzeMutation.isPending
-              ? "Analyzing document…"
+              ? "Starting analysis…"
               : hasAnalysisHistory
                 ? "Run New Analysis"
                 : "Run Compliance Analysis"}
@@ -462,10 +462,22 @@ function DocumentDetailPage() {
                       )}
                       {analysis.status === "IN_PROGRESS" && (
                         <p className="text-sm text-muted-foreground">
-                          This analysis is still running. Check back shortly.
+                          ESGenius is retrieving evidence and evaluating requirements.
                         </p>
                       )}
                     </div>
+
+                    {analysis.status === "IN_PROGRESS" && (
+                      <Button variant="secondary" size="sm" className="shrink-0" asChild>
+                        <Link
+                          to="/compliance"
+                          search={{ analysisId: analysis.id }}
+                        >
+                          <ExternalLink className="size-4" />
+                          View Progress
+                        </Link>
+                      </Button>
+                    )}
 
                     {analysis.status === "COMPLETED" && (
                       <Button variant="secondary" size="sm" className="shrink-0" asChild>

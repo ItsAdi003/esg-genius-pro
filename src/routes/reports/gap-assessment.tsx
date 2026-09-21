@@ -27,6 +27,8 @@ import {
   getComplianceAnalysis,
   isLegacyRetrievalStatus,
   parseAnalysisIdSearch,
+  resolveAnalysisPollingInterval,
+  shouldRetryAnalysisQuery,
   summarizeAssessments,
   type AssessmentStatus,
   type RequirementAssessment,
@@ -235,6 +237,9 @@ function GapAssessmentReport() {
       : [...complianceQueryKeys.all, "analysis", "none"],
     queryFn: () => getComplianceAnalysis(analysisId!),
     enabled: analysisId != null,
+    retry: (failureCount, error) => shouldRetryAnalysisQuery(failureCount, error),
+    refetchInterval: (query) =>
+      resolveAnalysisPollingInterval(query.state.data?.status),
   });
 
   const analysis = analysisQuery.data;
@@ -381,6 +386,26 @@ function GapAssessmentReport() {
 
   if (!analysis) {
     return null;
+  }
+
+  if (analysis.status === "IN_PROGRESS") {
+    return (
+      <AppLayout title="Gap Assessment Report" description="">
+        <div className="glass-panel max-w-3xl mx-auto p-10 text-center">
+          <AlertCircle className="mx-auto size-10 text-muted-foreground" />
+          <p className="mt-4 text-sm font-medium">Analysis is still in progress</p>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+            Gap assessment conclusions are available once the compliance analysis completes. This
+            page will update automatically when results are ready.
+          </p>
+          <Button className="mt-6" asChild>
+            <Link to="/compliance" search={{ analysisId: analysis.id }}>
+              View analysis progress
+            </Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
   }
 
   const document = documentQuery.data;

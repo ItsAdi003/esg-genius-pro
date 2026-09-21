@@ -133,8 +133,9 @@ class PageAwareEvidenceProvenanceTest {
     void pageAwareAnalysisPersistsPageNumbersInEvidenceResponse() {
         Document document = createReadyDocumentWithPages();
 
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse created = complianceAnalysisService.startAnalysis(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
+        ComplianceAnalysisResponse response = complianceAnalysisService.getAnalysis(created.id());
 
         RequirementAssessmentResponse scope1 = response.assessments().stream()
                 .filter(a -> "ENV-003".equals(a.requirementCode()))

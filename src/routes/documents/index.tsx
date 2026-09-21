@@ -101,7 +101,7 @@ function Documents() {
   const analyzeMutation = useMutation({
     mutationFn: createComplianceAnalysis,
     onSuccess: (analysis) => {
-      toast.success("Compliance analysis completed");
+      toast.success("Compliance analysis started");
       navigate({
         to: "/compliance",
         search: { analysisId: analysis.id },

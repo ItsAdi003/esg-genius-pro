@@ -81,14 +81,25 @@ class ComplianceAnalysisControllerTest {
     }
 
     @Test
-    void startAnalysisReturnsCreatedResponse() throws Exception {
-        mockMvc.perform(post("/api/v1/documents/{documentId}/analyses", documentId)
+    void startAnalysisReturnsAcceptedResponse() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/v1/documents/{documentId}/analyses", documentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"frameworkCode\":\"BRSR\"}"))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.id", notNullValue()))
                 .andExpect(jsonPath("$.documentId", is(documentId.intValue())))
                 .andExpect(jsonPath("$.frameworkCode", is("BRSR")))
+                .andExpect(jsonPath("$.status", is("IN_PROGRESS")))
+                .andExpect(jsonPath("$.requirementCount", is(0)))
+                .andExpect(jsonPath("$.assessments", hasSize(0)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Number analysisId = com.jayway.jsonpath.JsonPath.read(createResponse, "$.id");
+
+        mockMvc.perform(get("/api/v1/analyses/{analysisId}", analysisId.longValue()))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("COMPLETED")))
                 .andExpect(jsonPath("$.requirementCount", is(14)))
                 .andExpect(jsonPath("$.assessments", hasSize(14)))
@@ -105,7 +116,7 @@ class ComplianceAnalysisControllerTest {
         String createResponse = mockMvc.perform(post("/api/v1/documents/{documentId}/analyses", documentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"frameworkId\":" + frameworkId + "}"))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -201,7 +212,7 @@ class ComplianceAnalysisControllerTest {
         mockMvc.perform(post("/api/v1/documents/{documentId}/analyses", documentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"frameworkCode\":\"BRSR\"}"))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         mockMvc.perform(get("/api/v1/documents/{documentId}/analyses", documentId))
                 .andExpect(status().isOk())

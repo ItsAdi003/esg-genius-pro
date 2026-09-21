@@ -73,7 +73,7 @@ class ComplianceAnalysisClassificationTest {
                 AssessmentStatus.COVERED, 0.95, "Fully disclosed.", null, null));
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         RequirementAssessmentResponse env003 = findAssessment(response, "ENV-003");
@@ -93,7 +93,7 @@ class ComplianceAnalysisClassificationTest {
                 "Missing baseline year.", "Add baseline year."));
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         RequirementAssessmentResponse assessment = response.assessments().get(0);
@@ -108,7 +108,7 @@ class ComplianceAnalysisClassificationTest {
                 AssessmentStatus.NOT_COVERED, 0.8, "Not found.", "No disclosure.", "Add disclosure."));
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.assessments())
@@ -122,7 +122,7 @@ class ComplianceAnalysisClassificationTest {
                 "Conflicting data.", "Manual review needed."));
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.assessments().stream().filter(a -> a.retrievalScore() > 0.0).toList())
@@ -134,7 +134,7 @@ class ComplianceAnalysisClassificationTest {
     void noEvidenceFoundSkipsGeminiAndProducesDeterministicResult() {
         Document document = createReadyDocument("Unrelated corporate boilerplate with no ESG content whatsoever.");
 
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
@@ -167,7 +167,7 @@ class ComplianceAnalysisClassificationTest {
         });
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
@@ -201,7 +201,7 @@ class ComplianceAnalysisClassificationTest {
                 "Total Scope 1 emissions were 15,000 metric tonnes CO2e for the reporting year.");
         Document document = createReadyDocument(chunkText);
 
-        complianceAnalysisService.startAnalysis(document.getId(), new StartAnalysisRequest(null, "BRSR"));
+        startAndAwaitCompletion(document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         verify(classificationProvider, atLeastOnce()).classify(any());
     }
@@ -216,9 +216,8 @@ class ComplianceAnalysisClassificationTest {
         });
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse created = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse fetched = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
-        ComplianceAnalysisResponse fetched = complianceAnalysisService.getAnalysis(created.id());
 
         RequirementAssessmentResponse env003 = findAssessment(fetched, "ENV-003");
         assertThat(env003.evidenceText()).containsIgnoringCase("Scope 1");
@@ -232,13 +231,19 @@ class ComplianceAnalysisClassificationTest {
                 AssessmentStatus.COVERED, 0.85, "OK", null, null));
 
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.requirementCount()).isEqualTo(14);
         assertThat(response.assessments())
                 .extracting(RequirementAssessmentResponse::requirementCode)
                 .contains("ENV-003", "ENV-004", "SOC-001", "GOV-001");
+    }
+
+    private ComplianceAnalysisResponse startAndAwaitCompletion(
+            Long documentId, StartAnalysisRequest request) {
+        ComplianceAnalysisResponse created = complianceAnalysisService.startAnalysis(documentId, request);
+        return complianceAnalysisService.getAnalysis(created.id());
     }
 
     private RequirementAssessmentResponse findAssessment(ComplianceAnalysisResponse response, String code) {

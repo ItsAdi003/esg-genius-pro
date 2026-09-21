@@ -31,7 +31,7 @@ public class ComplianceAnalysisController {
             @PathVariable Long documentId,
             @RequestBody StartAnalysisRequest request) {
         ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(documentId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     @GetMapping("/analyses/{analysisId}")

@@ -74,7 +74,7 @@ class ComplianceAnalysisServiceTest {
     void startAnalysisProcessesAllSeededRequirements() {
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
 
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
@@ -90,7 +90,7 @@ class ComplianceAnalysisServiceTest {
     void emissionsRequirementRetrievesEmissionsEvidence() {
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
 
-        ComplianceAnalysisResponse response = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(brsrFramework.getId(), null));
 
         RequirementAssessmentResponse scope1 = response.assessments().stream()
@@ -238,7 +238,7 @@ class ComplianceAnalysisServiceTest {
     void getAnalysisReturnsPersistedRetrievalResults() {
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
 
-        ComplianceAnalysisResponse created = complianceAnalysisService.startAnalysis(
+        ComplianceAnalysisResponse created = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         ComplianceAnalysisResponse fetched = complianceAnalysisService.getAnalysis(created.id());
@@ -247,6 +247,12 @@ class ComplianceAnalysisServiceTest {
         assertThat(fetched.assessments()).hasSize(14);
         assertThat(fetched.assessments().get(0).requirementTitle()).isNotBlank();
         assertThat(fetched.assessments().get(0).category()).isIn("ENVIRONMENTAL", "SOCIAL", "GOVERNANCE");
+    }
+
+    private ComplianceAnalysisResponse startAndAwaitCompletion(
+            Long documentId, StartAnalysisRequest request) {
+        ComplianceAnalysisResponse created = complianceAnalysisService.startAnalysis(documentId, request);
+        return complianceAnalysisService.getAnalysis(created.id());
     }
 
     private void saveAssessment(

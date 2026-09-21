@@ -4,6 +4,19 @@ import { formatInstant } from "@/lib/document-api";
 /** Backend AnalysisStatus enum — dev.esgenius.entity.AnalysisStatus */
 export type AnalysisStatus = "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
+/** Poll interval while an analysis is running (ms). */
+export const ANALYSIS_POLLING_INTERVAL_MS = 2000;
+
+/** TanStack Query refetch interval — polls only while status is IN_PROGRESS. */
+export function resolveAnalysisPollingInterval(
+  status: AnalysisStatus | undefined,
+): number | false {
+  if (status === "IN_PROGRESS") {
+    return ANALYSIS_POLLING_INTERVAL_MS;
+  }
+  return false;
+}
+
 /** Backend AssessmentStatus enum — dev.esgenius.entity.AssessmentStatus */
 export type AssessmentStatus =
   | "COVERED"
@@ -111,6 +124,16 @@ export class ComplianceApiError extends Error {
   }
 }
 
+export function shouldRetryAnalysisQuery(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 2) {
+    return false;
+  }
+  if (error instanceof ComplianceApiError && error.status === 404) {
+    return false;
+  }
+  return true;
+}
+
 /** TanStack Router JSON-stringifies string search values (e.g. analysisId="10"). Use number in navigation. */
 export function parseAnalysisIdSearch(value: unknown): number | undefined {
   if (typeof value === "number") {
@@ -155,6 +178,7 @@ async function parseJsonResponse<T>(response: Response, fallbackMessage: string)
 
 /**
  * POST /api/v1/documents/{documentId}/analyses
+ * Returns quickly with status IN_PROGRESS (HTTP 202 Accepted).
  */
 export async function createComplianceAnalysis(
   documentId: number,
