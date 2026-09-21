@@ -1,5 +1,6 @@
 package dev.esgenius.controller;
 
+import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import dev.esgenius.service.LocalFileStorageService;
@@ -30,6 +31,9 @@ class DocumentControllerTest {
 
     @Autowired
     private DocumentRepository documentRepository;
+
+    @Autowired
+    private DocumentPageRepository documentPageRepository;
 
     @Autowired
     private LocalFileStorageService fileStorageService;
@@ -91,6 +95,36 @@ class DocumentControllerTest {
     }
 
     @Test
+    void getDocumentPagesReturnsPagesInAscendingOrder() throws Exception {
+        Long documentId = uploadMultiPageDocument();
+
+        mockMvc.perform(get("/api/v1/documents/{documentId}/pages", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].pageNumber", is(1)))
+                .andExpect(jsonPath("$[0].text", containsString(TestPdfFixtures.LINE_ONE)))
+                .andExpect(jsonPath("$[1].pageNumber", is(2)))
+                .andExpect(jsonPath("$[1].text", containsString(TestPdfFixtures.PAGE_TWO_LINE)));
+    }
+
+    @Test
+    void getDocumentPagesReturnsEmptyListForLegacyDocumentWithoutPageRows() throws Exception {
+        Long documentId = uploadSampleDocument();
+        documentPageRepository.deleteAll();
+
+        mockMvc.perform(get("/api/v1/documents/{documentId}/pages", documentId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void getDocumentPagesReturnsNotFoundForMissingDocument() throws Exception {
+        mockMvc.perform(get("/api/v1/documents/{documentId}/pages", 99999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message", is("Document not found: 99999")));
+    }
+
+    @Test
     void uploadRejectsEmptyFile() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "empty.pdf", "application/pdf", new byte[0]);
 
@@ -148,6 +182,22 @@ class DocumentControllerTest {
                 "sample.pdf",
                 "application/pdf",
                 TestPdfFixtures.createSamplePdfBytes());
+
+        mockMvc.perform(multipart("/api/v1/documents")
+                        .file(file)
+                        .param("organizationId", organizationId.toString())
+                        .param("documentType", "ANNUAL_REPORT"))
+                .andExpect(status().isCreated());
+
+        return documentRepository.findAll().get(0).getId();
+    }
+
+    private Long uploadMultiPageDocument() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "multi-page.pdf",
+                "application/pdf",
+                TestPdfFixtures.createMultiPagePdfBytes());
 
         mockMvc.perform(multipart("/api/v1/documents")
                         .file(file)

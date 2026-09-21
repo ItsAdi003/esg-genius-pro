@@ -27,6 +27,17 @@ export function formatEvidenceSourceLabel(chunk: EvidenceChunk): string {
   return `Source chunk ${chunk.chunkIndex}`;
 }
 
+export function getPrimaryEvidenceChunk(
+  chunks: EvidenceChunk[],
+): EvidenceChunk | undefined {
+  if (chunks.length === 0) {
+    return undefined;
+  }
+  return chunks.reduce((best, chunk) =>
+    chunk.retrievalScore > best.retrievalScore ? chunk : best,
+  );
+}
+
 export interface RequirementAssessment {
   requirementId: number;
   requirementCode: string;

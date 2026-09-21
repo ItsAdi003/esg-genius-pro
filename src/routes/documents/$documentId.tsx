@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, RefreshCw, ScanSearch, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, ScanSearch, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
   complianceQueryKeys,
   createComplianceAnalysis,
   formatAnalysisStatus,
@@ -34,6 +42,7 @@ import {
   formatInstant,
   formatReportingYear,
   getDocument,
+  getDocumentPages,
 } from "@/lib/document-api";
 
 export const Route = createFileRoute("/documents/$documentId")({
@@ -60,6 +69,7 @@ function DocumentDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [selectedPageNumber, setSelectedPageNumber] = useState(1);
 
   const documentId = Number(documentIdParam);
   const isValidId = Number.isInteger(documentId) && documentId > 0;
@@ -68,6 +78,12 @@ function DocumentDetailPage() {
     queryKey: isValidId ? documentQueryKeys.detail(documentId) : [...documentQueryKeys.all, "detail", "invalid"],
     queryFn: () => getDocument(documentId),
     enabled: isValidId,
+  });
+
+  const pagesQuery = useQuery({
+    queryKey: isValidId ? documentQueryKeys.pages(documentId) : [...documentQueryKeys.all, "pages", "invalid"],
+    queryFn: () => getDocumentPages(documentId),
+    enabled: isValidId && documentQuery.data?.status === "READY",
   });
 
   const analysesQuery = useQuery({
@@ -160,7 +176,13 @@ function DocumentDetailPage() {
   const document = documentQuery.data;
   const statusLabel = formatDocumentStatus(document.status);
   const isFailed = document.status === "FAILED";
+  const isProcessing = document.status === "PROCESSING" || document.status === "UPLOADED";
   const hasAnalysisHistory = (analysesQuery.data?.length ?? 0) > 0;
+  const documentPages = pagesQuery.data ?? [];
+  const hasPageViewer = documentPages.length > 0;
+  const activePage =
+    documentPages.find((page) => page.pageNumber === selectedPageNumber) ?? documentPages[0];
+  const activePageIndex = documentPages.findIndex((page) => page.pageNumber === activePage?.pageNumber);
 
   return (
     <AppLayout
@@ -202,6 +224,37 @@ function DocumentDetailPage() {
         </Alert>
       )}
 
+      {isProcessing && (
+        <Alert className="mb-4">
+          <AlertTitle>Processing in progress</AlertTitle>
+          <AlertDescription>
+            PDF text extraction is running. Extracted text and page data will appear when processing
+            completes.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {document.status === "READY" && !hasPageViewer && !pagesQuery.isLoading && (
+        <Alert className="mb-4">
+          <AlertTitle>Page-aware source provenance</AlertTitle>
+          <AlertDescription>
+            This document was processed before per-page storage was available. Compliance evidence
+            for newer analyses may show &ldquo;Source chunk N&rdquo; instead of page numbers.
+            Re-upload the PDF to enable Page N labels in compliance results.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {document.status === "READY" && hasPageViewer && (
+        <Alert className="mb-4">
+          <AlertTitle>Page-aware source provenance</AlertTitle>
+          <AlertDescription>
+            Per-page extracted text is stored for this document. Compliance evidence cites real PDF
+            page numbers (Page N) in analysis results.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="glass-panel grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Organization", value: document.organizationName },
@@ -229,7 +282,10 @@ function DocumentDetailPage() {
         <div className="border-b border-border/70 px-5 py-4">
           <h2 className="text-sm font-semibold">Extracted Text</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Plain text extracted by PDFBox. Page-level mapping is not available in this phase.
+            Plain text extracted by PDFBox.
+            {hasPageViewer
+              ? " Browse by page or view the combined document text below."
+              : " Page-aware source provenance for newly processed documents is shown in compliance evidence."}
           </p>
         </div>
 
@@ -239,15 +295,96 @@ function DocumentDetailPage() {
               No extracted text is available because processing failed.
               {document.failureReason ? ` ${document.failureReason}` : ""}
             </p>
+          ) : isProcessing ? (
+            <p className="text-sm text-muted-foreground">
+              Text extraction is still in progress. Check back shortly.
+            </p>
+          ) : hasPageViewer && activePage ? (
+            <Tabs defaultValue="by-page">
+              <TabsList className="mb-4">
+                <TabsTrigger value="by-page">By page</TabsTrigger>
+                <TabsTrigger value="full">Full document</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="by-page" className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={activePageIndex <= 0}
+                    onClick={() => {
+                      const previousPage = documentPages[activePageIndex - 1];
+                      if (previousPage) {
+                        setSelectedPageNumber(previousPage.pageNumber);
+                      }
+                    }}
+                  >
+                    <ChevronLeft className="size-4" />
+                    Previous
+                  </Button>
+                  <Select
+                    value={String(activePage.pageNumber)}
+                    onValueChange={(value) => setSelectedPageNumber(Number(value))}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentPages.map((page) => (
+                        <SelectItem key={page.pageNumber} value={String(page.pageNumber)}>
+                          Page {page.pageNumber}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={activePageIndex >= documentPages.length - 1}
+                    onClick={() => {
+                      const nextPage = documentPages[activePageIndex + 1];
+                      if (nextPage) {
+                        setSelectedPageNumber(nextPage.pageNumber);
+                      }
+                    }}
+                  >
+                    Next
+                    <ChevronRight className="size-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {activePageIndex + 1} of {documentPages.length}
+                  </span>
+                </div>
+                {activePage.text && activePage.text.trim().length > 0 ? (
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-muted-foreground">
+                    {activePage.text}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No text was extracted for this page.</p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="full">
+                {document.extractedText && document.extractedText.trim().length > 0 ? (
+                  <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-muted-foreground">
+                    {document.extractedText}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No extracted text is available for this document.
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
           ) : document.extractedText && document.extractedText.trim().length > 0 ? (
             <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-muted-foreground">
               {document.extractedText}
             </pre>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {document.status === "PROCESSING" || document.status === "UPLOADED"
-                ? "Text extraction is still in progress."
-                : "No extracted text is available for this document."}
+              No extracted text is available for this document.
             </p>
           )}
         </div>

@@ -29,9 +29,11 @@ import {
   formatAssessmentStatus,
   formatConfidencePercent,
   formatEsgCategory,
+  formatEvidenceSourceLabel,
   formatInstant,
   formatRetrievalScore,
   getComplianceAnalysis,
+  getPrimaryEvidenceChunk,
   isLegacyRetrievalStatus,
   parseAnalysisIdSearch,
   summarizeAssessments,
@@ -345,6 +347,10 @@ function ComplianceAnalysis() {
                   ? null
                   : formatConfidencePercent(assessment.confidence);
                 const evidencePreview = assessment.evidenceText?.trim();
+                const primaryChunk = getPrimaryEvidenceChunk(assessment.evidenceChunks);
+                const evidenceSourceLabel = primaryChunk
+                  ? formatEvidenceSourceLabel(primaryChunk)
+                  : null;
 
                 return (
                   <TableRow key={assessment.requirementCode}>
@@ -368,7 +374,14 @@ function ComplianceAnalysis() {
                       {evidencePreview ? (
                         <div className="flex items-start gap-2 text-xs">
                           <FileText className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                          <span className="line-clamp-2 text-muted-foreground">{evidencePreview}</span>
+                          <div className="min-w-0">
+                            {evidenceSourceLabel && (
+                              <p className="mb-1 font-medium text-muted-foreground">
+                                {evidenceSourceLabel}
+                              </p>
+                            )}
+                            <span className="line-clamp-2 text-muted-foreground">{evidencePreview}</span>
+                          </div>
                         </div>
                       ) : (
                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

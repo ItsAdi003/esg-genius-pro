@@ -30,6 +30,11 @@ export interface DocumentDetail extends DocumentSummary {
   failureReason: string | null;
 }
 
+export interface DocumentPageText {
+  pageNumber: number;
+  text: string;
+}
+
 export interface UploadDocumentParams {
   file: File;
   organizationId: number;
@@ -51,6 +56,7 @@ export const documentQueryKeys = {
   all: ["documents"] as const,
   list: (organizationId: number) => [...documentQueryKeys.all, "list", organizationId] as const,
   detail: (documentId: number) => [...documentQueryKeys.all, "detail", documentId] as const,
+  pages: (documentId: number) => [...documentQueryKeys.all, "pages", documentId] as const,
 };
 
 export const DOCUMENT_TYPE_OPTIONS: { value: DocumentType; label: string }[] = [
@@ -99,6 +105,14 @@ export async function listDocuments(organizationId: number): Promise<DocumentSum
 export async function getDocument(documentId: number): Promise<DocumentDetail> {
   const response = await fetch(apiUrl(`/api/v1/documents/${documentId}`));
   return parseJsonResponse(response, `Failed to fetch document ${documentId}`);
+}
+
+/**
+ * GET /api/v1/documents/{id}/pages
+ */
+export async function getDocumentPages(documentId: number): Promise<DocumentPageText[]> {
+  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}/pages`));
+  return parseJsonResponse(response, `Failed to fetch pages for document ${documentId}`);
 }
 
 /**

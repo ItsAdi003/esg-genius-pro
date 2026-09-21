@@ -1,6 +1,7 @@
 package dev.esgenius.service;
 
 import dev.esgenius.dto.DocumentDetailResponse;
+import dev.esgenius.dto.DocumentPageResponse;
 import dev.esgenius.dto.DocumentSummaryResponse;
 import dev.esgenius.entity.Document;
 import dev.esgenius.entity.DocumentPage;
@@ -107,6 +108,16 @@ public class DocumentService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
         return toDetailResponse(document);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentPageResponse> getDocumentPages(Long documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+
+        return documentPageRepository.findByDocumentOrderByPageNumberAsc(document).stream()
+                .map(page -> new DocumentPageResponse(page.getPageNumber(), page.getExtractedText()))
+                .collect(Collectors.toList());
     }
 
     @Transactional

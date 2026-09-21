@@ -1,6 +1,7 @@
 package dev.esgenius.controller;
 
 import dev.esgenius.dto.DocumentDetailResponse;
+import dev.esgenius.dto.DocumentPageResponse;
 import dev.esgenius.dto.DocumentSummaryResponse;
 import dev.esgenius.service.DocumentService;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,15 @@ public class DocumentController {
     @GetMapping("/{documentId}")
     public ResponseEntity<DocumentDetailResponse> getDocument(@PathVariable Long documentId) {
         return ResponseEntity.ok(documentService.getDocument(documentId));
+    }
+
+    /**
+     * GET /api/v1/documents/{id}/pages
+     * List per-page extracted text in ascending page order.
+     */
+    @GetMapping("/{documentId}/pages")
+    public ResponseEntity<List<DocumentPageResponse>> getDocumentPages(@PathVariable Long documentId) {
+        return ResponseEntity.ok(documentService.getDocumentPages(documentId));
     }
 
     /**
