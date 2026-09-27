@@ -101,7 +101,15 @@ class InfosysBrsrRetrievalSmokeTest {
         if (!trainingResults.isEmpty()) {
             String top = trainingResults.get(0).text().toLowerCase();
             assertThat(top).doesNotContain("principles during the financial year");
-            assertThat(top).containsAnyOf("training hours", "learning", "development", "employee training");
+            assertThat(top).containsAnyOf(
+                    "training hours",
+                    "hours of training",
+                    "learning",
+                    "development",
+                    "employee training",
+                    "skill upgradation",
+                    "upskilling",
+                    "capacity building");
         }
     }
 

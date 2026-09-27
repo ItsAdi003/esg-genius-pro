@@ -35,8 +35,9 @@ final class EsgRetrievalLexicon {
             Map.entry("bribery", List.of("corruption", "anti bribery", "anti corruption")),
             Map.entry("whistleblower", List.of("vigil", "whistle blower", "whistleblowing")),
             Map.entry("vigil", List.of("whistleblower", "whistle blower")),
-            Map.entry("training", List.of("learning", "upskilling", "development", "hours")),
-            Map.entry("development", List.of("learning", "upskilling", "training")),
+            Map.entry("training", List.of("learning", "upskilling", "development", "hours", "skilling", "upgradation")),
+            Map.entry("development", List.of("learning", "upskilling", "training", "skilling")),
+            Map.entry("upskilling", List.of("training", "learning", "skilling", "upgradation", "capacity")),
             Map.entry("health", List.of("occupational", "workplace", "safety")),
             Map.entry("safety", List.of("occupational", "workplace", "incident", "injury")),
             Map.entry("independence", List.of("independent", "independent director", "independent directors")),
@@ -56,16 +57,32 @@ final class EsgRetrievalLexicon {
             List.of("renewable energy", "solar power", "wind power", "renewable electricity"),
             List.of("energy consumption", "energy consumed", "electricity consumption", "total energy"),
             List.of("anti corruption", "anti bribery", "anti-corruption", "anti-bribery", "bribery and corruption"),
-            List.of("whistleblower mechanism", "vigil mechanism", "whistle blower"),
-            List.of("training and development", "learning and development", "training hours", "employee training"),
-            List.of("health and safety", "occupational health", "workplace safety", "occupational health and safety"),
+            List.of("whistleblower mechanism", "vigil mechanism", "whistle blower", "whistle blowing", "ethics helpline"),
+            List.of(
+                    "training and development",
+                    "learning and development",
+                    "training hours",
+                    "hours of training",
+                    "employee training",
+                    "skill development",
+                    "skill upgradation",
+                    "capacity building",
+                    "learning hours",
+                    "upskilling"),
+            List.of(
+                    "health and safety",
+                    "occupational health",
+                    "workplace safety",
+                    "occupational health and safety",
+                    "lost time injury",
+                    "recordable injury"),
             List.of("board independence", "independent director", "independent directors", "board composition"),
             List.of("community development spend", "csr expenditure", "csr spend", "community development expenditure"),
             List.of("scope 1 emissions", "scope 1 ghg", "direct emissions"),
             List.of("scope 2 emissions", "scope 2 ghg", "purchased electricity"),
             List.of("scope 3 emissions", "scope 3 ghg", "value chain emissions"),
             List.of("water withdrawal", "water withdrawn", "groundwater withdrawal"),
-            List.of("waste recycling", "waste recovered", "recycling reuse"),
+            List.of("waste recycling", "waste recovered", "recycling reuse", "waste recycled", "recycled waste"),
             List.of("human rights due diligence", "human rights assessment"));
 
     private EsgRetrievalLexicon() {
@@ -103,15 +120,17 @@ final class EsgRetrievalLexicon {
             addPhrases(phrases, "water withdrawal", "water withdrawn", "groundwater withdrawal");
         }
         if (containsAny(combined, "waste", "recycling")) {
-            addPhrases(phrases, "waste recycling", "waste generated", "waste recovered", "recycling reuse");
+            addPhrases(phrases, "waste recycling", "waste generated", "waste recovered", "recycling reuse",
+                    "waste recycled", "recycled waste");
         }
         if (containsAny(combined, "health", "safety", "occupational")) {
             addPhrases(phrases, "health and safety", "occupational health", "workplace safety",
-                    "occupational health and safety");
+                    "occupational health and safety", "lost time injury", "recordable injury");
         }
-        if (containsAny(combined, "training", "development hours", "development")) {
-            addPhrases(phrases, "training hours", "employee training", "learning and development",
-                    "training and development");
+        if (containsAny(combined, "training", "development hours", "upskilling", "skill upgradation")) {
+            addPhrases(phrases, "training hours", "hours of training", "employee training",
+                    "learning and development", "training and development", "skill development",
+                    "skill upgradation", "capacity building", "learning hours", "upskilling");
         }
         if (containsAny(combined, "human rights", "due diligence")) {
             addPhrases(phrases, "human rights due diligence", "human rights assessment");
@@ -129,7 +148,8 @@ final class EsgRetrievalLexicon {
                     "board composition");
         }
         if (containsAny(combined, "whistleblower", "vigil")) {
-            addPhrases(phrases, "whistleblower mechanism", "vigil mechanism", "whistle blower");
+            addPhrases(phrases, "whistleblower mechanism", "vigil mechanism", "whistle blower",
+                    "whistle blowing", "ethics helpline");
         }
 
         return phrases.stream().distinct().toList();

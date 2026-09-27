@@ -317,7 +317,50 @@ public class LexicalEvidenceRetrievalService {
             return false;
         }
         return requiredAnchorGroups.stream()
-                .anyMatch(group -> group.stream().anyMatch(normalizedChunk::contains));
+                .anyMatch(group -> group.stream().anyMatch(phrase -> matchesAnchorPhrase(normalizedChunk, phrase)));
+    }
+
+    /**
+     * Accepts a contiguous substring, or the same tokens in order with only stop-words
+     * inserted between them (e.g. "waste recycled" matches "waste was recycled").
+     * Arbitrary content between tokens is not allowed, so Scope 1/2/3 and other
+     * exact-phrase disambiguation stay unchanged.
+     */
+    private boolean matchesAnchorPhrase(String normalizedChunk, String phrase) {
+        if (normalizedChunk.contains(phrase)) {
+            return true;
+        }
+        List<String> phraseTokens = tokenize(phrase);
+        if (phraseTokens.size() < 2) {
+            return false;
+        }
+        return containsTokensInOrderWithOnlyStopWordsBetween(tokenize(normalizedChunk), phraseTokens);
+    }
+
+    private boolean containsTokensInOrderWithOnlyStopWordsBetween(List<String> haystack, List<String> needle) {
+        if (haystack.size() < needle.size()) {
+            return false;
+        }
+        for (int start = 0; start <= haystack.size() - needle.size(); start++) {
+            if (!haystack.get(start).equals(needle.get(0))) {
+                continue;
+            }
+            int hayIndex = start + 1;
+            int needleIndex = 1;
+            while (hayIndex < haystack.size() && needleIndex < needle.size()) {
+                String token = haystack.get(hayIndex);
+                if (token.equals(needle.get(needleIndex))) {
+                    needleIndex++;
+                } else if (!STOP_WORDS.contains(token)) {
+                    break;
+                }
+                hayIndex++;
+            }
+            if (needleIndex == needle.size()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private double bm25TermScore(

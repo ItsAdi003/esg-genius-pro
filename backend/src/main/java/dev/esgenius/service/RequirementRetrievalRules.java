@@ -35,13 +35,51 @@ final class RequirementRetrievalRules {
             return List.of(List.of("water withdrawal", "water withdrawn", "groundwater", "surface water"));
         }
         if ("ENV-007".equals(code)) {
-            return List.of(List.of("waste generated", "waste recycling", "recycling reuse", "waste recovered"));
+            return List.of(List.of(
+                    "waste generated",
+                    "waste recycling",
+                    "recycling reuse",
+                    "waste recovered",
+                    "waste recycled",
+                    "recycled waste",
+                    "waste diverted"));
         }
         if ("SOC-001".equals(code)) {
-            return List.of(List.of("occupational health", "health and safety", "workplace safety", "safety incident", "recordable injury"));
+            return List.of(List.of(
+                    "occupational health",
+                    "health and safety",
+                    "workplace safety",
+                    "safety incident",
+                    "recordable injury",
+                    "recordable injuries",
+                    "lost time injury",
+                    "lost time injuries",
+                    "ltifr",
+                    "workplace injury",
+                    "safety management system"));
         }
         if ("SOC-002".equals(code)) {
-            return List.of(List.of("training hours", "learning and development", "employee training", "training and development", "average training"));
+            return List.of(List.of(
+                    "training hours",
+                    "hours of training",
+                    "average training",
+                    "average hours of training",
+                    "learning and development",
+                    "employee training",
+                    "training and development",
+                    "skill upgradation",
+                    "skill development",
+                    "upskilling",
+                    "capacity building",
+                    "learning hours",
+                    "person hours of training",
+                    "person hours",
+                    "training imparted",
+                    "training given",
+                    "workforce training",
+                    "employees trained",
+                    "training programmes",
+                    "training programs"));
         }
         if ("SOC-003".equals(code)) {
             return List.of(List.of("human rights due diligence", "human rights assessment", "human rights"));
@@ -63,7 +101,14 @@ final class RequirementRetrievalRules {
             return List.of(List.of("independent director", "independent directors", "board composition", "board independence"));
         }
         if ("GOV-003".equals(code)) {
-            return List.of(List.of("whistleblower mechanism", "vigil mechanism", "whistle blower"));
+            return List.of(List.of(
+                    "whistleblower mechanism",
+                    "vigil mechanism",
+                    "whistle blower",
+                    "whistle blowing",
+                    "whistleblowing",
+                    "ethics helpline",
+                    "vigilance mechanism"));
         }
 
         if (title.contains("scope")) {
@@ -87,7 +132,12 @@ final class RequirementRetrievalRules {
                     "principles of brsr",
                     "business responsibility report principles",
                     "frequency of engagement",
-                    "newspaper pamphlets");
+                    "newspaper pamphlets",
+                    "rural youth",
+                    "community youth",
+                    "community members",
+                    "livelihood programme",
+                    "livelihood program");
         }
         if ("SOC-004".equals(code)) {
             return List.of(
