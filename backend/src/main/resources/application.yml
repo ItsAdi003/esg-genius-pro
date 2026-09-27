@@ -28,6 +28,12 @@ server:
 app:
   storage:
     upload-dir: uploads
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:8080}
+  auth:
+    supabase:
+      url: ${SUPABASE_URL:}
+      anon-key: ${SUPABASE_ANON_KEY:}
   ai:
     gemini:
       api-key: ${GEMINI_API_KEY:}

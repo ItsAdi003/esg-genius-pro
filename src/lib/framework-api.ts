@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api-config";
+import { apiFetch } from "@/lib/api-config";
 import { formatEsgCategory } from "@/lib/compliance-api";
 
 /** Backend FrameworkStatus enum — dev.esgenius.entity.FrameworkStatus */
@@ -68,7 +68,7 @@ async function parseJsonResponse<T>(response: Response, fallbackMessage: string)
  * GET /api/v1/frameworks
  */
 export async function listFrameworks(): Promise<Framework[]> {
-  const response = await fetch(apiUrl("/api/v1/frameworks"));
+  const response = await apiFetch("/api/v1/frameworks");
   return parseJsonResponse(response, "Failed to fetch frameworks");
 }
 
@@ -76,7 +76,7 @@ export async function listFrameworks(): Promise<Framework[]> {
  * GET /api/v1/frameworks/{frameworkId}
  */
 export async function getFramework(frameworkId: number): Promise<Framework> {
-  const response = await fetch(apiUrl(`/api/v1/frameworks/${frameworkId}`));
+  const response = await apiFetch(`/api/v1/frameworks/${frameworkId}`);
   return parseJsonResponse(response, `Failed to fetch framework ${frameworkId}`);
 }
 
@@ -93,7 +93,7 @@ export async function getFrameworkRequirements(
   }
   const query = params.toString();
   const path = `/api/v1/frameworks/${frameworkId}/requirements${query ? `?${query}` : ""}`;
-  const response = await fetch(apiUrl(path));
+  const response = await apiFetch(path);
   return parseJsonResponse(response, `Failed to fetch requirements for framework ${frameworkId}`);
 }
 

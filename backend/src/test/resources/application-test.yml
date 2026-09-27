@@ -18,6 +18,10 @@ spring:
 app:
   storage:
     upload-dir: target/test-uploads
+  auth:
+    supabase:
+      url: ""
+      anon-key: ""
   ai:
     gemini:
       inter-request-delay: 0ms

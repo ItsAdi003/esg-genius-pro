@@ -18,6 +18,10 @@ spring:
 app:
   storage:
     upload-dir: target/wiring-test-uploads
+  auth:
+    supabase:
+      url: ""
+      anon-key: ""
   ai:
     gemini:
       api-key: wiring-test-key

@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api-config";
+import { apiFetch } from "@/lib/api-config";
 
 /** Backend DocumentType enum values — must match dev.esgenius.entity.DocumentType */
 export type DocumentType =
@@ -95,7 +95,7 @@ async function parseJsonResponse<T>(response: Response, fallbackMessage: string)
  */
 export async function listDocuments(organizationId: number): Promise<DocumentSummary[]> {
   const params = new URLSearchParams({ organizationId: String(organizationId) });
-  const response = await fetch(apiUrl(`/api/v1/documents?${params.toString()}`));
+  const response = await apiFetch(`/api/v1/documents?${params.toString()}`);
   return parseJsonResponse(response, "Failed to fetch documents");
 }
 
@@ -103,7 +103,7 @@ export async function listDocuments(organizationId: number): Promise<DocumentSum
  * GET /api/v1/documents/{id}
  */
 export async function getDocument(documentId: number): Promise<DocumentDetail> {
-  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}`));
+  const response = await apiFetch(`/api/v1/documents/${documentId}`);
   return parseJsonResponse(response, `Failed to fetch document ${documentId}`);
 }
 
@@ -111,7 +111,7 @@ export async function getDocument(documentId: number): Promise<DocumentDetail> {
  * GET /api/v1/documents/{id}/pages
  */
 export async function getDocumentPages(documentId: number): Promise<DocumentPageText[]> {
-  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}/pages`));
+  const response = await apiFetch(`/api/v1/documents/${documentId}/pages`);
   return parseJsonResponse(response, `Failed to fetch pages for document ${documentId}`);
 }
 
@@ -125,7 +125,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Docu
   formData.append("documentType", params.documentType);
   formData.append("reportingYear", String(params.reportingYear));
 
-  const response = await fetch(apiUrl("/api/v1/documents"), {
+  const response = await apiFetch("/api/v1/documents", {
     method: "POST",
     body: formData,
   });
@@ -137,7 +137,7 @@ export async function uploadDocument(params: UploadDocumentParams): Promise<Docu
  * DELETE /api/v1/documents/{id}
  */
 export async function deleteDocument(documentId: number): Promise<void> {
-  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}`), {
+  const response = await apiFetch(`/api/v1/documents/${documentId}`, {
     method: "DELETE",
   });
   await parseJsonResponse<void>(response, `Failed to delete document ${documentId}`);

@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api-config";
+import { apiFetch } from "@/lib/api-config";
 import { formatInstant } from "@/lib/document-api";
 
 /** Backend AnalysisStatus enum — dev.esgenius.entity.AnalysisStatus */
@@ -185,7 +185,7 @@ export async function createComplianceAnalysis(
   frameworkCode = "BRSR",
 ): Promise<ComplianceAnalysis> {
   const body: StartAnalysisRequest = { frameworkCode };
-  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}/analyses`), {
+  const response = await apiFetch(`/api/v1/documents/${documentId}/analyses`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -197,7 +197,7 @@ export async function createComplianceAnalysis(
  * GET /api/v1/analyses/{analysisId}
  */
 export async function getComplianceAnalysis(analysisId: number): Promise<ComplianceAnalysis> {
-  const response = await fetch(apiUrl(`/api/v1/analyses/${analysisId}`));
+  const response = await apiFetch(`/api/v1/analyses/${analysisId}`);
   return parseJsonResponse(response, `Failed to fetch analysis ${analysisId}`);
 }
 
@@ -205,7 +205,7 @@ export async function getComplianceAnalysis(analysisId: number): Promise<Complia
  * GET /api/v1/analyses/{analysisId}/report.pdf
  */
 export async function fetchGapAssessmentPdf(analysisId: number): Promise<Blob> {
-  const response = await fetch(apiUrl(`/api/v1/analyses/${analysisId}/report.pdf`));
+  const response = await apiFetch(`/api/v1/analyses/${analysisId}/report.pdf`);
   if (!response.ok) {
     let message = `Failed to download gap assessment PDF for analysis ${analysisId}`;
     try {
@@ -225,7 +225,7 @@ export async function fetchGapAssessmentPdf(analysisId: number): Promise<Blob> {
  * GET /api/v1/documents/{documentId}/analyses
  */
 export async function getDocumentAnalyses(documentId: number): Promise<ComplianceAnalysisSummary[]> {
-  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}/analyses`));
+  const response = await apiFetch(`/api/v1/documents/${documentId}/analyses`);
   return parseJsonResponse(response, `Failed to fetch analyses for document ${documentId}`);
 }
 

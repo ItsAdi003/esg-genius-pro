@@ -1,3 +1,5 @@
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase-client";
+
 const DEFAULT_API_BASE_URL = "http://localhost:8081";
 
 /**
@@ -16,4 +18,20 @@ export function apiUrl(path: string): string {
   const base = getApiBaseUrl();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalizedPath}`;
+}
+
+/**
+ * Fetch against the Spring Boot API with the current Supabase access token.
+ * Callers keep their own Content-Type; this only adds Authorization.
+ */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (isSupabaseConfigured()) {
+    const { data } = await getSupabaseClient().auth.getSession();
+    const token = data.session?.access_token;
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+  return fetch(apiUrl(path), { ...init, headers });
 }

@@ -4,7 +4,7 @@
  * All scores and ratings are illustrative prototype data served by the backend.
  */
 
-import { apiUrl } from "@/lib/api-config";
+import { apiFetch } from "@/lib/api-config";
 
 export type RatingBand = "AAA" | "AA" | "A" | "BBB" | "BB" | "B" | "CCC";
 
@@ -103,7 +103,7 @@ async function parseJsonResponse<T>(response: Response, fallbackMessage: string)
  * GET /api/v1/companies
  */
 export async function getCompanies(): Promise<CompanySummary[]> {
-  const response = await fetch(apiUrl("/api/v1/companies"));
+  const response = await apiFetch("/api/v1/companies");
   return parseJsonResponse(response, "Failed to fetch companies");
 }
 
@@ -111,7 +111,7 @@ export async function getCompanies(): Promise<CompanySummary[]> {
  * GET /api/v1/companies/{companyId}/esg
  */
 export async function getCompanyEsgProfile(companyId: number): Promise<CompanyEsgProfile> {
-  const response = await fetch(apiUrl(`/api/v1/companies/${companyId}/esg`));
+  const response = await apiFetch(`/api/v1/companies/${companyId}/esg`);
   return parseJsonResponse(response, `Failed to fetch ESG profile for company ${companyId}`);
 }
 
@@ -126,7 +126,7 @@ export async function compareCompanies(
     companyA: String(companyAId),
     companyB: String(companyBId),
   });
-  const response = await fetch(apiUrl(`/api/v1/companies/compare?${params.toString()}`));
+  const response = await apiFetch(`/api/v1/companies/compare?${params.toString()}`);
   return parseJsonResponse(response, "Failed to compare companies");
 }
 

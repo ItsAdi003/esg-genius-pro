@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api-config";
+import { apiFetch } from "@/lib/api-config";
 
 export interface AssistantCitation {
   pageNumber: number | null;
@@ -30,7 +30,7 @@ export async function askDocumentAssistant(
   documentId: number,
   question: string,
 ): Promise<AssistantAnswer> {
-  const response = await fetch(apiUrl(`/api/v1/documents/${documentId}/assistant/ask`), {
+  const response = await apiFetch(`/api/v1/documents/${documentId}/assistant/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),

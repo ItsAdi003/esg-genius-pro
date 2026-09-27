@@ -1,4 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   FileText,
@@ -14,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   TrendingUp,
+  LogOut,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,6 +23,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { PrototypeBadge } from "@/components/prototype-notice";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ORG } from "@/lib/esg-data";
+import { getSupabaseClient } from "@/lib/supabase-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -145,6 +148,14 @@ export function AppLayout({
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  async function signOut() {
+    await getSupabaseClient().auth.signOut();
+    queryClient.clear();
+    await navigate({ to: "/login" });
+  }
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -214,6 +225,16 @@ export function AppLayout({
                   PN
                 </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => void signOut()}
+                aria-label="Sign out"
+              >
+                <LogOut className="size-4" />
+                <span className="hidden sm:inline">Sign out</span>
+              </Button>
             </div>
           </div>
         </header>
