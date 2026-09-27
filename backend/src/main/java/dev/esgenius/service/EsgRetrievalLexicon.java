@@ -28,9 +28,11 @@ final class EsgRetrievalLexicon {
     static final Map<String, List<String>> TERM_ALIASES = Map.ofEntries(
             Map.entry("ghg", List.of("greenhouse", "gas", "co2", "co2e", "carbon")),
             Map.entry("greenhouse", List.of("ghg", "co2", "co2e")),
-            Map.entry("renewable", List.of("solar", "wind", "renewable electricity")),
-            Map.entry("energy", List.of("electricity", "fuel", "joules", "kwh", "mwh")),
-            Map.entry("consumption", List.of("consumed", "consumption")),
+            Map.entry("renewable", List.of("solar", "wind", "renewable electricity", "clean", "green")),
+            Map.entry("energy", List.of("electricity", "fuel", "joules", "kwh", "mwh", "power")),
+            Map.entry("consumption", List.of("consumed", "consumption", "utilisation", "utilization", "usage", "use")),
+            Map.entry("withdrawal", List.of("withdrawn", "extracted", "drawn", "intake")),
+            Map.entry("intensity", List.of("consumption", "utilisation", "utilization")),
             Map.entry("corruption", List.of("bribery", "anti bribery", "anti corruption")),
             Map.entry("bribery", List.of("corruption", "anti bribery", "anti corruption")),
             Map.entry("whistleblower", List.of("vigil", "whistle blower", "whistleblowing")),
@@ -44,7 +46,8 @@ final class EsgRetrievalLexicon {
             Map.entry("board", List.of("director", "directors", "independent")),
             Map.entry("community", List.of("csr", "beneficiary", "beneficiaries")),
             Map.entry("spend", List.of("expenditure", "expense", "investment", "spent", "inr", "crore")),
-            Map.entry("csr", List.of("community development", "expenditure", "spend")),
+            Map.entry("csr", List.of("community development", "expenditure", "spend", "corporate social responsibility")),
+            Map.entry("director", List.of("directors", "independent", "non executive", "non-executive")),
             Map.entry("water", List.of("groundwater", "surface water", "kilolitre", "kilolitres")),
             Map.entry("waste", List.of("recycling", "recycled", "recovery", "reuse")),
             Map.entry("rights", List.of("human rights", "due diligence", "remediation")),
@@ -55,7 +58,24 @@ final class EsgRetrievalLexicon {
     static final List<List<String>> PHRASE_ALIAS_GROUPS = List.of(
             List.of("greenhouse gas", "ghg emissions", "ghg emission"),
             List.of("renewable energy", "solar power", "wind power", "renewable electricity"),
-            List.of("energy consumption", "energy consumed", "electricity consumption", "total energy"),
+            List.of(
+                    "energy consumption",
+                    "energy consumed",
+                    "electricity consumption",
+                    "total energy",
+                    "energy utilisation",
+                    "energy utilization",
+                    "power consumption",
+                    "fuel consumption",
+                    "energy use"),
+            List.of(
+                    "clean energy",
+                    "green energy",
+                    "renewable sources",
+                    "fossil fuel",
+                    "conventional energy",
+                    "solar energy",
+                    "wind energy"),
             List.of("anti corruption", "anti bribery", "anti-corruption", "anti-bribery", "bribery and corruption"),
             List.of("whistleblower mechanism", "vigil mechanism", "whistle blower", "whistle blowing", "ethics helpline"),
             List.of(
@@ -78,12 +98,52 @@ final class EsgRetrievalLexicon {
                     "recordable injury"),
             List.of("board independence", "independent director", "independent directors", "board composition"),
             List.of("community development spend", "csr expenditure", "csr spend", "community development expenditure"),
-            List.of("scope 1 emissions", "scope 1 ghg", "direct emissions"),
-            List.of("scope 2 emissions", "scope 2 ghg", "purchased electricity"),
-            List.of("scope 3 emissions", "scope 3 ghg", "value chain emissions"),
-            List.of("water withdrawal", "water withdrawn", "groundwater withdrawal"),
+            List.of("scope 1 emissions", "scope 1 ghg", "direct emissions", "direct ghg", "direct greenhouse gas"),
+            List.of(
+                    "scope 2 emissions",
+                    "scope 2 ghg",
+                    "purchased electricity",
+                    "purchased energy",
+                    "grid electricity",
+                    "market based scope 2",
+                    "location based scope 2"),
+            List.of(
+                    "scope 3 emissions",
+                    "scope 3 ghg",
+                    "value chain emissions",
+                    "other indirect emissions",
+                    "upstream emissions",
+                    "downstream emissions"),
+            List.of(
+                    "water withdrawal",
+                    "water withdrawn",
+                    "groundwater withdrawal",
+                    "water extracted",
+                    "freshwater withdrawal",
+                    "water intake"),
             List.of("waste recycling", "waste recovered", "recycling reuse", "waste recycled", "recycled waste"),
-            List.of("human rights due diligence", "human rights assessment"));
+            List.of(
+                    "human rights due diligence",
+                    "human rights assessment",
+                    "human rights impact assessment",
+                    "human rights risk assessment"),
+            List.of(
+                    "corporate social responsibility spend",
+                    "corporate social responsibility expenditure",
+                    "amount allocated for csr",
+                    "schedule vii",
+                    "spent on community development"),
+            List.of(
+                    "anti corruption policy",
+                    "anti bribery policy",
+                    "prevention of corruption",
+                    "fraud and corruption"),
+            List.of(
+                    "non executive director",
+                    "non-executive director",
+                    "board diversity",
+                    "proportion of independent",
+                    "women directors"));
 
     private EsgRetrievalLexicon() {
     }
@@ -106,18 +166,23 @@ final class EsgRetrievalLexicon {
         String combined = normalizeForMatch(title) + " " + normalizeForMatch(description);
         List<String> phrases = new ArrayList<>();
 
-        if (containsAny(combined, "energy consumption", "total energy")) {
-            addPhrases(phrases, "energy consumption", "energy consumed", "electricity consumption", "total energy");
+        if (containsAny(combined, "energy consumption", "total energy", "energy intensity")) {
+            addPhrases(phrases, "energy consumption", "energy consumed", "electricity consumption", "total energy",
+                    "energy utilisation", "energy utilization", "power consumption", "fuel consumption", "energy use");
         }
         if (containsAny(combined, "renewable", "non-renewable", "non renewable")) {
-            addPhrases(phrases, "renewable energy", "solar power", "wind power", "renewable electricity", "non renewable");
+            addPhrases(phrases, "renewable energy", "solar power", "wind power", "renewable electricity", "non renewable",
+                    "clean energy", "green energy", "renewable sources", "fossil fuel", "conventional energy");
         }
         if (containsAny(combined, "scope 1", "scope 2", "scope 3", "ghg", "emissions")) {
             addPhrases(phrases, "greenhouse gas", "ghg emissions", "scope 1 emissions", "scope 2 emissions",
-                    "scope 3 emissions", "direct emissions", "purchased electricity", "value chain emissions");
+                    "scope 3 emissions", "direct emissions", "direct ghg", "purchased electricity", "purchased energy",
+                    "grid electricity", "value chain emissions", "other indirect emissions", "upstream emissions",
+                    "downstream emissions");
         }
         if (containsAny(combined, "water withdrawal", "water")) {
-            addPhrases(phrases, "water withdrawal", "water withdrawn", "groundwater withdrawal");
+            addPhrases(phrases, "water withdrawal", "water withdrawn", "groundwater withdrawal", "water extracted",
+                    "freshwater withdrawal", "water intake", "municipal water supply");
         }
         if (containsAny(combined, "waste", "recycling")) {
             addPhrases(phrases, "waste recycling", "waste generated", "waste recovered", "recycling reuse",
@@ -133,19 +198,23 @@ final class EsgRetrievalLexicon {
                     "skill upgradation", "capacity building", "learning hours", "upskilling");
         }
         if (containsAny(combined, "human rights", "due diligence")) {
-            addPhrases(phrases, "human rights due diligence", "human rights assessment");
+            addPhrases(phrases, "human rights due diligence", "human rights assessment",
+                    "human rights impact assessment", "human rights risk assessment", "salient human rights");
         }
         if (containsAny(combined, "community", "csr", "development spend")) {
             addPhrases(phrases, "community development spend", "csr expenditure", "csr spend",
-                    "community development expenditure");
+                    "community development expenditure", "corporate social responsibility spend",
+                    "amount allocated for csr", "schedule vii", "spent on community development");
         }
         if (containsAny(combined, "anti-corruption", "anti corruption", "bribery")) {
             addPhrases(phrases, "anti corruption", "anti bribery", "anti-corruption", "anti-bribery",
-                    "bribery and corruption");
+                    "bribery and corruption", "anti corruption policy", "prevention of corruption",
+                    "fraud and corruption");
         }
         if (containsAny(combined, "board composition", "independence", "independent")) {
             addPhrases(phrases, "board independence", "independent director", "independent directors",
-                    "board composition");
+                    "board composition", "non executive director", "non-executive director", "board diversity",
+                    "proportion of independent", "women directors");
         }
         if (containsAny(combined, "whistleblower", "vigil")) {
             addPhrases(phrases, "whistleblower mechanism", "vigil mechanism", "whistle blower",

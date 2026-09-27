@@ -17,22 +17,90 @@ final class RequirementRetrievalRules {
         String title = normalize(requirement.getTitle());
 
         if ("ENV-001".equals(code)) {
-            return List.of(List.of("energy consumption", "energy consumed", "total energy", "electricity consumption", "energy intensity"));
+            return List.of(List.of(
+                    "energy consumption",
+                    "energy consumed",
+                    "total energy",
+                    "electricity consumption",
+                    "energy intensity",
+                    "energy utilisation",
+                    "energy utilization",
+                    "power consumption",
+                    "fuel consumption",
+                    "energy use",
+                    "energy usage",
+                    "electricity consumed",
+                    "total electricity"));
         }
         if ("ENV-002".equals(code)) {
-            return List.of(List.of("renewable energy", "renewable electricity", "solar", "wind power", "non renewable", "non-renewable"));
+            return List.of(List.of(
+                    "renewable energy",
+                    "renewable electricity",
+                    "solar",
+                    "wind power",
+                    "non renewable",
+                    "non-renewable",
+                    "clean energy",
+                    "green energy",
+                    "renewable sources",
+                    "non renewable sources",
+                    "fossil fuel",
+                    "conventional energy",
+                    "solar energy",
+                    "wind energy",
+                    "renewable power"));
         }
         if ("ENV-003".equals(code)) {
-            return List.of(List.of("scope 1", "scope 1 emissions", "direct emissions"));
+            return List.of(List.of(
+                    "scope 1",
+                    "scope 1 emissions",
+                    "direct emissions",
+                    "direct ghg",
+                    "direct greenhouse gas",
+                    "owned source emissions",
+                    "stationary combustion",
+                    "fuel combustion emissions"));
         }
         if ("ENV-004".equals(code)) {
-            return List.of(List.of("scope 2", "scope 2 emissions", "purchased electricity"));
+            return List.of(List.of(
+                    "scope 2",
+                    "scope 2 emissions",
+                    "purchased electricity",
+                    "purchased energy",
+                    "grid electricity",
+                    "indirect energy emissions",
+                    "market based scope 2",
+                    "location based scope 2",
+                    "purchased steam",
+                    "purchased heating",
+                    "purchased cooling"));
         }
         if ("ENV-005".equals(code)) {
-            return List.of(List.of("scope 3", "scope 3 emissions", "value chain emissions"));
+            return List.of(List.of(
+                    "scope 3",
+                    "scope 3 emissions",
+                    "value chain emissions",
+                    "other indirect emissions",
+                    "upstream emissions",
+                    "downstream emissions",
+                    "indirect value chain",
+                    "business travel emissions",
+                    "employee commuting emissions",
+                    "purchased goods emissions"));
         }
         if ("ENV-006".equals(code)) {
-            return List.of(List.of("water withdrawal", "water withdrawn", "groundwater", "surface water"));
+            return List.of(List.of(
+                    "water withdrawal",
+                    "water withdrawn",
+                    "groundwater",
+                    "surface water",
+                    "water extracted",
+                    "water drawn",
+                    "freshwater withdrawal",
+                    "water intake",
+                    "third party water",
+                    "municipal water supply",
+                    "rainwater harvested"));
         }
         if ("ENV-007".equals(code)) {
             return List.of(List.of(
@@ -82,7 +150,16 @@ final class RequirementRetrievalRules {
                     "training programs"));
         }
         if ("SOC-003".equals(code)) {
-            return List.of(List.of("human rights due diligence", "human rights assessment", "human rights"));
+            return List.of(List.of(
+                    "human rights due diligence",
+                    "human rights assessment",
+                    "human rights",
+                    "human rights impact assessment",
+                    "human rights risk assessment",
+                    "salient human rights",
+                    "modern slavery assessment",
+                    "forced labour assessment",
+                    "hrdd"));
         }
         if ("SOC-004".equals(code)) {
             return List.of(List.of(
@@ -92,13 +169,44 @@ final class RequirementRetrievalRules {
                     "csr expenditure",
                     "csr spend",
                     "community development expenditure",
-                    "section 135"));
+                    "section 135",
+                    "corporate social responsibility spend",
+                    "corporate social responsibility expenditure",
+                    "amount allocated for csr",
+                    "schedule vii",
+                    "spent on community development",
+                    "csr budget",
+                    "two percent of average net profit"));
         }
         if ("GOV-001".equals(code)) {
-            return List.of(List.of("anti corruption", "anti-corruption", "anti bribery", "anti-bribery", "bribery and corruption"));
+            return List.of(List.of(
+                    "anti corruption",
+                    "anti-corruption",
+                    "anti bribery",
+                    "anti-bribery",
+                    "bribery and corruption",
+                    "anti corruption policy",
+                    "anti bribery policy",
+                    "integrity policy",
+                    "prevention of corruption",
+                    "fraud and corruption",
+                    "zero tolerance bribery",
+                    "abc policy"));
         }
         if ("GOV-002".equals(code)) {
-            return List.of(List.of("independent director", "independent directors", "board composition", "board independence"));
+            return List.of(List.of(
+                    "independent director",
+                    "independent directors",
+                    "board composition",
+                    "board independence",
+                    "non executive director",
+                    "non executive directors",
+                    "non-executive director",
+                    "non-executive directors",
+                    "proportion of independent",
+                    "board diversity",
+                    "director independence",
+                    "women directors"));
         }
         if ("GOV-003".equals(code)) {
             return List.of(List.of(
@@ -139,13 +247,24 @@ final class RequirementRetrievalRules {
                     "livelihood programme",
                     "livelihood program");
         }
+        if ("SOC-003".equals(code)) {
+            return List.of(
+                    "investor engagement",
+                    "stakeholder engagement",
+                    "frequency of engagement",
+                    "consumer grievance",
+                    "customer complaint");
+        }
         if ("SOC-004".equals(code)) {
             return List.of(
                     "uttar pradesh",
                     "chandauli",
                     "fatehpur",
                     "percentage of r&d and capital expenditure",
-                    "capex investments");
+                    "capex investments",
+                    "csr policy exists",
+                    "csr committee charter",
+                    "csr governance framework");
         }
         if ("GOV-001".equals(code)) {
             return List.of("settlement application", "securities and exchange board", "sebi settlement");
@@ -157,7 +276,18 @@ final class RequirementRetrievalRules {
             return List.of("frequency of engagement", "newspaper pamphlets");
         }
         if ("ENV-001".equals(code) || "ENV-002".equals(code)) {
-            return List.of("differently abled", "disabilities act", "rights of persons with disabilities");
+            return List.of(
+                    "differently abled",
+                    "disabilities act",
+                    "rights of persons with disabilities",
+                    "annual general meeting",
+                    "board meeting");
+        }
+        if ("ENV-006".equals(code)) {
+            return List.of(
+                    "water stress areas",
+                    "water positive commitment",
+                    "water conservation awareness");
         }
         if ("ENV-003".equals(code) || "ENV-004".equals(code) || "ENV-005".equals(code)) {
             return List.of(

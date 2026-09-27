@@ -138,6 +138,153 @@ class ParaphrasedDisclosureRetrievalTest {
     }
 
     @Test
+    void env001RetrievesEnergyUtilisationParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env001(), List.of(
+                new TextChunk(0, "The BRSR assessment framework requires the entity to provide information on principle indicators."),
+                new TextChunk(1, "Total energy utilisation across operations was 1.8 million GJ with energy intensity of 0.04 GJ per rupee of turnover."),
+                new TextChunk(2, "Board composition includes independent directors with sustainability expertise.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(1);
+        assertThat(results.get(0).text()).containsIgnoringCase("energy utilisation");
+    }
+
+    @Test
+    void env001DoesNotTreatAnnualGeneralMeetingAsEnergyConsumption() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env001(), List.of(
+                new TextChunk(0, "The annual general meeting was held in Bangalore with shareholder participation."),
+                new TextChunk(1, "Investor engagement sessions discussed quarterly financial performance.")));
+
+        assertThat(results).noneMatch(chunk -> chunk.text().contains("annual general meeting"));
+    }
+
+    @Test
+    void env002RetrievesCleanEnergyAndRenewableSourcesParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env002(), List.of(
+                new TextChunk(0, "Clean energy from solar and wind installations contributed 45% of electricity consumed from renewable sources."),
+                new TextChunk(1, "Human rights due diligence assessments were conducted across supplier categories.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(0);
+        assertThat(results.get(0).text()).containsIgnoringCase("clean energy");
+    }
+
+    @Test
+    void env003RetrievesDirectGhgEmissionsParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env003(), List.of(
+                new TextChunk(0, "Direct GHG emissions from owned facilities and company vehicles totalled 8,200 metric tonnes CO2e."),
+                new TextChunk(1, "Scope 2 emissions from purchased electricity remained stable year-on-year.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(0);
+        assertThat(results.get(0).text()).containsIgnoringCase("Direct GHG");
+    }
+
+    @Test
+    void env004RetrievesPurchasedEnergyAndGridElectricityParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env004(), List.of(
+                new TextChunk(0, "Emissions from purchased energy and grid electricity totalled 12,400 metric tonnes CO2e."),
+                new TextChunk(1, "Scope 1 direct emissions from owned facilities were 3,200 metric tonnes CO2e.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(0);
+        assertThat(results.get(0).text()).containsIgnoringCase("purchased energy");
+    }
+
+    @Test
+    void env005RetrievesOtherIndirectEmissionsParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env005(), List.of(
+                new TextChunk(0, "Other indirect emissions across upstream and downstream value-chain categories were estimated at 48,000 metric tonnes CO2e."),
+                new TextChunk(1, "The company reduced Scope 1 and Scope 2 greenhouse gas emissions by 18% year-on-year.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(0);
+        assertThat(results.get(0).text()).containsIgnoringCase("other indirect emissions");
+    }
+
+    @Test
+    void env006RetrievesWaterExtractedParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env006(), List.of(
+                new TextChunk(0, "Freshwater extracted from groundwater and municipal water supply sources totalled 1.2 million kilolitres."),
+                new TextChunk(1, "CSR expenditure focused on education and healthcare beneficiary areas.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(0);
+        assertThat(results.get(0).text()).containsIgnoringCase("water extracted");
+    }
+
+    @Test
+    void env006DoesNotTreatWaterConservationAwarenessAsWithdrawalDisclosure() {
+        List<RetrievedChunk> results = retrievalService.retrieve(env006(), List.of(
+                new TextChunk(0, "Water conservation awareness campaigns were conducted across offices during World Water Day."),
+                new TextChunk(1, "Board composition includes independent directors with relevant sustainability expertise.")));
+
+        assertThat(results).noneMatch(chunk -> chunk.text().contains("conservation awareness"));
+    }
+
+    @Test
+    void soc003RetrievesHumanRightsImpactAssessmentParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(soc003(), List.of(
+                new TextChunk(0, "A human rights impact assessment was conducted across operations and key supplier categories."),
+                new TextChunk(1, "Total energy consumption increased modestly across offices.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(0);
+        assertThat(results.get(0).text()).containsIgnoringCase("human rights impact assessment");
+    }
+
+    @Test
+    void soc003DoesNotTreatStakeholderEngagementAsHumanRightsDueDiligence() {
+        List<RetrievedChunk> results = retrievalService.retrieve(soc003(), List.of(
+                new TextChunk(0, "Stakeholder engagement sessions were held with investors on quarterly financial performance."),
+                new TextChunk(1, "Renewable energy procurement increased to 45% of total electricity consumption.")));
+
+        assertThat(results).noneMatch(chunk -> chunk.text().contains("Stakeholder engagement"));
+    }
+
+    @Test
+    void soc004RetrievesCorporateSocialResponsibilitySpendParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(soc004(), List.of(
+                new TextChunk(0, "The company supports community development through education and healthcare beneficiary programmes."),
+                new TextChunk(1, "Corporate social responsibility spend amounted to INR 420 crore for community development initiatives.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(1);
+        assertThat(results.get(0).text()).containsIgnoringCase("Corporate social responsibility spend");
+    }
+
+    @Test
+    void soc004DoesNotTreatCsrPolicyNarrativeAsExpenditureDisclosure() {
+        List<RetrievedChunk> results = retrievalService.retrieve(soc004(), List.of(
+                new TextChunk(0, "The CSR policy exists and the CSR committee charter defines governance responsibilities."),
+                new TextChunk(1, "Anti-corruption policy training was completed by senior management.")));
+
+        assertThat(results).noneMatch(chunk -> chunk.text().contains("CSR policy exists"));
+    }
+
+    @Test
+    void gov001RetrievesPreventionOfCorruptionPolicyParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(gov001(), List.of(
+                new TextChunk(0, "A SEBI settlement order related to past regulatory proceedings was disclosed in the annual report."),
+                new TextChunk(1, "A prevention of corruption and fraud policy applies to all employees with disciplinary actions for violations.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(1);
+        assertThat(results.get(0).text()).containsIgnoringCase("prevention of corruption");
+    }
+
+    @Test
+    void gov002RetrievesNonExecutiveIndependentDirectorsParaphrase() {
+        List<RetrievedChunk> results = retrievalService.retrieve(gov002(), List.of(
+                new TextChunk(0, "The audit committee and nomination committee met four times during the fiscal year."),
+                new TextChunk(1, "The Board comprises 50% non-executive independent directors with relevant sector expertise.")));
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.get(0).chunkIndex()).isEqualTo(1);
+        assertThat(results.get(0).text()).containsIgnoringCase("non-executive independent directors");
+    }
+
+    @Test
     void scopeGatesStillDisambiguateScope1FromScope2AndScope3() {
         List<TextChunk> chunks = List.of(
                 new TextChunk(0, "Scope 1 direct emissions from owned facilities were 3,200 metric tonnes CO2e."),
@@ -189,6 +336,48 @@ class ParaphrasedDisclosureRetrievalTest {
         return requirement("GOV-003", "Whistleblower Mechanism", EsgCategory.GOVERNANCE,
                 "Vigil mechanism availability, accessibility and complaint handling.",
                 "The entity shall disclose the existence of a vigil or whistleblower mechanism, its accessibility to stakeholders and complaints received during the year.");
+    }
+
+    private FrameworkRequirement env001() {
+        return requirement("ENV-001", "Total Energy Consumption", EsgCategory.ENVIRONMENTAL,
+                "Disclosure of total energy consumed from renewable and non-renewable sources with energy intensity ratios.",
+                "The entity shall disclose total energy consumed from all sources during the reporting period.");
+    }
+
+    private FrameworkRequirement env002() {
+        return requirement("ENV-002", "Renewable vs Non-Renewable Energy Breakdown", EsgCategory.ENVIRONMENTAL,
+                "Split of energy consumption between renewable and non-renewable sources, reported separately for electricity, fuel and others.",
+                "The entity shall separately disclose the total energy consumed from renewable sources and from non-renewable sources.");
+    }
+
+    private FrameworkRequirement env006() {
+        return requirement("ENV-006", "Water Withdrawal Disclosure", EsgCategory.ENVIRONMENTAL,
+                "Total water withdrawal segregated by source across operating locations.",
+                "The entity shall disclose total water withdrawal by source.");
+    }
+
+    private FrameworkRequirement soc003() {
+        return requirement("SOC-003", "Human Rights Due Diligence", EsgCategory.SOCIAL,
+                "Human rights due-diligence process, assessments and remediation.",
+                "The entity shall disclose the process for human rights due diligence, assessments carried out during the year and remediation actions taken.");
+    }
+
+    private FrameworkRequirement soc004() {
+        return requirement("SOC-004", "Community Development Spend", EsgCategory.SOCIAL,
+                "Community and CSR investment with beneficiary coverage.",
+                "The entity shall disclose CSR and community development expenditure along with the beneficiary areas covered.");
+    }
+
+    private FrameworkRequirement gov001() {
+        return requirement("GOV-001", "Anti-Corruption Policy", EsgCategory.GOVERNANCE,
+                "Anti-bribery and anti-corruption policy, coverage and enforcement.",
+                "The entity shall disclose whether an anti-corruption or anti-bribery policy exists, its coverage and details of disciplinary actions taken during the year.");
+    }
+
+    private FrameworkRequirement gov002() {
+        return requirement("GOV-002", "Board Composition & Independence", EsgCategory.GOVERNANCE,
+                "Composition, independence and diversity of the board of directors.",
+                "The entity shall disclose board composition, including independence and diversity of directors.");
     }
 
     private FrameworkRequirement env003() {
