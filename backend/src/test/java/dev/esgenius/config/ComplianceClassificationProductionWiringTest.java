@@ -1,5 +1,7 @@
 package dev.esgenius.config;
 
+import dev.esgenius.service.assistant.AssistantAnswerProvider;
+import dev.esgenius.service.assistant.gemini.GeminiAssistantAnswerProvider;
 import dev.esgenius.service.compliance.ComplianceClassificationProvider;
 import dev.esgenius.service.compliance.gemini.GeminiComplianceClassificationProvider;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,9 @@ class ComplianceClassificationProductionWiringTest {
     @Autowired
     private ComplianceClassificationProvider classificationProvider;
 
+    @Autowired
+    private AssistantAnswerProvider assistantAnswerProvider;
+
     @Test
     void productionStyleContextRegistersExactlyOneProvider() {
         var providers = applicationContext.getBeansOfType(ComplianceClassificationProvider.class);
@@ -28,5 +33,15 @@ class ComplianceClassificationProductionWiringTest {
         assertThat(providers.values().iterator().next())
                 .isInstanceOf(GeminiComplianceClassificationProvider.class);
         assertThat(classificationProvider).isInstanceOf(GeminiComplianceClassificationProvider.class);
+    }
+
+    @Test
+    void productionStyleContextRegistersGeminiAssistantProvider() {
+        var providers = applicationContext.getBeansOfType(AssistantAnswerProvider.class);
+
+        assertThat(providers).hasSize(1);
+        assertThat(providers.values().iterator().next())
+                .isInstanceOf(GeminiAssistantAnswerProvider.class);
+        assertThat(assistantAnswerProvider).isInstanceOf(GeminiAssistantAnswerProvider.class);
     }
 }

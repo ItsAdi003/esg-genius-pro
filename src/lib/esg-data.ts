@@ -641,17 +641,6 @@ export const generatedReports = [
   },
 ];
 
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  citations?: {
-    requirement: string;
-    document: string;
-    page: number;
-    snippet: string;
-  }[];
-}
-
 export const suggestedQuestions = [
   "What ESG requirements are currently missing?",
   "Which environmental disclosures need attention?",
@@ -659,107 +648,6 @@ export const suggestedQuestions = [
   "What evidence was found for Scope 1 emissions?",
   "Summarize our top five compliance gaps.",
 ];
-
-export const cannedAnswers: Record<string, ChatMessage> = {
-  "What ESG requirements are currently missing?": {
-    role: "assistant",
-    content:
-      "Two BRSR requirements currently have no supporting evidence in the analysed document set: ENV-005 Scope 3 GHG Emissions and GOV-003 Whistleblower Mechanism. A third, SOC-003 Human Rights Due Diligence, retrieved only a commitment statement and is flagged for human review. All three are high priority.",
-    citations: [
-      {
-        requirement: "ENV-005 â€” Scope 3 GHG Emissions",
-        document: "No supporting evidence retrieved",
-        page: 0,
-        snippet:
-          "No passage across 12 analysed documents quantifies value-chain emissions or names the Scope 3 categories assessed.",
-      },
-      {
-        requirement: "GOV-003 â€” Whistleblower Mechanism",
-        document: "No supporting evidence retrieved",
-        page: 0,
-        snippet:
-          "No description of a vigil mechanism, reporting channel or complaint statistics was found.",
-      },
-    ],
-  },
-  "Which environmental disclosures need attention?": {
-    role: "assistant",
-    content:
-      "Environmental readiness is 72%, the lowest of the three categories. ENV-005 (Scope 3) has no evidence, while ENV-002 (renewable vs non-renewable split) and ENV-007 (waste recycling volumes) are partially covered because the underlying numbers are narrative rather than quantified.",
-    citations: [
-      {
-        requirement: "ENV-002 â€” Renewable vs Non-Renewable Energy Breakdown",
-        document: "Sustainability Report FY2025-26",
-        page: 28,
-        snippet:
-          "ABC Industries consumed 120,000 kWh of electricity during FY2025-26, of which approximately 30% was supplied from renewable sources.",
-      },
-      {
-        requirement: "ENV-007 â€” Waste Recycling Data",
-        document: "Environmental Policy",
-        page: 6,
-        snippet:
-          "The company operates waste segregation at source and routes hazardous waste to authorised recyclers.",
-      },
-    ],
-  },
-  "Why is our renewable energy disclosure marked partial?": {
-    role: "assistant",
-    content:
-      "ENV-002 is marked Partially Covered at 87% confidence. The retrieved passage discloses total electricity consumption and a renewable share, but no separate non-renewable total is stated, which BRSR requires as a distinct value.",
-    citations: [
-      {
-        requirement: "ENV-002 â€” Renewable vs Non-Renewable Energy Breakdown",
-        document: "Sustainability Report FY2025-26",
-        page: 28,
-        snippet:
-          "ABC Industries consumed 120,000 kWh of electricity during FY2025-26, of which approximately 30% was supplied from renewable sources.",
-      },
-    ],
-  },
-  "What evidence was found for Scope 1 emissions?": {
-    role: "assistant",
-    content:
-      "ENV-003 Scope 1 GHG Emissions is assessed as Covered at 94% confidence. The disclosure states the absolute figure in tCO2e and names the calculation methodology.",
-    citations: [
-      {
-        requirement: "ENV-003 â€” Scope 1 GHG Emissions",
-        document: "Sustainability Report FY2025-26",
-        page: 31,
-        snippet:
-          "Direct (Scope 1) greenhouse gas emissions for FY2025-26 were 18,420 tCO2e, calculated using the GHG Protocol Corporate Standard.",
-      },
-    ],
-  },
-  "Summarize our top five compliance gaps.": {
-    role: "assistant",
-    content:
-      "1. ENV-005 Scope 3 GHG Emissions â€” evidence not found, high priority.\n2. GOV-003 Whistleblower Mechanism â€” evidence not found, high priority.\n3. SOC-003 Human Rights Due Diligence â€” human review required, high priority.\n4. ENV-002 Renewable vs Non-Renewable Energy Breakdown â€” partially covered, medium priority.\n5. ENV-007 Waste Recycling Data â€” partially covered, medium priority.\n\nClosing the two environmental partials and the Scope 3 gap has the largest effect on the 78% overall readiness score.",
-    citations: [
-      {
-        requirement: "ENV-005 â€” Scope 3 GHG Emissions",
-        document: "No supporting evidence retrieved",
-        page: 0,
-        snippet: "Highest-weighted missing disclosure under BRSR Principle 6.",
-      },
-    ],
-  },
-};
-
-export const defaultAnswer: ChatMessage = {
-  role: "assistant",
-  content:
-    "Based on the 12 analysed documents for ABC Industries Ltd., overall ESG reporting readiness against SEBI BRSR is 78%: 42 requirements covered, 8 partially covered and 6 without retrieved evidence. Ask about a specific requirement ID or ESG category for an evidence-backed breakdown.",
-  citations: [
-    {
-      requirement: "Portfolio summary â€” SEBI BRSR",
-      document: "Sustainability Report FY2025-26",
-      page: 27,
-      snippet:
-        "Total energy consumption of ABC Industries for FY2025-26 stood at 148,500 GJ across all manufacturing and office facilities.",
-    },
-  ],
-};
 
 export function getRequirement(id: string) {
   return requirements.find((r) => r.id.toLowerCase() === id.toLowerCase());

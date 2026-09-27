@@ -27,6 +27,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
+    @ExceptionHandler(AssistantUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleAssistantUnavailable(AssistantUnavailableException ex) {
+        Map<String, Object> body = Map.of(
+                "status", HttpStatus.BAD_GATEWAY.value(),
+                "error", "Bad Gateway",
+                "message", ex.getMessage(),
+                "timestamp", Instant.now().toString()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException ex) {
         Map<String, Object> body = Map.of(
