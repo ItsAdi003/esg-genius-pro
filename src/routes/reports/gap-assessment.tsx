@@ -9,7 +9,8 @@ import {
   Printer,
   RefreshCw,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   complianceQueryKeys,
+  fetchGapAssessmentPdf,
   formatAnalysisStatus,
   formatAssessmentStatus,
   formatConfidencePercent,
@@ -228,8 +230,20 @@ function filterByStatuses(
   return assessments.filter((a) => statuses.includes(a.assessmentStatus));
 }
 
+function triggerPdfDownload(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function GapAssessmentReport() {
   const { analysisId, analysisIdInvalid } = Route.useSearch();
+  const [pdfDownloadPending, setPdfDownloadPending] = useState(false);
 
   const analysisQuery = useQuery({
     queryKey: analysisId != null
@@ -411,6 +425,20 @@ function GapAssessmentReport() {
   const document = documentQuery.data;
   const totalAssessed = assessments.length;
 
+  async function handleDownloadPdf() {
+    setPdfDownloadPending(true);
+    try {
+      const blob = await fetchGapAssessmentPdf(analysis.id);
+      triggerPdfDownload(blob, `gap-assessment-${analysis.id}.pdf`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to download the gap assessment PDF.";
+      toast.error(message);
+    } finally {
+      setPdfDownloadPending(false);
+    }
+  }
+
   return (
     <div data-gap-assessment-report>
       <AppLayout
@@ -426,8 +454,13 @@ function GapAssessmentReport() {
             <Button variant="outline" onClick={() => window.print()}>
               <Printer className="size-4" /> Print Report
             </Button>
-            <Button variant="outline" disabled>
-              <Download className="size-4" /> Download PDF
+            <Button
+              variant="outline"
+              onClick={() => void handleDownloadPdf()}
+              disabled={pdfDownloadPending}
+            >
+              <Download className="size-4" />
+              {pdfDownloadPending ? "Preparing PDF…" : "Download PDF"}
             </Button>
           </div>
         }

@@ -202,6 +202,26 @@ export async function getComplianceAnalysis(analysisId: number): Promise<Complia
 }
 
 /**
+ * GET /api/v1/analyses/{analysisId}/report.pdf
+ */
+export async function fetchGapAssessmentPdf(analysisId: number): Promise<Blob> {
+  const response = await fetch(apiUrl(`/api/v1/analyses/${analysisId}/report.pdf`));
+  if (!response.ok) {
+    let message = `Failed to download gap assessment PDF for analysis ${analysisId}`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) {
+        message = body.message;
+      }
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    throw new ComplianceApiError(message, response.status);
+  }
+  return response.blob();
+}
+
+/**
  * GET /api/v1/documents/{documentId}/analyses
  */
 export async function getDocumentAnalyses(documentId: number): Promise<ComplianceAnalysisSummary[]> {
