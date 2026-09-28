@@ -40,7 +40,7 @@ const nav = [
   { to: "/compliance", label: "Compliance Analysis", icon: ClipboardCheck },
   { to: "/comparison", label: "Company Comparison", icon: TrendingUp },
   { to: "/frameworks", label: "ESG Frameworks", icon: Library },
-  { to: "/assistant", label: "AI ESG Assistant", icon: Bot, preview: true },
+  { to: "/assistant", label: "AI ESG Assistant", icon: Bot },
   { to: "/reports", label: "Reports", icon: FileBarChart2, preview: true },
   { to: "/settings", label: "Settings", icon: Settings, preview: true },
 ];
