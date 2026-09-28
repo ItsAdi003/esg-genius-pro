@@ -99,7 +99,7 @@ function Documents() {
   const documents = documentsQuery.data ?? [];
 
   const analyzeMutation = useMutation({
-    mutationFn: createComplianceAnalysis,
+    mutationFn: (documentId: number) => createComplianceAnalysis(documentId),
     onSuccess: (analysis) => {
       toast.success("Compliance analysis started");
       navigate({
