@@ -15,7 +15,7 @@ public interface ComplianceAnalysisRepository extends JpaRepository<ComplianceAn
             SELECT a FROM ComplianceAnalysis a
             JOIN FETCH a.framework
             WHERE a.document.id = :documentId
-            ORDER BY a.startedAt DESC
+            ORDER BY a.startedAt DESC, a.id DESC
             """)
     List<ComplianceAnalysis> findByDocumentIdWithFrameworkOrderByStartedAtDesc(
             @Param("documentId") Long documentId);
