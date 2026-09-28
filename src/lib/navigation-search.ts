@@ -45,19 +45,19 @@ const navigationEntries: NavigationSearchResult[] = [
   {
     id: "assistant",
     title: "AI ESG Assistant",
-    subtitle: "Prototype preview · planned RAG phase",
+    subtitle: "Document-grounded Q&A with evidence citations",
     to: "/assistant",
   },
   {
     id: "reports",
     title: "Reports",
-    subtitle: "Report generation · planned",
+    subtitle: "Gap Assessment reports available · other types planned",
     to: "/reports",
   },
   {
     id: "reports-gap",
-    title: "Gap Assessment Report Preview",
-    subtitle: "Prototype report layout preview",
+    title: "Gap Assessment Report",
+    subtitle: "Evidence-linked report with PDF export",
     to: "/reports/gap-assessment",
   },
   {
