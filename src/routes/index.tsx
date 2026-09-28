@@ -201,8 +201,8 @@ function Dashboard() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success-soft px-3 py-1 text-xs font-medium text-success">
                 <CheckCircle2 className="size-3.5" /> Comparison · live
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
-                Assistant · preview
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success-soft px-3 py-1 text-xs font-medium text-success">
+                <CheckCircle2 className="size-3.5" /> Assistant · live
               </span>
             </div>
           </div>
@@ -245,22 +245,23 @@ function Dashboard() {
           cta="Compare companies"
           delay={260}
         />
-      </div>
-
-      <div className="mt-5 grid gap-3 lg:grid-cols-3">
-        <PreviewCard
+        <CapabilityCard
           title="AI ESG Assistant"
-          description="Demonstration chat interface. Document-grounded responses are planned for a later RAG phase."
+          description="Ask questions about an uploaded document and get answers grounded in its retrieved evidence, with page citations."
           icon={Bot}
           href="/assistant"
-          delay={80}
+          cta="Open assistant"
+          delay={320}
         />
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-2">
         <PreviewCard
           title="Report Generation"
-          description="Gap assessment and executive report layouts are available as UI previews. PDF export is not implemented."
+          description="Gap Assessment reports with PDF export are available. Other report layouts under Reports remain preview-only."
           icon={FileBarChart2}
           href="/reports"
-          delay={140}
+          delay={80}
         />
         <PreviewCard
           title="Workspace Settings"
