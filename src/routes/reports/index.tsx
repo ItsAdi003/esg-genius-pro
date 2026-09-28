@@ -45,10 +45,9 @@ function Reports() {
       description="Report generation · planned · UI preview available"
     >
       <PrototypeNotice title="Report Generation — Partial" className="mb-4">
-        Gap Assessment reports can be viewed for an existing compliance analysis (open Compliance
-        Analysis and choose View Gap Assessment). Backend PDF export is not implemented — use your
-        browser&apos;s Print → Save as PDF on the gap assessment page. Other report types below
-        remain planned previews.
+        Gap Assessment reports support backend PDF export — open a completed analysis under
+        Compliance Analysis, choose View Gap Assessment, then Download PDF. Other report types
+        below remain planned previews.
       </PrototypeNotice>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -99,7 +98,11 @@ function Reports() {
                       </Button>
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>PDF download is planned for a future release</TooltipContent>
+                  <TooltipContent>
+                    {t.id === "gap-assessment"
+                      ? "Open a completed analysis from Compliance to download its PDF"
+                      : "PDF download is planned for a future release"}
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
