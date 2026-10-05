@@ -17,6 +17,8 @@ public interface EsgEventRepository extends JpaRepository<EsgEvent, Long> {
      */
     List<EsgEvent> findByOrganizationOrderByEventDateDesc(Organization organization);
 
+    long countByOrganization(Organization organization);
+
     /**
      * Find recent ESG events for an organization (last N events).
      */

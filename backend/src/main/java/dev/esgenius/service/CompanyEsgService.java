@@ -99,8 +99,9 @@ public class CompanyEsgService {
         CompanyEsgProfileResponse profileA = getCompanyEsgProfile(companyAId);
         CompanyEsgProfileResponse profileB = getCompanyEsgProfile(companyBId);
 
-        // Generate comparison insight
-        String insight = generateComparisonInsight(companyA, companyB);
+        // Reuse the ratings already loaded for the profiles.
+        String insight = generateComparisonInsight(
+                companyA, companyB, profileA.currentRating(), profileB.currentRating());
 
         return new CompanyComparisonResponse(profileA, profileB, insight);
     }
@@ -174,38 +175,37 @@ public class CompanyEsgService {
      * Pillar statements compare the two companies directly. A company is only
      * described as leading on a pillar when its score is higher than the other's.
      */
-    private String generateComparisonInsight(Organization companyA, Organization companyB) {
-        EsgRatingSnapshot ratingA = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(companyA)
-                .orElseThrow(() -> new ResourceNotFoundException("No rating data for: " + companyA.getId()));
-        EsgRatingSnapshot ratingB = ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(companyB)
-                .orElseThrow(() -> new ResourceNotFoundException("No rating data for: " + companyB.getId()));
-
-        double overallDiff = ratingA.getOverallScore() - ratingB.getOverallScore();
+    private String generateComparisonInsight(
+            Organization companyA,
+            Organization companyB,
+            EsgRatingResponse ratingA,
+            EsgRatingResponse ratingB) {
+        double overallDiff = ratingA.overallScore() - ratingB.overallScore();
         if (Math.abs(overallDiff) <= PILLAR_LEAD_THRESHOLD) {
             return String.format(
                     "%s and %s have similar prototype ESGenius overall scores (%.1f vs %.1f).",
                     companyA.getName(),
                     companyB.getName(),
-                    ratingA.getOverallScore(),
-                    ratingB.getOverallScore());
+                    ratingA.overallScore(),
+                    ratingB.overallScore());
         }
 
         boolean aLeadsOverall = overallDiff > 0;
         Organization leader = aLeadsOverall ? companyA : companyB;
         Organization other = aLeadsOverall ? companyB : companyA;
-        EsgRatingSnapshot leaderRating = aLeadsOverall ? ratingA : ratingB;
-        EsgRatingSnapshot otherRating = aLeadsOverall ? ratingB : ratingA;
+        EsgRatingResponse leaderRating = aLeadsOverall ? ratingA : ratingB;
+        EsgRatingResponse otherRating = aLeadsOverall ? ratingB : ratingA;
 
         List<String> leaderAdvantages = new ArrayList<>();
         addPillarAdvantage(leaderAdvantages, "Environmental",
-                leaderRating.getEnvironmentalScore(), otherRating.getEnvironmentalScore());
+                leaderRating.environmentalScore(), otherRating.environmentalScore());
         addPillarAdvantage(leaderAdvantages, "Social",
-                leaderRating.getSocialScore(), otherRating.getSocialScore());
+                leaderRating.socialScore(), otherRating.socialScore());
         addPillarAdvantage(leaderAdvantages, "Governance",
-                leaderRating.getGovernanceScore(), otherRating.getGovernanceScore());
+                leaderRating.governanceScore(), otherRating.governanceScore());
 
-        int leaderEvents = eventRepository.findByOrganizationOrderByEventDateDesc(leader).size();
-        int otherEvents = eventRepository.findByOrganizationOrderByEventDateDesc(other).size();
+        int leaderEvents = (int) eventRepository.countByOrganization(leader);
+        int otherEvents = (int) eventRepository.countByOrganization(other);
         if (leaderEvents < otherEvents) {
             leaderAdvantages.add(String.format("fewer recorded ESG events (%d vs %d)", leaderEvents, otherEvents));
         }
@@ -213,8 +213,8 @@ public class CompanyEsgService {
         if (leaderAdvantages.isEmpty()) {
             leaderAdvantages.add(String.format(
                     "a higher overall score (%.1f vs %.1f) with broadly similar pillar scores",
-                    leaderRating.getOverallScore(),
-                    otherRating.getOverallScore()));
+                    leaderRating.overallScore(),
+                    otherRating.overallScore()));
         }
 
         StringBuilder insight = new StringBuilder();
@@ -225,11 +225,11 @@ public class CompanyEsgService {
 
         List<String> otherPillarLeads = new ArrayList<>();
         addPillarLead(otherPillarLeads, "Environmental",
-                otherRating.getEnvironmentalScore(), leaderRating.getEnvironmentalScore());
+                otherRating.environmentalScore(), leaderRating.environmentalScore());
         addPillarLead(otherPillarLeads, "Social",
-                otherRating.getSocialScore(), leaderRating.getSocialScore());
+                otherRating.socialScore(), leaderRating.socialScore());
         addPillarLead(otherPillarLeads, "Governance",
-                otherRating.getGovernanceScore(), leaderRating.getGovernanceScore());
+                otherRating.governanceScore(), leaderRating.governanceScore());
 
         if (otherPillarLeads.isEmpty()) {
             insight.append(String.format(

@@ -11,7 +11,9 @@ import dev.esgenius.repository.FrameworkRequirementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
@@ -27,19 +29,27 @@ public class FrameworkService {
     }
 
     public List<FrameworkResponse> listFrameworks() {
+        Map<Long, Integer> countsByFrameworkId = requirementCountsByFrameworkId();
         return frameworkRepository.findAll().stream()
-                .map(f -> {
-                    int count = requirementRepository.findByFramework(f).size();
-                    return FrameworkResponse.from(f, count);
-                })
+                .map(f -> FrameworkResponse.from(f, countsByFrameworkId.getOrDefault(f.getId(), 0)))
                 .toList();
     }
 
     public FrameworkResponse getFramework(Long id) {
         Framework framework = frameworkRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Framework not found: " + id));
-        int count = requirementRepository.findByFramework(framework).size();
+        int count = (int) requirementRepository.countByFramework(framework);
         return FrameworkResponse.from(framework, count);
+    }
+
+    private Map<Long, Integer> requirementCountsByFrameworkId() {
+        Map<Long, Integer> counts = new HashMap<>();
+        for (Object[] row : requirementRepository.countGroupedByFrameworkId()) {
+            Long frameworkId = ((Number) row[0]).longValue();
+            int count = ((Number) row[1]).intValue();
+            counts.put(frameworkId, count);
+        }
+        return counts;
     }
 
     public List<FrameworkRequirementResponse> getRequirements(Long frameworkId, EsgCategory category) {

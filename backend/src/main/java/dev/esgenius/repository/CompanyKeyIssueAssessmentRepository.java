@@ -21,13 +21,14 @@ public interface CompanyKeyIssueAssessmentRepository extends JpaRepository<Compa
      */
     @Query("""
                 SELECT a FROM CompanyKeyIssueAssessment a
+                JOIN FETCH a.keyIssue ki
                 WHERE a.organization = :organization
                 AND a.assessmentDate = (
                     SELECT MAX(a2.assessmentDate)
                     FROM CompanyKeyIssueAssessment a2
                     WHERE a2.organization = :organization
                 )
-                ORDER BY a.keyIssue.pillar, a.keyIssue.name
+                ORDER BY ki.pillar, ki.name
             """)
     List<CompanyKeyIssueAssessment> findLatestAssessmentsByOrganization(
             @Param("organization") Organization organization);

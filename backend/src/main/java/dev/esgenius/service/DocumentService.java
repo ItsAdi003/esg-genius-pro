@@ -105,7 +105,7 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public DocumentDetailResponse getDocument(Long documentId) {
-        Document document = documentRepository.findById(documentId)
+        Document document = documentRepository.findByIdWithOrganization(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
         return toDetailResponse(document);
     }
