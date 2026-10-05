@@ -9,7 +9,6 @@ import {
   FileBarChart2,
   Settings,
   Bell,
-  ChevronDown,
   Leaf,
   Menu,
   PanelLeftClose,
@@ -22,11 +21,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GlobalSearch } from "@/components/global-search";
 import { PrototypeBadge } from "@/components/prototype-notice";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ORG } from "@/lib/esg-data";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import {
+  getSessionDisplayName,
+  getSessionInitials,
+  useSessionUser,
+} from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -150,6 +154,9 @@ export function AppLayout({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user, ready: sessionReady } = useSessionUser();
+  const displayName = getSessionDisplayName(user);
+  const initials = displayName ? getSessionInitials(displayName) : "";
 
   async function signOut() {
     await getSupabaseClient().auth.signOut();
@@ -209,22 +216,27 @@ export function AppLayout({
                 <Bell className="size-[18px]" />
                 <span className="status-pulse absolute right-2.5 top-2.5 size-2 rounded-full bg-primary shadow-[0_0_8px_rgba(20,184,166,0.8)]" />
               </Button>
-              <div className="hidden items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1.5 backdrop-blur sm:flex shadow-sm hover:bg-white/10 transition-colors cursor-pointer">
-                <span className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-[10px] font-semibold text-primary border border-primary/30">
-                  AB
-                </span>
-                <span className="text-sm font-medium tracking-tight text-foreground/90">{ORG.name}</span>
-                <ChevronDown className="size-4 text-muted-foreground" />
-              </div>
-              <div className="flex items-center gap-3 pl-2 border-l border-white/5 ml-1">
-                <div className="hidden leading-tight lg:block text-right">
-                  <p className="text-sm font-medium tracking-tight text-foreground/90">Priya Nair</p>
-                  <p className="text-[11px] text-primary/80 font-medium">ESG Lead</p>
+              {!sessionReady ? (
+                <div className="flex items-center gap-3 pl-2 border-l border-white/5 ml-1">
+                  <div className="hidden space-y-1 leading-tight lg:block text-right">
+                    <Skeleton className="ml-auto h-4 w-24" />
+                    <Skeleton className="ml-auto h-3 w-32" />
+                  </div>
+                  <Skeleton className="size-9 rounded-full" />
                 </div>
-                <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-500 text-xs font-semibold text-white shadow-md ring-2 ring-background">
-                  PN
+              ) : (
+                <div className="flex items-center gap-3 pl-2 border-l border-white/5 ml-1">
+                  <div className="hidden leading-tight lg:block text-right">
+                    <p className="text-sm font-medium tracking-tight text-foreground/90">{displayName}</p>
+                    {user?.email && (
+                      <p className="text-[11px] text-muted-foreground">{user.email}</p>
+                    )}
+                  </div>
+                  <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-500 text-xs font-semibold text-white shadow-md ring-2 ring-background">
+                    {initials}
+                  </div>
                 </div>
-              </div>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
