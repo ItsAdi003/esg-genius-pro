@@ -602,45 +602,6 @@ export const reportTemplates = [
   },
 ];
 
-export const generatedReports = [
-  {
-    id: "RPT-1042",
-    name: "ESG Gap Assessment Report",
-    period: "FY 2025-26",
-    generated: "28 Mar 2026, 10:24",
-    generatedBy: "Priya Nair",
-    format: "PDF",
-    size: "1.8 MB",
-  },
-  {
-    id: "RPT-1039",
-    name: "Environmental Compliance Summary",
-    period: "FY 2025-26",
-    generated: "22 Mar 2026, 16:02",
-    generatedBy: "Priya Nair",
-    format: "PDF",
-    size: "0.9 MB",
-  },
-  {
-    id: "RPT-1035",
-    name: "Executive Sustainability Summary",
-    period: "FY 2025-26",
-    generated: "14 Mar 2026, 09:41",
-    generatedBy: "R. Iyer",
-    format: "PDF",
-    size: "0.4 MB",
-  },
-  {
-    id: "RPT-1028",
-    name: "Missing Evidence Report",
-    period: "FY 2024-25",
-    generated: "02 Feb 2026, 12:15",
-    generatedBy: "Priya Nair",
-    format: "PDF",
-    size: "0.6 MB",
-  },
-];
-
 export const suggestedQuestions = [
   "What ESG requirements are currently missing?",
   "Which environmental disclosures need attention?",
@@ -853,17 +814,6 @@ export function globalSearch(query: string): SearchResult[] {
         subtitle: `${d.type} Â· ${d.year}`,
         to: "/documents/$documentId",
         params: { documentId: d.id },
-      });
-    }
-  }
-  for (const rep of generatedReports) {
-    if (match(rep.id, rep.name, rep.period)) {
-      results.push({
-        group: "Reports",
-        id: rep.id,
-        title: rep.name,
-        subtitle: `${rep.id} Â· ${rep.period}`,
-        to: "/reports",
       });
     }
   }
