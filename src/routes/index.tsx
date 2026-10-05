@@ -59,7 +59,7 @@ function CapabilityCard({
   icon: React.ElementType;
   href: string;
   cta: string;
-  stat?: string | number;
+  stat?: string | number | undefined;
   statLabel?: string;
   delay?: number;
   loading?: boolean;

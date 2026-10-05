@@ -100,7 +100,15 @@ export function UploadDialog({
     !uploadMutation.isPending;
 
   const handleUpload = () => {
-    if (!canUpload || organizationId == null || documentType === "") return;
+    if (
+      file == null ||
+      organizationId == null ||
+      documentType === "" ||
+      reportingYear === "" ||
+      uploadMutation.isPending
+    ) {
+      return;
+    }
 
     uploadMutation.mutate({
       file,
@@ -191,7 +199,7 @@ export function UploadDialog({
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Company</Label>
               <Select
-                value={organizationId != null ? String(organizationId) : undefined}
+                {...(organizationId != null ? { value: String(organizationId) } : {})}
                 onValueChange={(value) => {
                   const id = Number(value);
                   setOrganizationId(id);
@@ -215,7 +223,7 @@ export function UploadDialog({
             <div className="space-y-1.5">
               <Label>Document Type</Label>
               <Select
-                value={documentType || undefined}
+                {...(documentType !== "" ? { value: documentType } : {})}
                 onValueChange={(value) => setDocumentType(value as DocumentType)}
                 disabled={uploadMutation.isPending}
               >
@@ -235,7 +243,7 @@ export function UploadDialog({
             <div className="space-y-1.5">
               <Label>Reporting Year</Label>
               <Select
-                value={reportingYear || undefined}
+                {...(reportingYear !== "" ? { value: reportingYear } : {})}
                 onValueChange={setReportingYear}
                 disabled={uploadMutation.isPending}
               >

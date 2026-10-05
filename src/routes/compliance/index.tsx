@@ -47,9 +47,10 @@ type ComplianceSearch = {
 };
 
 export const Route = createFileRoute("/compliance/")({
-  validateSearch: (search: Record<string, unknown>): ComplianceSearch => ({
-    analysisId: parseAnalysisIdSearch(search["analysisId"]),
-  }),
+  validateSearch: (search: Record<string, unknown>): ComplianceSearch => {
+    const analysisId = parseAnalysisIdSearch(search["analysisId"]);
+    return analysisId === undefined ? {} : { analysisId };
+  },
   head: () => ({
     meta: [
       { title: "Compliance Gap Analysis | ESGenius" },

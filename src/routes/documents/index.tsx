@@ -81,9 +81,10 @@ function Documents() {
   const companies = companiesQuery.data ?? [];
 
   useEffect(() => {
-    if (selectedOrganizationId != null || companies.length === 0) return;
+    if (selectedOrganizationId != null) return;
     const preferred =
       companies.find((company) => company.name === "Infosys Limited") ?? companies[0];
+    if (preferred === undefined) return;
     setSelectedOrganizationId(preferred.id);
   }, [companies, selectedOrganizationId]);
 
@@ -163,7 +164,9 @@ function Documents() {
             <p className="text-sm text-danger">Failed to load companies</p>
           ) : (
             <Select
-              value={selectedOrganizationId != null ? String(selectedOrganizationId) : undefined}
+              {...(selectedOrganizationId != null
+                ? { value: String(selectedOrganizationId) }
+                : {})}
               onValueChange={(value) => setSelectedOrganizationId(Number(value))}
             >
               <SelectTrigger className="w-56">

@@ -35,9 +35,10 @@ type RequirementSearch = {
 };
 
 export const Route = createFileRoute("/compliance/$requirementId")({
-  validateSearch: (search: Record<string, unknown>): RequirementSearch => ({
-    analysisId: parseAnalysisIdSearch(search["analysisId"]),
-  }),
+  validateSearch: (search: Record<string, unknown>): RequirementSearch => {
+    const analysisId = parseAnalysisIdSearch(search["analysisId"]);
+    return analysisId === undefined ? {} : { analysisId };
+  },
   head: () => ({
     meta: [
       { title: "Requirement Details | ESGenius" },

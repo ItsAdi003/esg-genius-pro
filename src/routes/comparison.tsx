@@ -200,14 +200,19 @@ function CompanyComparison() {
     companyAId != null && companyBId != null && companyAId !== companyBId;
 
   useEffect(() => {
-    if (selectionInitialized || companies.length === 0) {
+    if (selectionInitialized) {
       return;
     }
-    if (companies.length >= 2) {
-      setCompanyAId(companies[0].id);
-      setCompanyBId(companies[1].id);
-    } else if (companies.length === 1) {
-      setCompanyAId(companies[0].id);
+    const firstCompany = companies[0];
+    const secondCompany = companies[1];
+    if (firstCompany === undefined) {
+      return;
+    }
+    if (secondCompany !== undefined) {
+      setCompanyAId(firstCompany.id);
+      setCompanyBId(secondCompany.id);
+    } else {
+      setCompanyAId(firstCompany.id);
     }
     setSelectionInitialized(true);
   }, [companies, selectionInitialized]);
@@ -391,7 +396,7 @@ function CompanyComparison() {
               Company A
             </label>
             <Select
-              value={companyAId != null ? String(companyAId) : undefined}
+              {...(companyAId != null ? { value: String(companyAId) } : {})}
               onValueChange={handleCompanyAChange}
               disabled={isLoading}
             >
@@ -412,7 +417,7 @@ function CompanyComparison() {
               Company B
             </label>
             <Select
-              value={companyBId != null ? String(companyBId) : undefined}
+              {...(companyBId != null ? { value: String(companyBId) } : {})}
               onValueChange={handleCompanyBChange}
               disabled={isLoading}
             >

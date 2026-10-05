@@ -204,7 +204,7 @@ export function toComparisonCompanyView(profile: CompanyEsgProfile): ComparisonC
       date: event.eventDate,
       severity: formatSeverity(event.severity),
       description: event.description,
-      scoreImpact: event.scoreImpact ?? undefined,
+      ...(event.scoreImpact != null ? { scoreImpact: event.scoreImpact } : {}),
       isPositive:
         event.scoreImpact != null
           ? event.scoreImpact >= 0

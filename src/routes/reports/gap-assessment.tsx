@@ -424,12 +424,13 @@ function GapAssessmentReport() {
 
   const document = documentQuery.data;
   const totalAssessed = assessments.length;
+  const reportAnalysis = analysis;
 
   async function handleDownloadPdf() {
     setPdfDownloadPending(true);
     try {
-      const blob = await fetchGapAssessmentPdf(analysis.id);
-      triggerPdfDownload(blob, `gap-assessment-${analysis.id}.pdf`);
+      const blob = await fetchGapAssessmentPdf(reportAnalysis.id);
+      triggerPdfDownload(blob, `gap-assessment-${reportAnalysis.id}.pdf`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to download the gap assessment PDF.";

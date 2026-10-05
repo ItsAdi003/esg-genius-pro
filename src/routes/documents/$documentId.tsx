@@ -178,7 +178,7 @@ function DocumentDetailPage() {
       <AppLayout title="Document not found" description="This document is no longer available">
         <div className="glass-panel p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            The document ID in the URL is invalid.
+            This document could not be loaded.
           </p>
           <Button className="mt-4" asChild>
             <Link to="/documents">Back to Documents</Link>

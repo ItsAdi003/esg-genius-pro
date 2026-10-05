@@ -106,8 +106,10 @@ function Assistant() {
   const companies = companiesQuery.data ?? [];
 
   useEffect(() => {
-    if (selectedOrganizationId != null || companies.length === 0) return;
-    setSelectedOrganizationId(companies[0].id);
+    if (selectedOrganizationId != null) return;
+    const firstCompany = companies[0];
+    if (firstCompany === undefined) return;
+    setSelectedOrganizationId(firstCompany.id);
   }, [companies, selectedOrganizationId]);
 
   const documentsQuery = useQuery({
@@ -165,8 +167,8 @@ function Assistant() {
           role: "assistant",
           content: result.answer,
           grounded: result.grounded,
-          citations: result.grounded ? result.citations : undefined,
-          documentName,
+          ...(result.grounded ? { citations: result.citations } : {}),
+          ...(documentName !== undefined ? { documentName } : {}),
         },
       ]);
     } catch (error) {
@@ -203,7 +205,9 @@ function Assistant() {
             <Skeleton className="h-10 w-56" />
           ) : (
             <Select
-              value={selectedOrganizationId != null ? String(selectedOrganizationId) : undefined}
+              {...(selectedOrganizationId != null
+                ? { value: String(selectedOrganizationId) }
+                : {})}
               onValueChange={(value) => {
                 setSelectedOrganizationId(Number(value));
                 setSelectedDocumentId(null);
@@ -228,7 +232,7 @@ function Assistant() {
             <Skeleton className="h-10 w-72" />
           ) : (
             <Select
-              value={selectedDocumentId != null ? String(selectedDocumentId) : undefined}
+              {...(selectedDocumentId != null ? { value: String(selectedDocumentId) } : {})}
               onValueChange={(value) => setSelectedDocumentId(Number(value))}
               disabled={readyDocuments.length === 0}
             >
