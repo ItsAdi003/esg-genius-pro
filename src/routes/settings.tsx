@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ORG } from "@/lib/esg-data";
+import { useSessionUser } from "@/lib/use-session-user";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -84,6 +84,8 @@ function ToggleRow({
 }
 
 function SettingsPage() {
+  const { user, ready } = useSessionUser();
+
   return (
     <AppLayout
       title="Settings"
@@ -112,15 +114,15 @@ function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="org">Organization name</Label>
-              <Input id="org" defaultValue={ORG.name} />
+              <Input id="org" placeholder="Your organization name" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="cin">Corporate identity number</Label>
-              <Input id="cin" defaultValue="L12345MH2004PLC145678" />
+              <Input id="cin" placeholder="Not set" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="sector">Sector</Label>
-              <Input id="sector" defaultValue="Industrial Manufacturing" />
+              <Input id="sector" placeholder="Your industry sector" />
             </div>
             <div className="space-y-1.5">
               <Label>Reporting period</Label>
@@ -136,7 +138,12 @@ function SettingsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="contact">ESG contact</Label>
-              <Input id="contact" defaultValue="priya.nair@abcindustries.in" />
+              <Input
+                id="contact"
+                key={user?.email ?? "pending"}
+                defaultValue={ready ? (user?.email ?? "") : undefined}
+                readOnly
+              />
             </div>
           </div>
         </Section>

@@ -1,8 +1,4 @@
-﻿export const ORG = {
-  name: "ABC Industries Ltd.",
-};
-
-export type Status =
+﻿export type Status =
   | "Covered"
   | "Partially Covered"
   | "Evidence Not Found"
