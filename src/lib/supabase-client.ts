@@ -6,8 +6,8 @@ function readEnv(value: unknown): string {
 
 export function isSupabaseConfigured(): boolean {
   return (
-    readEnv(import.meta.env.VITE_SUPABASE_URL).length > 0 &&
-    readEnv(import.meta.env.VITE_SUPABASE_ANON_KEY).length > 0
+    readEnv(import.meta.env["VITE_SUPABASE_URL"]).length > 0 &&
+    readEnv(import.meta.env["VITE_SUPABASE_ANON_KEY"]).length > 0
   );
 }
 
@@ -18,8 +18,8 @@ export function getSupabaseClient(): SupabaseClient {
     return client;
   }
 
-  const url = readEnv(import.meta.env.VITE_SUPABASE_URL);
-  const anonKey = readEnv(import.meta.env.VITE_SUPABASE_ANON_KEY);
+  const url = readEnv(import.meta.env["VITE_SUPABASE_URL"]);
+  const anonKey = readEnv(import.meta.env["VITE_SUPABASE_ANON_KEY"]);
   if (!url || !anonKey) {
     throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   }

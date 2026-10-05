@@ -49,7 +49,7 @@ type GapAssessmentSearch = {
 const ESG_CATEGORIES = ["ENVIRONMENTAL", "SOCIAL", "GOVERNANCE"] as const;
 
 function validateGapAssessmentSearch(search: Record<string, unknown>): GapAssessmentSearch {
-  const raw = search.analysisId;
+  const raw = search["analysisId"];
   if (raw === undefined || raw === null || raw === "") {
     return {};
   }

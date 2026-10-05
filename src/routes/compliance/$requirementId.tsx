@@ -36,7 +36,7 @@ type RequirementSearch = {
 
 export const Route = createFileRoute("/compliance/$requirementId")({
   validateSearch: (search: Record<string, unknown>): RequirementSearch => ({
-    analysisId: parseAnalysisIdSearch(search.analysisId),
+    analysisId: parseAnalysisIdSearch(search["analysisId"]),
   }),
   head: () => ({
     meta: [

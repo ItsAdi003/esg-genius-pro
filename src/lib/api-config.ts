@@ -7,7 +7,7 @@ const DEFAULT_API_BASE_URL = "http://localhost:8081";
  * Override with VITE_API_BASE_URL in .env / deployment config.
  */
 export function getApiBaseUrl(): string {
-  const configured = import.meta.env.VITE_API_BASE_URL;
+  const configured = import.meta.env["VITE_API_BASE_URL"];
   if (typeof configured === "string" && configured.trim().length > 0) {
     return configured.trim().replace(/\/$/, "");
   }
