@@ -89,6 +89,24 @@ class ComplianceClassificationPromptBuilderTest {
     }
 
     @Test
+    void outputFieldsInstructNoRubricWordingWhileStrictRulesRemain() {
+        ComplianceClassificationRequest request = new ComplianceClassificationRequest(
+                "ENV-001",
+                "Test Requirement",
+                "Description",
+                "Framework text",
+                List.of("Evidence passage."));
+
+        String prompt = promptBuilder.buildPrompt(request);
+
+        assertThat(prompt).contains(
+                "Never use the words 'rubric', 'evaluation rubric', 'prompt', or 'instructions' in these fields");
+        assertThat(prompt).contains("requirement components (what the requirement asks for)");
+        assertThat(prompt).contains("STRICT RUBRIC RULES (mandatory):");
+        assertThat(prompt).contains("The evaluation rubric below is the COMPLETE and ONLY list of disclosure components to evaluate.");
+    }
+
+    @Test
     void presentsTitleDescriptionAndFrameworkTextAsAuthoritativeRubric() {
         ComplianceClassificationRequest request = new ComplianceClassificationRequest(
                 "ENV-004",

@@ -32,9 +32,10 @@ public class ComplianceClassificationPromptBuilder {
         prompt.append("- Use ONLY the evaluation rubric and evidence passages below. Do not use outside knowledge, web information, assumptions, or invented disclosures.\n");
         prompt.append("- Do not invent quotations, page numbers, or facts not present in the evidence.\n");
         prompt.append("- Do not claim official SEBI certification, legal compliance, ESG ratings, or MSCI assessments.\n");
-        prompt.append("- explanation: concise user-facing justification referencing only rubric components (not chain-of-thought).\n");
-        prompt.append("- gap: rubric components that appear missing from the evidence (null if fully covered).\n");
-        prompt.append("- recommendation: what should be disclosed to satisfy the rubric (null if fully covered).\n");
+        prompt.append("- explanation: concise user-facing justification referencing only requirement components (what the requirement asks for), not chain-of-thought.\n");
+        prompt.append("- gap: requirement components that appear missing from the evidence (null if fully covered).\n");
+        prompt.append("- recommendation: what should be disclosed to satisfy the requirement (null if fully covered).\n");
+        prompt.append("- For explanation, gap, and recommendation: write for a compliance professional. Refer to 'the requirement' or 'the disclosure requirement'. Never use the words 'rubric', 'evaluation rubric', 'prompt', or 'instructions' in these fields.\n");
         prompt.append("- confidence: number from 0.0 to 1.0 reflecting classification certainty.\n\n");
 
         prompt.append("EVALUATION RUBRIC (complete — evaluate only these explicitly stated components):\n");
