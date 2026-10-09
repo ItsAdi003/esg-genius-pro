@@ -16,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -129,6 +130,28 @@ class DocumentAssistantServiceTest {
 
         assertThat(ex.getMessage()).doesNotContain("test-api-key");
         assertThat(ex.getMessage()).contains("could not generate an answer");
+        assertThat(ex.getHttpStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
+    }
+
+    @Test
+    void quotaExhaustionReturnsClearLimitMessage() {
+        evidence.result = List.of(new RetrievedChunk(0, "Groundwater withdrawal was 12500 kilolitres.", 1.0, 1));
+        when(answerProvider.answer(any())).thenThrow(new AssistantAnswerException(
+                AssistantAnswerFailureCategory.QUOTA_EXHAUSTED,
+                "Gemini API returned HTTP 429",
+                false,
+                429,
+                1,
+                "Daily quota exhausted"));
+
+        AssistantUnavailableException ex = assertThrows(AssistantUnavailableException.class, () ->
+                service.ask(1L, new AssistantAskRequest("groundwater withdrawal")));
+
+        assertThat(ex.getHttpStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(ex.getMessage()).isEqualTo(DocumentAssistantService.QUOTA_EXCEEDED_MESSAGE);
+        assertThat(ex.getMessage()).doesNotContain("quotaId");
+        assertThat(ex.getMessage()).doesNotContain("test-api-key");
+        assertThat(ex.getMessage()).doesNotContain("RESOURCE_EXHAUSTED");
     }
 
     @Test

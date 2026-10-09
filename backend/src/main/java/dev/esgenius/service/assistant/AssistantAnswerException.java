@@ -1,5 +1,7 @@
 package dev.esgenius.service.assistant;
 
+import java.time.Duration;
+
 public class AssistantAnswerException extends RuntimeException {
 
     private final AssistantAnswerFailureCategory category;
@@ -7,6 +9,7 @@ public class AssistantAnswerException extends RuntimeException {
     private final int attempt;
     private final String safeDetail;
     private final boolean retryable;
+    private final Duration retryAfter;
 
     public AssistantAnswerException(
             AssistantAnswerFailureCategory category,
@@ -28,6 +31,7 @@ public class AssistantAnswerException extends RuntimeException {
         this.attempt = attempt;
         this.safeDetail = safeDetail;
         this.retryable = retryable;
+        this.retryAfter = null;
     }
 
     public AssistantAnswerException(
@@ -38,12 +42,25 @@ public class AssistantAnswerException extends RuntimeException {
             int attempt,
             String safeDetail,
             Throwable cause) {
+        this(category, message, retryable, httpStatus, attempt, safeDetail, cause, null);
+    }
+
+    public AssistantAnswerException(
+            AssistantAnswerFailureCategory category,
+            String message,
+            boolean retryable,
+            Integer httpStatus,
+            int attempt,
+            String safeDetail,
+            Throwable cause,
+            Duration retryAfter) {
         super(message, cause);
         this.category = category;
         this.httpStatus = httpStatus;
         this.attempt = attempt;
         this.safeDetail = safeDetail;
         this.retryable = retryable;
+        this.retryAfter = retryAfter;
     }
 
     public AssistantAnswerFailureCategory getCategory() {
@@ -66,8 +83,12 @@ public class AssistantAnswerException extends RuntimeException {
         return retryable;
     }
 
+    public Duration getRetryAfter() {
+        return retryAfter;
+    }
+
     public AssistantAnswerException withAttempt(int newAttempt) {
         return new AssistantAnswerException(
-                category, getMessage(), retryable, httpStatus, newAttempt, safeDetail, getCause());
+                category, getMessage(), retryable, httpStatus, newAttempt, safeDetail, getCause(), retryAfter);
     }
 }

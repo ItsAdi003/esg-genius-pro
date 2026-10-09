@@ -31,13 +31,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AssistantUnavailableException.class)
     public ResponseEntity<Map<String, Object>> handleAssistantUnavailable(AssistantUnavailableException ex) {
+        HttpStatus status = ex.getHttpStatus() != null ? ex.getHttpStatus() : HttpStatus.BAD_GATEWAY;
         Map<String, Object> body = Map.of(
-                "status", HttpStatus.BAD_GATEWAY.value(),
-                "error", "Bad Gateway",
+                "status", status.value(),
+                "error", status.getReasonPhrase(),
                 "message", ex.getMessage(),
                 "timestamp", Instant.now().toString()
         );
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+        return ResponseEntity.status(status).body(body);
     }
 
     @ExceptionHandler(BadRequestException.class)

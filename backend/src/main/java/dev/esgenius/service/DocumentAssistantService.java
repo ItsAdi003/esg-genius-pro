@@ -6,11 +6,13 @@ import dev.esgenius.dto.AssistantCitationResponse;
 import dev.esgenius.exception.AssistantUnavailableException;
 import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.service.assistant.AssistantAnswerException;
+import dev.esgenius.service.assistant.AssistantAnswerFailureCategory;
 import dev.esgenius.service.assistant.AssistantAnswerProvider;
 import dev.esgenius.service.assistant.AssistantAnswerRequest;
 import dev.esgenius.service.assistant.AssistantAnswerResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -27,6 +29,8 @@ public class DocumentAssistantService {
 
     public static final String NOT_FOUND_ANSWER =
             "I couldn't find information about this in the uploaded document.";
+    public static final String QUOTA_EXCEEDED_MESSAGE =
+            "The AI service has reached its usage limit. Please try again later.";
 
     static final int MAX_QUESTION_LENGTH = 500;
 
@@ -62,6 +66,9 @@ public class DocumentAssistantService {
                     ex.getAttempt(),
                     ex.isRetryable(),
                     ex.getSafeDetail());
+            if (ex.getCategory() == AssistantAnswerFailureCategory.QUOTA_EXHAUSTED) {
+                throw new AssistantUnavailableException(HttpStatus.SERVICE_UNAVAILABLE, QUOTA_EXCEEDED_MESSAGE);
+            }
             throw new AssistantUnavailableException(
                     "The assistant could not generate an answer from the uploaded document. Please try again.");
         }

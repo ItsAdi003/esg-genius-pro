@@ -6,12 +6,27 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClassificationFailureHandler {
 
+    public static final String GENERIC_FAILURE_EXPLANATION =
+            "Automated classification could not be completed for this requirement.";
+    public static final String QUOTA_EXHAUSTED_EXPLANATION =
+            "AI classification was unavailable because the daily AI quota was reached. A reviewer should assess this requirement.";
+    private static final String HUMAN_REVIEW_RECOMMENDATION =
+            "A human reviewer should assess this requirement against the submitted document.";
+
     public ComplianceClassificationResult handleFailure() {
+        if (QuotaExhaustionScope.isExhausted()) {
+            return new ComplianceClassificationResult(
+                    AssessmentStatus.HUMAN_REVIEW_REQUIRED,
+                    null,
+                    QUOTA_EXHAUSTED_EXPLANATION,
+                    null,
+                    HUMAN_REVIEW_RECOMMENDATION);
+        }
         return new ComplianceClassificationResult(
                 AssessmentStatus.HUMAN_REVIEW_REQUIRED,
                 null,
-                "Automated classification could not be completed for this requirement.",
+                GENERIC_FAILURE_EXPLANATION,
                 null,
-                "A human reviewer should assess this requirement against the submitted document.");
+                HUMAN_REVIEW_RECOMMENDATION);
     }
 }

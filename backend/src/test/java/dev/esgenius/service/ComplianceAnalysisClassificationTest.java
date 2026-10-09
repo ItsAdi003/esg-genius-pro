@@ -10,11 +10,13 @@ import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
 import dev.esgenius.service.compliance.ClassificationFailureCategory;
+import dev.esgenius.service.compliance.ClassificationFailureHandler;
 import dev.esgenius.service.compliance.ComplianceClassificationException;
 import dev.esgenius.service.compliance.ComplianceClassificationProvider;
 import dev.esgenius.service.compliance.ComplianceClassificationRequest;
 import dev.esgenius.service.compliance.EvidenceContextExpander;
-import dev.esgenius.service.compliance.ComplianceClassificationRequest;
+import dev.esgenius.service.compliance.QuotaAwareComplianceClassificationProvider;
+import dev.esgenius.service.compliance.QuotaExhaustionScope;
 import dev.esgenius.service.compliance.ComplianceClassificationResult;
 import dev.esgenius.support.ComplianceTestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +67,7 @@ class ComplianceAnalysisClassificationTest {
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
         reset(classificationProvider);
+        QuotaExhaustionScope.begin();
     }
 
     @Test
@@ -185,6 +188,52 @@ class ComplianceAnalysisClassificationTest {
     }
 
     @Test
+    void dailyQuotaOnThirdRequirementStopsFurtherProviderCallsAndCompletesAnalysis() {
+        AtomicInteger callCount = new AtomicInteger();
+        ComplianceClassificationProvider inner = request -> {
+            int n = callCount.incrementAndGet();
+            if (n == 3) {
+                throw new ComplianceClassificationException(
+                        ClassificationFailureCategory.QUOTA_EXHAUSTED,
+                        "Gemini API returned HTTP 429",
+                        false,
+                        429,
+                        1,
+                        "Daily quota exhausted");
+            }
+            return new ComplianceClassificationResult(
+                    AssessmentStatus.COVERED, 0.9, "OK", null, null);
+        };
+        QuotaAwareComplianceClassificationProvider wrapper =
+                new QuotaAwareComplianceClassificationProvider(inner);
+        when(classificationProvider.classify(any())).thenAnswer(invocation ->
+                wrapper.classify(invocation.getArgument(0)));
+
+        Document document = createReadyDocument(allBrsrEvidenceText());
+        ComplianceAnalysisResponse response = startAndAwaitCompletion(
+                document.getId(), new StartAnalysisRequest(null, "BRSR"));
+
+        assertThat(response.status()).isEqualTo("COMPLETED");
+        assertThat(response.assessments()).hasSize(14);
+        assertThat(callCount.get()).isEqualTo(3);
+
+        long quotaExplanations = response.assessments().stream()
+                .filter(a -> ClassificationFailureHandler.QUOTA_EXHAUSTED_EXPLANATION.equals(a.explanation()))
+                .count();
+        assertThat(quotaExplanations).isEqualTo(12);
+
+        assertThat(response.assessments())
+                .allMatch(a -> a.evidenceText() != null || a.retrievalScore() != null);
+        long coveredCount = response.assessments().stream()
+                .filter(a -> "COVERED".equals(a.assessmentStatus()))
+                .count();
+        assertThat(coveredCount).isEqualTo(2);
+        assertThat(response.assessments().stream()
+                .filter(a -> "HUMAN_REVIEW_REQUIRED".equals(a.assessmentStatus()))
+                .count()).isEqualTo(12);
+    }
+
+    @Test
     void classificationReceivesExpandedEvidenceContext() {
         when(classificationProvider.classify(any())).thenAnswer(invocation -> {
             ComplianceClassificationRequest request = invocation.getArgument(0);
@@ -251,6 +300,24 @@ class ComplianceAnalysisClassificationTest {
                 .filter(a -> code.equals(a.requirementCode()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static String allBrsrEvidenceText() {
+        return String.join("\n\n",
+                "Total energy consumption from all sources was 2.4 million GJ, with energy intensity of 0.12 GJ per rupee of turnover.",
+                "Renewable energy from solar and wind power was 45% of electricity consumption; non-renewable sources supplied the remainder.",
+                "Scope 1 emissions from owned facilities were 15,000 metric tonnes CO2e using IPCC emission factors.",
+                "Scope 2 emissions from purchased electricity were 8,000 metric tonnes CO2e using a location based method.",
+                "Scope 3 emissions from business travel and employee commuting were estimated for material upstream value chain categories.",
+                "Total water withdrawal from groundwater, surface water and third-party water was 1.2 million kilolitres.",
+                "Waste generated was 10,000 tonnes, with 62% waste recycled through recycling reuse and other recovery operations.",
+                "Occupational health and safety management system coverage included all sites. There were zero fatalities and a 12% reduction in recordable injury rate.",
+                "Employee training and development delivered 24 average hours of training per employee across all categories.",
+                "Human rights due diligence assessments were conducted across key supplier categories with remediation actions tracked quarterly.",
+                "CSR expenditure totalled INR 420 crore of community development expenditure focusing on education, healthcare and digital inclusion.",
+                "Anti-corruption policy training was completed by all board members, senior management and procurement staff.",
+                "Board composition includes 50% independent directors with expertise in sustainability and risk oversight.",
+                "A whistleblower mechanism is available to all employees and business partners, with complaints tracked during the year.");
     }
 
     private Document createReadyDocument(String extractedText) {

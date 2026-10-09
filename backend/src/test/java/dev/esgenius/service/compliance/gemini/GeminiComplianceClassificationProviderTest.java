@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.esgenius.config.GeminiProperties;
 import dev.esgenius.entity.AssessmentStatus;
 import dev.esgenius.service.compliance.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -60,6 +61,7 @@ class GeminiComplianceClassificationProviderTest {
         logAppender = new ListAppender<>();
         logAppender.start();
         logger.addAppender(logAppender);
+        QuotaExhaustionScope.begin();
     }
 
     @Test
@@ -80,6 +82,11 @@ class GeminiComplianceClassificationProviderTest {
         mockServer.verify();
     }
 
+    @AfterEach
+    void tearDown() {
+        QuotaExhaustionScope.end();
+    }
+
     @Test
     void retriesHttp429AndSucceeds() {
         mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
@@ -91,6 +98,67 @@ class GeminiComplianceClassificationProviderTest {
 
         assertThat(result.status()).isEqualTo(AssessmentStatus.COVERED);
         assertThat(result.confidence()).isEqualTo(0.88);
+        mockServer.verify();
+    }
+
+    @Test
+    void perDayQuota429IsNotRetried() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perDayQuotaBody()));
+
+        ComplianceClassificationException ex = assertThrows(ComplianceClassificationException.class, () ->
+                provider.classify(sampleRequest()));
+
+        assertThat(ex.getCategory()).isEqualTo(ClassificationFailureCategory.QUOTA_EXHAUSTED);
+        assertThat(ex.isRetryable()).isFalse();
+        assertThat(ex.getAttempt()).isEqualTo(1);
+        assertThat(ex.getHttpStatus()).isEqualTo(429);
+        assertThat(ex.getSafeDetail()).isEqualTo("Daily quota exhausted");
+        mockServer.verify();
+    }
+
+    @Test
+    void perMinuteQuota429IsRetried() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perMinuteQuotaBody("0.001s")));
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withSuccess(successResponse("COVERED", 0.88, "Retried."), MediaType.APPLICATION_JSON));
+
+        ComplianceClassificationResult result = provider.classify(sampleRequest());
+
+        assertThat(result.status()).isEqualTo(AssessmentStatus.COVERED);
+        mockServer.verify();
+    }
+
+    @Test
+    void perDayQuotaDoesNotWaitForLongRetryInfo() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perDayQuotaBody()));
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
+            assertThrows(ComplianceClassificationException.class, () -> provider.classify(sampleRequest()));
+        });
+        mockServer.verify();
+    }
+
+    @Test
+    void subsequentClassifyAfterDailyQuotaDoesNotCallGemini() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perDayQuotaBody()));
+
+        assertThrows(ComplianceClassificationException.class, () -> provider.classify(sampleRequest()));
+        ComplianceClassificationException second = assertThrows(ComplianceClassificationException.class, () ->
+                provider.classify(sampleRequest()));
+
+        assertThat(second.getCategory()).isEqualTo(ClassificationFailureCategory.QUOTA_EXHAUSTED);
         mockServer.verify();
     }
 
@@ -152,6 +220,7 @@ class GeminiComplianceClassificationProviderTest {
                 .map(ILoggingEvent::getFormattedMessage)
                 .reduce("", String::concat);
         assertThat(combinedLogs).doesNotContain("test-api-key");
+        assertThat(combinedLogs).doesNotContain("\"contents\"");
         assertThat(combinedLogs).contains("category=");
     }
 
@@ -186,6 +255,54 @@ class GeminiComplianceClassificationProviderTest {
         return new ComplianceClassificationRequest(
                 "ENV-003", "Scope 1 emissions", "Disclose Scope 1", "Framework text",
                 List.of("Scope 1 emissions totalled 1000 tCO2e."));
+    }
+
+    private String perDayQuotaBody() {
+        return """
+                {
+                  "error": {
+                    "code": 429,
+                    "message": "Resource exhausted. Please retry in 17h4m.",
+                    "status": "RESOURCE_EXHAUSTED",
+                    "details": [
+                      {
+                        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                        "violations": [
+                          { "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }
+                        ]
+                      },
+                      {
+                        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                        "retryDelay": "61447s"
+                      }
+                    ]
+                  }
+                }
+                """;
+    }
+
+    private String perMinuteQuotaBody(String retryDelay) {
+        return """
+                {
+                  "error": {
+                    "code": 429,
+                    "message": "Resource exhausted",
+                    "status": "RESOURCE_EXHAUSTED",
+                    "details": [
+                      {
+                        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                        "violations": [
+                          { "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier" }
+                        ]
+                      },
+                      {
+                        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                        "retryDelay": "%s"
+                      }
+                    ]
+                  }
+                }
+                """.formatted(retryDelay);
     }
 
     private String successResponse(String status, double confidence, String explanation) {

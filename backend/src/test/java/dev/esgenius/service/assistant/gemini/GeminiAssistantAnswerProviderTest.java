@@ -107,6 +107,52 @@ class GeminiAssistantAnswerProviderTest {
     }
 
     @Test
+    void perDayQuota429IsNotRetried() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perDayQuotaBody()));
+
+        AssistantAnswerException ex = assertThrows(AssistantAnswerException.class, () ->
+                provider.answer(sampleRequest()));
+
+        assertThat(ex.getCategory()).isEqualTo(AssistantAnswerFailureCategory.QUOTA_EXHAUSTED);
+        assertThat(ex.isRetryable()).isFalse();
+        assertThat(ex.getAttempt()).isEqualTo(1);
+        assertThat(ex.getHttpStatus()).isEqualTo(429);
+        assertThat(ex.getSafeDetail()).isEqualTo("Daily quota exhausted");
+        mockServer.verify();
+    }
+
+    @Test
+    void perMinuteQuota429IsRetried() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perMinuteQuotaBody()));
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withSuccess(successResponse("Retried answer.", "[1]"), MediaType.APPLICATION_JSON));
+
+        AssistantAnswerResult result = provider.answer(sampleRequest());
+
+        assertThat(result.answer()).isEqualTo("Retried answer.");
+        mockServer.verify();
+    }
+
+    @Test
+    void perDayQuotaDoesNotWaitForLongRetryInfo() {
+        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(perDayQuotaBody()));
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
+            assertThrows(AssistantAnswerException.class, () -> provider.answer(sampleRequest()));
+        });
+        mockServer.verify();
+    }
+
+    @Test
     void retriesHttp503UntilExhausted() {
         mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("generateContent")))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
@@ -165,6 +211,7 @@ class GeminiAssistantAnswerProviderTest {
                 .map(ILoggingEvent::getFormattedMessage)
                 .reduce("", String::concat);
         assertThat(combinedLogs).doesNotContain("test-api-key");
+        assertThat(combinedLogs).doesNotContain("\"contents\"");
         assertThat(combinedLogs).contains("category=");
     }
 
@@ -210,6 +257,54 @@ class GeminiAssistantAnswerProviderTest {
         return new AssistantAnswerRequest(
                 "groundwater withdrawal kilolitres",
                 List.of("Groundwater withdrawal during the reporting period was 12500 kilolitres."));
+    }
+
+    private String perDayQuotaBody() {
+        return """
+                {
+                  "error": {
+                    "code": 429,
+                    "message": "Resource exhausted. Please retry in 17h4m.",
+                    "status": "RESOURCE_EXHAUSTED",
+                    "details": [
+                      {
+                        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                        "violations": [
+                          { "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }
+                        ]
+                      },
+                      {
+                        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                        "retryDelay": "61447s"
+                      }
+                    ]
+                  }
+                }
+                """;
+    }
+
+    private String perMinuteQuotaBody() {
+        return """
+                {
+                  "error": {
+                    "code": 429,
+                    "message": "Resource exhausted",
+                    "status": "RESOURCE_EXHAUSTED",
+                    "details": [
+                      {
+                        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                        "violations": [
+                          { "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier" }
+                        ]
+                      },
+                      {
+                        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                        "retryDelay": "0.001s"
+                      }
+                    ]
+                  }
+                }
+                """;
     }
 
     private String successResponse(String answer, String passageIndices) {

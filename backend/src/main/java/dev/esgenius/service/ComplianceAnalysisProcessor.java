@@ -1,5 +1,6 @@
 package dev.esgenius.service;
 
+import dev.esgenius.service.compliance.QuotaExhaustionScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -29,11 +30,14 @@ public class ComplianceAnalysisProcessor {
     public void processAnalysis(Long analysisId) {
         try {
             complianceAnalysisExecutor.execute(() -> {
+                QuotaExhaustionScope.begin();
                 try {
                     complianceAnalysisService.executeAnalysis(analysisId);
                 } catch (Exception ex) {
                     log.error("Compliance analysis {} failed", analysisId, ex);
                     persistenceService.markAnalysisFailed(analysisId, ex);
+                } finally {
+                    QuotaExhaustionScope.end();
                 }
             });
         } catch (RejectedExecutionException ex) {

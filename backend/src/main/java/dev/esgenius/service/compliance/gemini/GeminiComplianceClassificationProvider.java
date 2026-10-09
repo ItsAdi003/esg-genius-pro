@@ -12,9 +12,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
@@ -61,6 +63,13 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     false);
         }
 
+        if (QuotaExhaustionScope.isExhausted()) {
+            throw new ComplianceClassificationException(
+                    ClassificationFailureCategory.QUOTA_EXHAUSTED,
+                    "Gemini daily quota has already been exhausted for this analysis",
+                    false);
+        }
+
         String prompt = promptBuilder.buildPrompt(request);
         String requestBody = buildRequestBody(prompt);
         int maxAttempts = properties.getMaxRetries() + 1;
@@ -77,7 +86,7 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     throw lastFailure;
                 }
 
-                sleepBeforeRetry(attempt, ex.getHttpStatus());
+                sleepBeforeRetry(attempt, lastFailure);
             }
         }
 
@@ -98,8 +107,9 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, response) -> {
                         int status = response.getStatusCode().value();
-                        String safeMessage = extractSafeErrorMessage(response.getHeaders(), status);
-                        throw buildHttpException(status, safeMessage, attempt);
+                        String errorBody = readErrorBody(response);
+                        String safeMessage = extractSafeErrorMessage(response.getHeaders(), status, errorBody);
+                        throw buildHttpException(status, safeMessage, attempt, errorBody);
                     })
                     .body(String.class);
 
@@ -109,8 +119,10 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
             throw ex.withAttempt(attempt);
         } catch (RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
-            String safeMessage = extractSafeErrorMessage(ex.getResponseHeaders(), status);
-            ComplianceClassificationException httpException = buildHttpException(status, safeMessage, attempt);
+            String errorBody = ex.getResponseBodyAsString();
+            String safeMessage = extractSafeErrorMessage(ex.getResponseHeaders(), status, errorBody);
+            ComplianceClassificationException httpException =
+                    buildHttpException(status, safeMessage, attempt, errorBody);
             throw new ComplianceClassificationException(
                     httpException.getCategory(),
                     httpException.getMessage(),
@@ -118,7 +130,8 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     httpException.getHttpStatus(),
                     attempt,
                     httpException.getSafeDetail(),
-                    ex);
+                    ex,
+                    httpException.getRetryAfter());
         } catch (ResourceAccessException ex) {
             throw new ComplianceClassificationException(
                     ClassificationFailureCategory.NETWORK_TIMEOUT,
@@ -141,11 +154,16 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
     }
 
     private ComplianceClassificationException buildHttpException(
-            int status, String safeMessage, int attempt) {
+            int status, String safeMessage, int attempt, String errorBody) {
         ClassificationFailureCategory category;
         boolean retryable = RETRYABLE_HTTP_STATUSES.contains(status);
-        if (status == 429) {
+        Duration retryAfter = null;
+        if (status == 429 && GeminiHttpErrorClassifier.isPerDayQuota(errorBody)) {
+            category = ClassificationFailureCategory.QUOTA_EXHAUSTED;
+            retryable = false;
+        } else if (status == 429) {
             category = ClassificationFailureCategory.HTTP_RATE_LIMIT;
+            retryAfter = GeminiHttpErrorClassifier.parseRetryDelay(errorBody);
         } else if (status >= 500) {
             category = ClassificationFailureCategory.HTTP_SERVER_ERROR;
         } else if (status == 401 || status == 403) {
@@ -162,7 +180,9 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                 retryable,
                 status,
                 attempt,
-                safeMessage);
+                safeMessage,
+                null,
+                retryAfter);
     }
 
     private void logClassificationFailure(String requirementCode, ComplianceClassificationException ex) {
@@ -176,10 +196,14 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                 ex.getSafeDetail());
     }
 
-    private void sleepBeforeRetry(int attempt, Integer httpStatus) {
+    private void sleepBeforeRetry(int attempt, ComplianceClassificationException failure) {
         long backoffMs = Math.min(
                 properties.getMaxRetryBackoff().toMillis(),
                 properties.getInitialRetryBackoff().toMillis() * (1L << (attempt - 1)));
+        Duration retryAfter = failure.getRetryAfter();
+        if (retryAfter != null && !retryAfter.isZero() && !retryAfter.isNegative()) {
+            backoffMs = Math.min(properties.getMaxRetryBackoff().toMillis(), retryAfter.toMillis());
+        }
         try {
             Thread.sleep(backoffMs);
         } catch (InterruptedException interrupted) {
@@ -188,7 +212,7 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     ClassificationFailureCategory.OTHER,
                     "Gemini classification retry interrupted",
                     false,
-                    httpStatus,
+                    failure.getHttpStatus(),
                     attempt,
                     interrupted.getMessage(),
                     interrupted);
@@ -343,22 +367,19 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
         }
     }
 
-    String extractSafeErrorMessage(HttpHeaders headers, int status) {
-        if (headers != null) {
-            String retryAfter = headers.getFirst(HttpHeaders.RETRY_AFTER);
-            if (retryAfter != null && !retryAfter.isBlank()) {
-                return "Retry-After=" + retryAfter;
+    String extractSafeErrorMessage(HttpHeaders headers, int status, String errorBody) {
+        return GeminiHttpErrorClassifier.safeDetail(headers, status, errorBody);
+    }
+
+    private static String readErrorBody(ClientHttpResponse response) {
+        try {
+            byte[] bytes = response.getBody().readAllBytes();
+            if (bytes.length == 0) {
+                return "";
             }
+            return new String(bytes, StandardCharsets.UTF_8);
+        } catch (Exception ex) {
+            return "";
         }
-        if (status == 429) {
-            return "Rate limit exceeded";
-        }
-        if (status == 401 || status == 403) {
-            return "Gemini API authentication or permission error";
-        }
-        if (status >= 500) {
-            return "Gemini API server error";
-        }
-        return "Gemini API client error";
     }
 }

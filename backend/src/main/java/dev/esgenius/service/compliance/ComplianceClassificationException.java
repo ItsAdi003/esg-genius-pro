@@ -1,5 +1,7 @@
 package dev.esgenius.service.compliance;
 
+import java.time.Duration;
+
 public class ComplianceClassificationException extends RuntimeException {
 
     private final ClassificationFailureCategory category;
@@ -7,6 +9,7 @@ public class ComplianceClassificationException extends RuntimeException {
     private final int attempt;
     private final String safeDetail;
     private final boolean retryable;
+    private final Duration retryAfter;
 
     public ComplianceClassificationException(
             ClassificationFailureCategory category,
@@ -28,6 +31,8 @@ public class ComplianceClassificationException extends RuntimeException {
         this.attempt = attempt;
         this.safeDetail = safeDetail;
         this.retryable = retryable;
+        this.retryAfter = null;
+        markQuotaIfNeeded();
     }
 
     public ComplianceClassificationException(
@@ -38,12 +43,32 @@ public class ComplianceClassificationException extends RuntimeException {
             int attempt,
             String safeDetail,
             Throwable cause) {
+        this(category, message, retryable, httpStatus, attempt, safeDetail, cause, null);
+    }
+
+    public ComplianceClassificationException(
+            ClassificationFailureCategory category,
+            String message,
+            boolean retryable,
+            Integer httpStatus,
+            int attempt,
+            String safeDetail,
+            Throwable cause,
+            Duration retryAfter) {
         super(message, cause);
         this.category = category;
         this.httpStatus = httpStatus;
         this.attempt = attempt;
         this.safeDetail = safeDetail;
         this.retryable = retryable;
+        this.retryAfter = retryAfter;
+        markQuotaIfNeeded();
+    }
+
+    private void markQuotaIfNeeded() {
+        if (category == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
+            QuotaExhaustionScope.markExhausted();
+        }
     }
 
     public ClassificationFailureCategory getCategory() {
@@ -66,8 +91,12 @@ public class ComplianceClassificationException extends RuntimeException {
         return retryable;
     }
 
+    public Duration getRetryAfter() {
+        return retryAfter;
+    }
+
     public ComplianceClassificationException withAttempt(int newAttempt) {
         return new ComplianceClassificationException(
-                category, getMessage(), retryable, httpStatus, newAttempt, safeDetail, getCause());
+                category, getMessage(), retryable, httpStatus, newAttempt, safeDetail, getCause(), retryAfter);
     }
 }
