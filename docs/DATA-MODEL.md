@@ -1,6 +1,6 @@
 # Data model
 
-Schema as migrated by Flyway scripts `V1`–`V9` under `backend/src/main/resources/db/migration/`. Migrations are written for PostgreSQL and H2 in PostgreSQL compatibility mode. JPA entities validate against this schema (`ddl-auto: validate`).
+Schema as migrated by Flyway scripts `V1`–`V11` under `backend/src/main/resources/db/migration/`. Migrations are written for PostgreSQL and H2 in PostgreSQL compatibility mode. JPA entities validate against this schema (`ddl-auto: validate`).
 
 ## Migration summary
 
@@ -15,6 +15,8 @@ Schema as migrated by Flyway scripts `V1`–`V9` under `backend/src/main/resourc
 | **V7** | `document` upload metadata + extracted text |
 | **V8** | `compliance_analysis`, `requirement_assessment` |
 | **V9** | `document_page` for page-aware provenance |
+| **V10** | `document.owner_user_id` — per-user ownership (`NULL` = shared sample visible to all signed-in users) |
+| **V11** | `report_export` — gap-assessment PDF export history |
 
 ## Tables and columns
 
@@ -134,9 +136,10 @@ Seed (V4): 14 codes `ENV-001`…`ENV-007`, `SOC-001`…`SOC-004`, `GOV-001`…`G
 | `uploaded_at` | `TIMESTAMPTZ` NOT NULL |
 | `processed_at` | `TIMESTAMPTZ` |
 | `failure_reason` | `TEXT` |
-| Indexes | `organization_id`, `status`, `uploaded_at DESC` |
+| `owner_user_id` | `UUID` (V10), nullable — `NULL` = shared sample; non-null = uploader’s Supabase user id |
+| Indexes | `organization_id`, `status`, `uploaded_at DESC`, `owner_user_id` (V10) |
 
-PDF bytes live on the local filesystem (`stored_filename`); the DB holds metadata and text.
+PDF bytes live on the local filesystem (`stored_filename`); the DB holds metadata and text. Uploads from an authenticated user set `owner_user_id`; seed/shared rows keep `NULL`.
 
 ### `document_page` (V9)
 
@@ -179,6 +182,20 @@ PDF bytes live on the local filesystem (`stored_filename`); the DB holds metadat
 | UNIQUE | `(analysis_id, framework_requirement_id)` |
 | Indexes | `analysis_id`, `framework_requirement_id` |
 
+### `report_export` (V11)
+
+| Column | Type / notes |
+| --- | --- |
+| `id` | identity PK |
+| `analysis_id` | FK → `compliance_analysis(id)` ON DELETE CASCADE NOT NULL |
+| `user_id` | `UUID`, nullable — exporter’s Supabase user id when known |
+| `format` | `VARCHAR(20)` NOT NULL (app uses `PDF`) |
+| `size_bytes` | `BIGINT` NOT NULL |
+| `generated_at` | `TIMESTAMPTZ` NOT NULL default now |
+| Index | `(user_id, generated_at DESC)` |
+
+Rows are inserted when `GET /api/v1/analyses/{analysisId}/report.pdf` succeeds; listing is via `GET /api/v1/reports`.
+
 ## Entity-relationship diagram
 
 ```mermaid
@@ -194,6 +211,7 @@ erDiagram
   document ||--o{ document_page : pages
   document ||--o{ compliance_analysis : analysed_by
   compliance_analysis ||--o{ requirement_assessment : produces
+  compliance_analysis ||--o{ report_export : exported_as
   framework_requirement ||--o{ requirement_assessment : assessed_as
 
   organization {
@@ -216,9 +234,17 @@ erDiagram
   document {
     bigint id PK
     bigint organization_id FK
+    uuid owner_user_id
     varchar stored_filename UK
     varchar status
     text extracted_text
+  }
+  report_export {
+    bigint id PK
+    bigint analysis_id FK
+    uuid user_id
+    varchar format
+    bigint size_bytes
   }
   document_page {
     bigint id PK
@@ -260,7 +286,7 @@ erDiagram
 
 ## Seed / prototype notes
 
-- V2 + V6 share one demo dataset (ABC Industries plus INFY / TCS / WPRO / HCLT). There is no per-user tenant table.
+- V2 + V6 share one demo dataset (ABC Industries plus INFY / TCS / WPRO / HCLT). There is no per-user tenant table; V10 scopes **documents** by `owner_user_id` while organizations remain shared seed rows.
 - V4 explicitly documents the 14-requirement BRSR MVP subset.
 - V6 scores/events are illustrative prototype data (`is_prototype` default true on events).
 
@@ -268,7 +294,9 @@ erDiagram
 
 | Section | Primary sources |
 | --- | --- |
-| Tables / columns / FKs | `V1__create_core_esg_tables.sql` … `V9__create_document_page_table.sql` |
+| Tables / columns / FKs | `V1__create_core_esg_tables.sql` … `V11__create_report_export.sql` |
+| Ownership semantics | `V10__add_document_owner_user_id.sql`; `Document.java`; `DocumentAccessPolicy.java` |
+| Export history | `V11__create_report_export.sql`; `ReportExport.java`; `ReportExportService.java` |
 | Seed semantics | `V2__seed_demo_organization.sql`; `V3__seed_brsr_framework.sql`; `V4__seed_brsr_requirements.sql`; `V6__seed_demo_companies_with_esg_data.sql` |
 | App status enums (not DB CHECKs) | `AnalysisStatus.java`; `AssessmentStatus.java`; `DocumentStatus.java`; `DocumentType.java` |
 | File vs DB storage | `LocalFileStorageService.java`; `DocumentService.java`; `application.yml` (`app.storage.upload-dir`) |

@@ -4,11 +4,13 @@ AI-assisted **SEBI BRSR** compliance gap analysis for uploaded sustainability PD
 
 ## What is implemented
 
-- **PDF upload + page-aware extraction** — Documents page uploads PDFs only; the Spring Boot backend extracts text (Apache PDFBox) and stores per-page text (`document_page`).
+- **PDF upload + page-aware extraction** — Documents page uploads PDFs only; the upload returns immediately and a background worker extracts text (Apache PDFBox), enforces page/character limits, and stores per-page text (`document_page`); the UI polls until the document is ready.
 - **BRSR evidence retrieval** — Lexical retrieval against a seeded SEBI BRSR requirement subset.
 - **Gemini classification** — Retrieved evidence is classified per requirement (covered / partial / missing / human review), with explanation, gap, and recommendation text.
-- **Async analysis + history** — Analyses run asynchronously; the UI polls status and lists prior runs for a document.
-- **Gap Assessment PDF export** — From a completed compliance analysis (`/reports/gap-assessment` + backend PDF). Other report cards on `/reports` are UI previews only.
+- **Async analysis + progress UI** — Analyses run asynchronously; the compliance UI polls status, shows in-run progress from assessment counts, and lists prior runs per document.
+- **Document ownership** — Uploads are tied to the signed-in Supabase user (`owner_user_id`); shared samples (`NULL` owner) are view-only unless you are an admin (`ADMIN_USER_IDS`).
+- **Usage limits** — Rolling per-user caps on uploads, analyses, and assistant questions; `GET /api/v1/me` drives usage meters on `/settings`. Over-limit API calls return **429** with `Retry-After`.
+- **Gap Assessment PDF export + history** — Download from a completed analysis (`GET …/report.pdf`); `/reports` lists recent exports via `GET /api/v1/reports`. Other report cards on `/reports` remain UI previews only.
 - **Document-grounded assistant** — Chat about one uploaded document; answers cite passages from that document when evidence is found.
 - **Company comparison** — Side-by-side ESG rating snapshots, key issues, and events from seeded comparison data.
 - **Supabase Auth** — Email/password sign-in; the frontend sends the access token to the API.
@@ -17,7 +19,7 @@ AI-assisted **SEBI BRSR** compliance gap analysis for uploaded sustainability PD
 
 - **Frameworks** other than SEBI BRSR (GRI, IFRS S1/S2, ESRS appear as planned on `/frameworks`).
 - **Report types** other than Gap Assessment (environmental summary, executive summary, missing-evidence report, and generate-from-templates remain previews).
-- **Persisted settings and notifications** — `/settings` is a prototype form; changes are not saved. Notification toggles do not send alerts.
+- **Persisted workspace settings and notifications** — `/settings` shows live account email, admin badge, and usage limits from the API, but organization profile, framework sliders, retention, and notification toggles are not saved server-side and do not send alerts.
 
 Routes: `/` dashboard, `/documents`, `/compliance`, `/comparison`, `/frameworks` (+ `/frameworks/brsr`), `/assistant`, `/reports`, `/settings`, `/login`.
 
@@ -27,12 +29,12 @@ Routes: `/` dashboard, `/documents`, `/compliance`, `/comparison`, `/frameworks`
 | --- | --- |
 | Frontend | React 19, TanStack Router / Start / Query, Vite, TypeScript |
 | Backend | Java 21, Spring Boot 3.4.1 (`esgenius-backend`) |
-| Database | PostgreSQL + Flyway (`classpath:db/migration`, V1–V10) |
+| Database | PostgreSQL + Flyway (`classpath:db/migration`, V1–V11) |
 | AI | Google Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash`) |
 | Auth | Supabase Auth (JWT on API requests) |
 | Deploy | Render web service from `backend/Dockerfile` (`runtime: docker`), health check `/api/v1/health` |
 
-Flyway covers organizations and BRSR requirements, comparison/rating tables, documents (including `owner_user_id`), page text, and compliance analyses.
+Flyway covers organizations and BRSR requirements, comparison/rating tables, documents (including `owner_user_id`), page text, compliance analyses, and `report_export` history.
 
 Default local ports: API `8081` (`PORT`), frontend CORS allow-list includes `http://localhost:8080`.
 

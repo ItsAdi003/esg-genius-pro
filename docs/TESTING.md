@@ -1,6 +1,6 @@
 # Testing
 
-How tests are organized and run in this repository. Counts below were measured from the working tree (method stated at the end).
+How tests are organized and run in this repository. Test counts change often; use the commands in [Counting tests](#counting-tests) instead of hard-coded totals in this file.
 
 ## How to run
 
@@ -28,7 +28,7 @@ Targeted classes (preferred while other agents share the tree):
 
 ```bash
 cd backend
-.\mvnw.cmd -o test -Dtest=ClassA,ClassB
+.\mvnw.cmd -o test "-Dtest=ClassA,ClassB"
 ```
 
 If Maven fails because another process locked `backend/target/`, wait ~60s and retry. Do not delete or clean the target directory from an unrelated documentation change.
@@ -61,10 +61,14 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 - `HealthControllerTest`
 - `FrameworkControllerTest`
 - `DocumentControllerTest`
+- `DocumentOwnershipAccessTest` — `owner_user_id`, `shared` / `canModify`, **403** on shared writes
 - `ComplianceAnalysisControllerTest`
 - `CompanyControllerTest`
 - `AssistantControllerTest`
 - `ReportControllerTest`
+- `ReportControllerRecordingFailureTest` — PDF download still succeeds when export recording fails
+- `ReportExportListMvcTest` — `GET /api/v1/reports`
+- `UsageLimitMvcTest` — **429** + `Retry-After` on uploads and analyses
 - `ReadEndpointQueryCountTest`
 - `ApiBadRequestInputTest` (exception package; exercises missing/invalid request params via MockMvc)
 
@@ -73,9 +77,17 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 - `SupabaseAuthFilterTest`
 - `SupabaseAuthFilterCacheTest`
 
+### Rate limits / PDF bounds / Gemini config
+
+- `UsageLimiterTest`
+- `PdfLimitsPropertiesTest`
+- `GeminiPropertiesTest`
+- `ComplianceClassificationProductionWiringTest`
+
 ### Document ingestion
 
 - `DocumentServiceTest`
+- `DocumentAsyncProcessingTest` (queue-backed executor: PROCESSING → READY/FAILED, busy rejection, deleted-before-run, restart recovery, analysis refused while processing)
 - `PdfTextExtractionServiceTest`
 - `TextChunkingServiceTest`
 
@@ -87,6 +99,8 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 - `ComplianceAnalysisAsyncExecutionTest`
 - `ComplianceAnalysisStartupRecoveryTest`
 - `ComplianceAnalysisClassificationTest`
+- `ComplianceAnalysisConcurrencyTest`
+- `ComplianceAnalysisConcurrencyParallelTest` — `GEMINI_MAX_CONCURRENCY` pool behaviour
 - `PageAwareEvidenceProvenanceTest`
 - `GapAssessmentPdfServiceTest`
 
@@ -100,17 +114,23 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 
 - `DeterministicNoEvidenceClassifierTest`
 - `ClassificationEvidenceBuilderTest`
+- `ClassificationFailureHandlerTest`
 - `EvidenceContextExpanderTest`
 - `ComplianceClassificationPromptBuilderTest`
 - `ComplianceClassificationResultParserTest`
 - `GeminiComplianceClassificationProviderTest`
-- `ComplianceClassificationProductionWiringTest`
+- `QuotaAwareComplianceClassificationProviderTest`
 
 ### Assistant
 
 - `DocumentAssistantServiceTest`
 - `DocumentAssistantEvidenceServiceTest`
 - `GeminiAssistantAnswerProviderTest`
+
+### Exception handling
+
+- `GlobalExceptionHandlerTest`
+- `AssistantUnavailableExceptionHandlerTest` — assistant **503** quota path
 
 ### Company / framework services & repositories
 
@@ -136,42 +156,50 @@ Vitest specs under `src/**/*.test.ts`:
 - `src/lib/compliance-polling.test.ts`
 - `src/lib/compliance-progress.test.ts`
 - `src/lib/document-api.test.ts`
+- `src/lib/me-api.test.ts` — `GET /api/v1/me` client + usage meters
 - `src/lib/navigation-search.test.ts`
+- `src/lib/report-api.test.ts` — `GET /api/v1/reports` client
 - `src/lib/use-session-user.test.ts`
 
-## Verified test counts
+## Counting tests
 
-Measured on the local tree with PowerShell (no test runner executed for this documentation change):
+Re-run these from the repo root when you need current numbers or to verify a new test class landed:
 
 ```powershell
-# Backend JUnit methods
+# Backend JUnit test methods
 (Get-ChildItem -Recurse -Path "backend\src\test" -Filter "*.java" |
   Select-String -Pattern '@Test\b').Count
-# → 251
 
 # Frontend Vitest cases (it(...))
 (Get-ChildItem -Recurse -Path "src" -Include "*.test.ts","*.test.tsx" |
   Select-String -Pattern '^\s*it\s*\(').Count
-# → 90
+
+# List backend test classes (inventory check)
+Get-ChildItem -Recurse -Path "backend\src\test" -Filter "*Test.java" |
+  ForEach-Object { $_.FullName.Replace((Get-Location).Path + '\', '') }
 ```
 
-Also noted: 14 requirement codes matching `ENV-|SOC-|GOV-` in `V4__seed_brsr_requirements.sql` (same PowerShell `Select-String` count).
+Optional sanity check for the BRSR MVP seed size:
 
-These counts will drift as other chats add tests; re-run the commands above to refresh.
+```powershell
+(Select-String -Path "backend\src\main\resources\db\migration\V4__seed_brsr_requirements.sql" -Pattern "ENV-|SOC-|GOV-").Count
+```
 
 ## Known testing limitations
 
 - Backend CI-style runs use H2, not a real Postgres instance.
-- Compliance classification in Spring tests is a stub; behaviour of live Gemini (quota, safety blocks) is covered only via mocked HTTP provider tests.
-- Auth filter is unit-tested in isolation; most `@SpringBootTest` / MockMvc paths do not exercise Supabase validation.
+- Compliance classification in Spring tests is a stub; behaviour of live Gemini (quota, safety blocks) is covered via mocked HTTP provider tests and quota-aware unit tests.
+- Auth filter is unit-tested in isolation; most `@SpringBootTest` / MockMvc paths do not exercise live Supabase validation (ownership tests inject synthetic users).
+- `MeController` has no dedicated MockMvc test yet; `me-api.test.ts` covers the frontend client against mocked `apiFetch`.
 - Retrieval smoke tests use fixture/document text in-repo, not live network downloads of company reports.
+- Usage limits are in-memory; multi-instance behaviour is not integration-tested.
 
 ## VERIFY
 
 | Section | Primary sources |
 | --- | --- |
-| Run commands | `package.json`; `backend/pom.xml` (H2 test dependency); user/project conventions in this task |
+| Run commands | `package.json`; `backend/pom.xml` (H2 test dependency); project conventions |
 | H2 / Flyway | `backend/src/test/resources/application-test.yml`; `application-wiring.yml`; `application.yml` |
 | No live Gemini / auth | `TestComplianceClassificationConfig.java`; `TestAssistantAnswerConfig.java`; `ComplianceClassificationConfig.java`; `AssistantAnswerConfig.java`; `SupabaseAuthConfig.java` (`@Profile("!test")`); Gemini `*ProviderTest.java` (`MockRestServiceServer`) |
 | Class inventory | All `*Test.java` under `backend/src/test/java`; `src/**/*.test.ts` |
-| Counts | PowerShell `Select-String` on `@Test\b` and `^\s*it\s*\(` as quoted above |
+| Counting commands | PowerShell snippets in [Counting tests](#counting-tests) |
