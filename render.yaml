@@ -1,3 +1,5 @@
+# Render free plan: service sleeps after ~15 minutes idle; in-flight compliance analyses
+# are marked FAILED on restart. Instance RAM is ~512MB — tune JVM via JAVA_TOOL_OPTIONS if needed.
 services:
   - type: web
     name: esgenius-backend
@@ -17,9 +19,28 @@ services:
         sync: false
       - key: GEMINI_MODEL
         sync: false
+      - key: GEMINI_MAX_CONCURRENCY
+        value: "1"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      # AUTH_REQUIRED defaults to true in application.yml — never set false on a public deployment.
+      - key: ADMIN_USER_IDS
+        sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+        value: "5"
+      - key: PDF_MAX_PAGES
+        value: "400"
+      - key: PDF_MAX_EXTRACTED_CHARS
+        value: "3000000"
+      - key: RATE_LIMIT_UPLOADS_PER_DAY
+        value: "20"
+      - key: RATE_LIMIT_ANALYSES_PER_DAY
+        value: "5"
+      - key: RATE_LIMIT_ASSISTANT_PER_HOUR
+        value: "30"
+      - key: RATE_LIMIT_GLOBAL_ANALYSES_PER_DAY
+        value: "20"

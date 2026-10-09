@@ -27,12 +27,12 @@ Routes: `/` dashboard, `/documents`, `/compliance`, `/comparison`, `/frameworks`
 | --- | --- |
 | Frontend | React 19, TanStack Router / Start / Query, Vite, TypeScript |
 | Backend | Java 21, Spring Boot 3.4.1 (`esgenius-backend`) |
-| Database | PostgreSQL + Flyway (`classpath:db/migration`, V1–V9) |
+| Database | PostgreSQL + Flyway (`classpath:db/migration`, V1–V10) |
 | AI | Google Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash`) |
 | Auth | Supabase Auth (JWT on API requests) |
 | Deploy | Render web service from `backend/Dockerfile` (`runtime: docker`), health check `/api/v1/health` |
 
-Flyway covers organizations and BRSR requirements, comparison/rating tables, documents, page text, and compliance analyses.
+Flyway covers organizations and BRSR requirements, comparison/rating tables, documents (including `owner_user_id`), page text, and compliance analyses.
 
 Default local ports: API `8081` (`PORT`), frontend CORS allow-list includes `http://localhost:8080`.
 
@@ -69,6 +69,13 @@ From `backend/`. Env var names (see `backend/.env.example`; copy to `backend/.en
 - `ADMIN_USER_IDS`
 - `SUPABASE_TOKEN_CACHE_TTL`
 - `ALLOWED_ORIGINS`
+- `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` (default `5`)
+- `PDF_MAX_PAGES` (default `400`)
+- `PDF_MAX_EXTRACTED_CHARS` (default `3000000`)
+- `RATE_LIMIT_UPLOADS_PER_DAY` (default `20`)
+- `RATE_LIMIT_ANALYSES_PER_DAY` (default `5`)
+- `RATE_LIMIT_ASSISTANT_PER_HOUR` (default `30`)
+- `RATE_LIMIT_GLOBAL_ANALYSES_PER_DAY` (default `20`)
 
 Local runs without Supabase need `AUTH_REQUIRED=false`. `ADMIN_USER_IDS` is a comma-separated list of user UUIDs that can manage every document, including shared samples.
 
@@ -93,6 +100,14 @@ npm test
 ```
 
 (`npm test` runs `vitest run`. Backend tests use H2.)
+
+## Deploying
+
+**Backend (Render)** — `render.yaml` defines a Docker web service from `backend/Dockerfile` with health check `/api/v1/health`. Set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` to a Supabase **Session** pooler connection on port **5432** with `sslmode=require` (not the transaction pooler on 6543). Set `ALLOWED_ORIGINS` to the exact frontend origin(s) (scheme + host, no trailing slash). Keep `AUTH_REQUIRED=true` in production; set `ADMIN_USER_IDS` to comma-separated Supabase user UUIDs that may access all documents. `GEMINI_MAX_CONCURRENCY`, PDF limits, rate limits, and `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` have safe defaults in `render.yaml` and can be overridden in the Render dashboard.
+
+**Frontend** — Build and host via Lovable / Cloudflare (Nitro SSR), not as a plain static bucket. `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` are read at **build** time; rebuild after changing them. In Supabase Auth, set **Site URL** and **Redirect URLs** to match your deployed frontend origin.
+
+**Smoke test** — After deploy, sign in, upload a small PDF, wait for processing, and run a short compliance analysis to confirm DB, storage, Gemini, and auth end-to-end.
 
 ## Lovable
 

@@ -26,6 +26,14 @@ server:
   port: ${PORT:8081}
 
 app:
+  pdf:
+    max-pages: ${PDF_MAX_PAGES:400}
+    max-extracted-chars: ${PDF_MAX_EXTRACTED_CHARS:3000000}
+  limits:
+    uploads-per-user-per-day: ${RATE_LIMIT_UPLOADS_PER_DAY:20}
+    analyses-per-user-per-day: ${RATE_LIMIT_ANALYSES_PER_DAY:5}
+    assistant-asks-per-user-per-hour: ${RATE_LIMIT_ASSISTANT_PER_HOUR:30}
+    global-analyses-per-day: ${RATE_LIMIT_GLOBAL_ANALYSES_PER_DAY:20}
   storage:
     upload-dir: uploads
   cors:
@@ -51,6 +59,9 @@ app:
       max-concurrent-classifications: ${GEMINI_MAX_CONCURRENCY:1}
 
 management:
+  endpoint:
+    health:
+      show-details: never
   endpoints:
     web:
       exposure:
