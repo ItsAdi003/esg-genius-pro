@@ -142,6 +142,109 @@ class UsageLimiterTest {
     }
 
     @Test
+    void snapshotAfterConsumesReportsUsedLimitAndResetWithoutConsuming() {
+        properties.setUploadsPerUserPerDay(20);
+        properties.setAnalysesPerUserPerDay(5);
+        properties.setAssistantAsksPerUserPerHour(30);
+        properties.setGlobalAnalysesPerDay(0);
+        Caller user = user();
+
+        limiter.consumeUpload(user);
+        limiter.consumeUpload(user);
+        limiter.consumeUpload(user);
+        limiter.consumeAnalysis(user);
+        limiter.consumeAssistantAsk(user);
+        limiter.consumeAssistantAsk(user);
+
+        UsageLimiter.PerUserLimitSnapshot first = limiter.snapshot(user);
+        assertWindow(first.uploadsPerDay(), 20, 3, 86_400);
+        assertWindow(first.analysesPerDay(), 5, 1, 86_400);
+        assertWindow(first.assistantAsksPerHour(), 30, 2, 3_600);
+
+        UsageLimiter.PerUserLimitSnapshot second = limiter.snapshot(user);
+        assertThat(second).isEqualTo(first);
+        assertThat(limiter.trackedKeyCount()).isEqualTo(3);
+
+        for (int i = 0; i < 17; i++) {
+            limiter.consumeUpload(user);
+        }
+        assertThatThrownBy(() -> limiter.consumeUpload(user)).isInstanceOf(UsageLimitExceededException.class);
+        assertWindow(limiter.snapshot(user).uploadsPerDay(), 20, 20, 86_400);
+    }
+
+    @Test
+    void snapshotUsedDropsWhenTheOldestEventLeavesTheWindow() {
+        properties.setUploadsPerUserPerDay(20);
+        properties.setAnalysesPerUserPerDay(5);
+        properties.setAssistantAsksPerUserPerHour(30);
+        Caller user = user();
+
+        limiter.consumeUpload(user);
+        clock.advance(Duration.ofHours(1));
+        limiter.consumeUpload(user);
+        clock.advance(Duration.ofHours(1));
+        limiter.consumeUpload(user);
+
+        UsageLimiter.PerUserLimitSnapshot midWindow = limiter.snapshot(user);
+        assertWindow(midWindow.uploadsPerDay(), 20, 3, 22 * 3600);
+
+        clock.advance(Duration.ofHours(22));
+        UsageLimiter.PerUserLimitSnapshot afterOldestExpired = limiter.snapshot(user);
+        assertWindow(afterOldestExpired.uploadsPerDay(), 20, 2, 3600);
+
+        clock.advance(Duration.ofHours(2));
+        UsageLimiter.PerUserLimitSnapshot empty = limiter.snapshot(user);
+        assertWindow(empty.uploadsPerDay(), 20, 0, 0);
+        assertWindow(empty.analysesPerDay(), 5, 0, 0);
+        assertWindow(empty.assistantAsksPerHour(), 30, 0, 0);
+    }
+
+    @Test
+    void snapshotIsNullWhenTheLimitIsDisabled() {
+        properties.setUploadsPerUserPerDay(0);
+        properties.setAnalysesPerUserPerDay(-1);
+        properties.setAssistantAsksPerUserPerHour(0);
+        Caller user = user();
+
+        limiter.consumeUpload(user);
+        limiter.consumeAnalysis(user);
+        limiter.consumeAssistantAsk(user);
+
+        UsageLimiter.PerUserLimitSnapshot snapshot = limiter.snapshot(user);
+        assertThat(snapshot.uploadsPerDay()).isNull();
+        assertThat(snapshot.analysesPerDay()).isNull();
+        assertThat(snapshot.assistantAsksPerHour()).isNull();
+    }
+
+    @Test
+    void snapshotIsNullForAdminsEvenAfterConsumeAttempts() {
+        properties.setUploadsPerUserPerDay(20);
+        properties.setAnalysesPerUserPerDay(5);
+        properties.setAssistantAsksPerUserPerHour(30);
+        Caller admin = new Caller(UUID.randomUUID(), true);
+
+        limiter.consumeUpload(admin);
+        limiter.consumeAnalysis(admin);
+        limiter.consumeAssistantAsk(admin);
+
+        UsageLimiter.PerUserLimitSnapshot snapshot = limiter.snapshot(admin);
+        assertThat(snapshot.uploadsPerDay()).isNull();
+        assertThat(snapshot.analysesPerDay()).isNull();
+        assertThat(snapshot.assistantAsksPerHour()).isNull();
+    }
+
+    @Test
+    void snapshotIsNullWhenThereIsNoIdentity() {
+        properties.setUploadsPerUserPerDay(20);
+        properties.setAnalysesPerUserPerDay(5);
+        properties.setAssistantAsksPerUserPerHour(30);
+
+        assertUnlimited(limiter.snapshot(null));
+        assertUnlimited(limiter.snapshot(Caller.anonymous()));
+        assertUnlimited(limiter.snapshot(Caller.unidentifiedAdmin()));
+    }
+
+    @Test
     void staleKeysAreEvictedSoTheTrackedSetStaysBoundedByTheOpenWindow() {
         properties.setUploadsPerUserPerDay(2);
         properties.setAssistantAsksPerUserPerHour(2);
@@ -170,6 +273,19 @@ class UsageLimiterTest {
 
     private static Caller user() {
         return new Caller(UUID.randomUUID(), false);
+    }
+
+    private static void assertWindow(UsageLimiter.LimitWindow window, int limit, int used, long resetsInSeconds) {
+        assertThat(window).isNotNull();
+        assertThat(window.limit()).isEqualTo(limit);
+        assertThat(window.used()).isEqualTo(used);
+        assertThat(window.resetsInSeconds()).isEqualTo(resetsInSeconds);
+    }
+
+    private static void assertUnlimited(UsageLimiter.PerUserLimitSnapshot snapshot) {
+        assertThat(snapshot.uploadsPerDay()).isNull();
+        assertThat(snapshot.analysesPerDay()).isNull();
+        assertThat(snapshot.assistantAsksPerHour()).isNull();
     }
 
     private static final class MutableClock extends Clock {

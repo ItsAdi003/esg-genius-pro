@@ -100,6 +100,39 @@ public class UsageLimiter {
                 "assistant questions per hour");
     }
 
+    /**
+     * Read-only view of this caller's per-user windows. Does not consume budget.
+     * A window is {@code null} when that limit is disabled or the caller is not
+     * subject to per-user limits (admin or no identity). Does not include the
+     * global analysis cap.
+     */
+    public PerUserLimitSnapshot snapshot(Caller caller) {
+        synchronized (lock) {
+            Instant now = clock.instant();
+            pruneAll(now);
+            if (!identified(caller) || caller.admin()) {
+                return PerUserLimitSnapshot.unlimited();
+            }
+            String key = caller.userId().toString();
+            return new PerUserLimitSnapshot(
+                    windowUsage(uploads, key, properties.getUploadsPerUserPerDay(), now),
+                    windowUsage(analysesPerUser, key, properties.getAnalysesPerUserPerDay(), now),
+                    windowUsage(assistantAsks, key, properties.getAssistantAsksPerUserPerHour(), now));
+        }
+    }
+
+    public record PerUserLimitSnapshot(
+            LimitWindow uploadsPerDay,
+            LimitWindow analysesPerDay,
+            LimitWindow assistantAsksPerHour) {
+        static PerUserLimitSnapshot unlimited() {
+            return new PerUserLimitSnapshot(null, null, null);
+        }
+    }
+
+    public record LimitWindow(int limit, int used, long resetsInSeconds) {
+    }
+
     /** Keys that still have at least one event inside its window. For tests. */
     int trackedKeyCount() {
         synchronized (lock) {
@@ -128,6 +161,21 @@ public class UsageLimiter {
 
     private static boolean identified(Caller caller) {
         return caller != null && caller.userId() != null;
+    }
+
+    private static LimitWindow windowUsage(Bucket bucket, String key, int limit, Instant now) {
+        if (limit <= 0) {
+            return null;
+        }
+        ArrayDeque<Instant> events = bucket.events.get(key);
+        int used = events == null ? 0 : events.size();
+        long resetsInSeconds = 0;
+        if (used > 0) {
+            Instant expiresAt = events.peekFirst().plus(bucket.window);
+            long remaining = Duration.between(now, expiresAt).getSeconds();
+            resetsInSeconds = Math.max(remaining, 0);
+        }
+        return new LimitWindow(limit, used, resetsInSeconds);
     }
 
     private UsageLimitExceededException rejection(
