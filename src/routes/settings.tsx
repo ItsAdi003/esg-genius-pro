@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Library, Bot, Archive, Bell } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Building2, Library, Bot, Archive, Bell, UserCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { PrototypeNotice } from "@/components/prototype-notice";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -15,6 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  fetchMe,
+  formatResetIn,
+  ME_LIMIT_ROWS,
+  meQueryKeys,
+  usageFraction,
+  type UsageLimit,
+} from "@/lib/me-api";
 import { useSessionUser } from "@/lib/use-session-user";
 
 export const Route = createFileRoute("/settings")({
@@ -63,6 +74,118 @@ function Section({
   );
 }
 
+function UsageLimitRow({ label, limit }: { label: string; limit: UsageLimit | null }) {
+  if (limit === null) {
+    return (
+      <div className="flex items-center justify-between gap-4 py-2.5">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">No limit</p>
+      </div>
+    );
+  }
+
+  const fraction = usageFraction(limit.used, limit.limit);
+  const percent = Math.round(fraction * 100);
+
+  return (
+    <div className="space-y-2 py-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {limit.used} of {limit.limit}
+          {limit.used > 0 ? (
+            <span className="ml-2">· resets {formatResetIn(limit.resetsInSeconds)}</span>
+          ) : null}
+        </p>
+      </div>
+      <div
+        role="progressbar"
+        aria-valuenow={limit.used}
+        aria-valuemin={0}
+        aria-valuemax={limit.limit}
+        aria-label={`${label}: ${limit.used} of ${limit.limit}`}
+        className="h-2 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width]"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AccountUsageCard() {
+  const { data, isLoading, isError, isSuccess, refetch, isFetching } = useQuery({
+    queryKey: meQueryKeys.profile(),
+    queryFn: fetchMe,
+  });
+
+  if (isSuccess && data === null) {
+    return null;
+  }
+
+  return (
+    <section className="surface-card mb-4 p-5">
+      <header className="flex items-start gap-3 border-b border-border pb-4">
+        <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          <UserCircle className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold">Account &amp; usage</h2>
+          <p className="text-xs text-muted-foreground">
+            Signed-in identity and rolling usage limits for this workspace.
+          </p>
+        </div>
+      </header>
+
+      <div className="pt-4">
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-full max-w-md" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : isError ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span>Could not load account usage.</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isFetching}
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="size-3.5" />
+              Reload
+            </Button>
+          </div>
+        ) : data ? (
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2 pb-2">
+              <p className="text-sm font-medium">{data.email ?? "Not signed in"}</p>
+              <Badge variant={data.admin ? "default" : "secondary"}>
+                {data.admin ? "Admin" : "Member"}
+              </Badge>
+            </div>
+            <p className="pb-2 text-xs text-muted-foreground">
+              Limits reset on a rolling window.
+            </p>
+            <div className="divide-y divide-border">
+              {ME_LIMIT_ROWS.map(({ key, label }) => (
+                <UsageLimitRow key={key} label={label} limit={data.limits[key]} />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function ToggleRow({
   label,
   hint,
@@ -100,6 +223,8 @@ function SettingsPage() {
         </Button>
       }
     >
+      <AccountUsageCard />
+
       <PrototypeNotice title="Prototype configuration interface" className="mb-4">
         These settings illustrate intended workspace preferences. Changes are not saved to a
         backend in this research prototype.
