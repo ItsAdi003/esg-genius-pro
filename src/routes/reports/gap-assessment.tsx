@@ -267,7 +267,10 @@ function GapAssessmentReport() {
     enabled: documentId != null,
   });
 
-  const assessments = analysis?.assessments ?? [];
+  const assessments = useMemo(
+    () => analysis?.assessments ?? [],
+    [analysis?.assessments],
+  );
 
   const summary = useMemo(() => summarizeAssessments(assessments), [assessments]);
   const hasLegacyStatuses = summary.evidenceRetrieved > 0 || summary.noEvidenceFound > 0;

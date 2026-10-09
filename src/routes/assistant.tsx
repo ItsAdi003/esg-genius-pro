@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bot, FileText, Info, Send, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -103,7 +103,10 @@ function Assistant() {
     queryKey: companyEsgQueryKeys.companies(),
     queryFn: getCompanies,
   });
-  const companies = companiesQuery.data ?? [];
+  const companies = useMemo(
+    () => companiesQuery.data ?? [],
+    [companiesQuery.data],
+  );
 
   useEffect(() => {
     if (selectedOrganizationId != null) return;

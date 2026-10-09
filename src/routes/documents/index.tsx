@@ -78,7 +78,10 @@ function Documents() {
     queryFn: getCompanies,
   });
 
-  const companies = companiesQuery.data ?? [];
+  const companies = useMemo(
+    () => companiesQuery.data ?? [],
+    [companiesQuery.data],
+  );
 
   useEffect(() => {
     if (selectedOrganizationId != null) return;
@@ -97,7 +100,10 @@ function Documents() {
     enabled: selectedOrganizationId != null,
   });
 
-  const documents = documentsQuery.data ?? [];
+  const documents = useMemo(
+    () => documentsQuery.data ?? [],
+    [documentsQuery.data],
+  );
 
   const analyzeMutation = useMutation({
     mutationFn: (documentId: number) => createComplianceAnalysis(documentId),

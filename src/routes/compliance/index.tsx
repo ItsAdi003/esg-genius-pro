@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, ArrowRight, FileText, MinusCircle, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
 import { ConfidenceMeter, StatusBadge } from "@/components/status-badge";
@@ -41,6 +41,13 @@ import {
   summarizeAssessments,
   type AssessmentStatus,
 } from "@/lib/compliance-api";
+import {
+  analysisProgressPercent,
+  formatAssessedProgress,
+  formatElapsedDuration,
+  resolveRequirementTotal,
+} from "@/lib/compliance-progress";
+import { frameworkQueryKeys, getFramework } from "@/lib/framework-api";
 
 type ComplianceSearch = {
   analysisId?: number;
@@ -98,7 +105,30 @@ function ComplianceAnalysis() {
   });
 
   const analysis = analysisQuery.data;
-  const assessments = analysis?.assessments ?? [];
+  const assessments = useMemo(
+    () => analysis?.assessments ?? [],
+    [analysis?.assessments],
+  );
+  const isInProgress = analysis?.status === "IN_PROGRESS";
+
+  const frameworkQuery = useQuery({
+    queryKey: frameworkQueryKeys.detail(analysis?.frameworkId ?? 0),
+    queryFn: () => getFramework(analysis!.frameworkId),
+    enabled:
+      analysis != null && analysis.status === "IN_PROGRESS" && analysis.requirementCount === 0,
+  });
+
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isInProgress) {
+      return;
+    }
+    setNowMs(Date.now());
+    const timerId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timerId);
+  }, [isInProgress, analysis?.startedAt]);
 
   const rows = useMemo(
     () =>
@@ -189,7 +219,14 @@ function ComplianceAnalysis() {
     return null;
   }
 
-  const isInProgress = analysis.status === "IN_PROGRESS";
+  const assessedCount = assessments.length;
+  const requirementTotal = resolveRequirementTotal(
+    analysis.requirementCount,
+    frameworkQuery.data?.requirementCount,
+  );
+  const progressPercent = analysisProgressPercent(assessedCount, requirementTotal);
+  const progressLabel = formatAssessedProgress(assessedCount, requirementTotal);
+  const elapsedLabel = formatElapsedDuration(analysis.startedAt, nowMs);
 
   return (
     <AppLayout
@@ -206,23 +243,51 @@ function ComplianceAnalysis() {
       }
     >
       {isInProgress && (
-        <Alert className="mb-4">
-          <Loader2 className="size-4 animate-spin" />
-          <AlertTitle>Analysis in progress</AlertTitle>
-          <AlertDescription>
-            ESGenius is retrieving evidence and evaluating BRSR requirements. This page will update
-            automatically.
-            {analysis.requirementCount > 0 && (
-              <> {analysis.requirementCount} requirements processed so far.</>
-            )}
-          </AlertDescription>
-        </Alert>
+        <div className="mb-4 space-y-3">
+          <Alert>
+            <Loader2 className="size-4 animate-spin" />
+            <AlertTitle>Analysis in progress</AlertTitle>
+            <AlertDescription>
+              <p>{progressLabel}</p>
+              <p className="mt-1 tabular-nums">Elapsed {elapsedLabel}</p>
+              <p className="mt-2 text-muted-foreground">
+                Analyses typically take several minutes. You can leave this page — results are saved.
+              </p>
+            </AlertDescription>
+          </Alert>
+          <div
+            role="progressbar"
+            aria-label={progressLabel}
+            aria-valuemin={0}
+            aria-valuenow={assessedCount}
+            {...(requirementTotal > 0 ? { "aria-valuemax": requirementTotal } : {})}
+            className="h-2 w-full overflow-hidden rounded-full bg-primary/20"
+          >
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
       )}
 
-      {analysis.status === "FAILED" && analysis.failureReason && (
+      {analysis.status === "FAILED" && (
         <Alert variant="destructive" className="mb-4">
           <AlertTitle>Analysis failed</AlertTitle>
-          <AlertDescription>{analysis.failureReason}</AlertDescription>
+          <AlertDescription>
+            <p>
+              {analysis.failureReason ??
+                "This analysis did not complete successfully. You can retry loading it or go back to documents."}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => void analysisQuery.refetch()}>
+                <RefreshCw className="size-4" /> Reload
+              </Button>
+              <Button size="sm" asChild>
+                <Link to="/documents">Go to Documents</Link>
+              </Button>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -261,7 +326,11 @@ function ComplianceAnalysis() {
         <div className="ml-auto text-right">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Requirements</p>
           <p className="mt-1 text-3xl font-semibold tabular-nums text-primary">
-            {analysis.requirementCount}
+            {isInProgress && requirementTotal > 0
+              ? `${assessedCount}/${requirementTotal}`
+              : isInProgress
+                ? assessedCount
+                : analysis.requirementCount}
           </p>
         </div>
       </div>
@@ -349,12 +418,13 @@ function ComplianceAnalysis() {
       </div>
       )}
 
-      {!isInProgress && (
       <div className="surface-card mt-4 overflow-hidden">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <p className="text-sm font-semibold">Requirement Assessment</p>
           <p className="text-xs text-muted-foreground">
-            {rows.length} of {assessments.length} requirements
+            {isInProgress
+              ? progressLabel
+              : `${rows.length} of ${assessments.length} requirements`}
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -437,7 +507,9 @@ function ComplianceAnalysis() {
               {rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No requirements match the current filters.
+                    {isInProgress
+                      ? "Assessments will appear here as each requirement finishes."
+                      : "No requirements match the current filters."}
                   </TableCell>
                 </TableRow>
               )}
@@ -445,7 +517,6 @@ function ComplianceAnalysis() {
           </Table>
         </div>
       </div>
-      )}
     </AppLayout>
   );
 }

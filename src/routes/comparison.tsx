@@ -195,7 +195,10 @@ function CompanyComparison() {
     queryFn: getCompanies,
   });
 
-  const companies = companiesQuery.data ?? [];
+  const companies = useMemo(
+    () => companiesQuery.data ?? [],
+    [companiesQuery.data],
+  );
   const canCompare =
     companyAId != null && companyBId != null && companyAId !== companyBId;
 
