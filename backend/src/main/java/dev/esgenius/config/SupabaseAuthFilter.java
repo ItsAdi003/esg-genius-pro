@@ -21,7 +21,9 @@ import java.util.Map;
 
 /**
  * Validates Supabase access tokens for /api/** by calling the Auth user endpoint.
- * No-ops when Supabase is not configured. Health checks and CORS preflight are skipped.
+ * When Supabase is not configured and {@code app.auth.supabase.required} is true,
+ * API requests are rejected with 401. Health checks and CORS preflight are still skipped.
+ * When required is false, an unconfigured filter no-ops (local-dev opt-out).
  * Not registered under the test profile.
  */
 public class SupabaseAuthFilter extends OncePerRequestFilter {
@@ -49,13 +51,16 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        if (!properties.isConfigured()) {
-            return true;
-        }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
-        return HEALTH_PATH.equals(requestPath(request));
+        if (HEALTH_PATH.equals(requestPath(request))) {
+            return true;
+        }
+        if (!properties.isConfigured()) {
+            return !properties.isRequired();
+        }
+        return false;
     }
 
     @Override
@@ -63,6 +68,11 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        if (!properties.isConfigured()) {
+            writeUnauthorized(response, "Authentication is not configured");
+            return;
+        }
+
         String token = bearerToken(request.getHeader("Authorization"));
         if (token == null) {
             writeUnauthorized(response, "Authentication required");

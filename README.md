@@ -64,7 +64,10 @@ From `backend/`. Env var names (see `backend/.env.example`; copy to `backend/.en
 - `GEMINI_MODEL`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
+- `AUTH_REQUIRED`
 - `ALLOWED_ORIGINS`
+
+Local runs without Supabase need `AUTH_REQUIRED=false`.
 
 Create the Postgres database named in `DB_URL` (default database name `esgenius`). Then:
 

@@ -7,6 +7,11 @@ public class SupabaseAuthProperties {
 
     private String url = "";
     private String anonKey = "";
+    /**
+     * When true (the default), missing Supabase settings fail closed with 401.
+     * Set {@code AUTH_REQUIRED=false} only for local runs without Supabase.
+     */
+    private boolean required = true;
 
     public String getUrl() {
         return url;
@@ -22,6 +27,14 @@ public class SupabaseAuthProperties {
 
     public void setAnonKey(String anonKey) {
         this.anonKey = anonKey;
+    }
+
+    public boolean isRequired() {
+        return required;
+    }
+
+    public void setRequired(boolean required) {
+        this.required = required;
     }
 
     public boolean isConfigured() {

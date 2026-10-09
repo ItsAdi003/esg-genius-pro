@@ -80,8 +80,34 @@ class SupabaseAuthFilterTest {
     }
 
     @Test
-    void unconfiguredFilterDoesNotCallSupabase() throws Exception {
+    void unconfiguredRequiredFilterRejectsApiAndSkipsHealthAndPreflight() throws Exception {
         SupabaseAuthProperties properties = new SupabaseAuthProperties();
+        assertThat(properties.isRequired()).isTrue();
+        SupabaseAuthFilter filter = new SupabaseAuthFilter(properties);
+
+        boolean[] documentsContinued = {false};
+        MockHttpServletResponse documents = invoke(filter, request("/api/v1/documents"), documentsContinued);
+        assertThat(documentsContinued[0]).isFalse();
+        assertUnauthorized(documents, "Authentication is not configured");
+
+        boolean[] healthContinued = {false};
+        MockHttpServletResponse health = invoke(filter, request("/api/v1/health"), healthContinued);
+        assertThat(healthContinued[0]).isTrue();
+        assertThat(health.getStatus()).isEqualTo(200);
+
+        MockHttpServletRequest preflight = request("/api/v1/documents");
+        preflight.setMethod("OPTIONS");
+        boolean[] preflightContinued = {false};
+        MockHttpServletResponse preflightResponse = invoke(filter, preflight, preflightContinued);
+        assertThat(preflightContinued[0]).isTrue();
+        assertThat(preflightResponse.getStatus()).isEqualTo(200);
+        assertThat(hits.get()).isZero();
+    }
+
+    @Test
+    void unconfiguredOptionalFilterPassesThrough() throws Exception {
+        SupabaseAuthProperties properties = new SupabaseAuthProperties();
+        properties.setRequired(false);
         boolean[] continued = {false};
         MockHttpServletResponse response = invoke(new SupabaseAuthFilter(properties), request("/api/v1/documents"), continued);
 
