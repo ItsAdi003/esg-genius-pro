@@ -1,5 +1,7 @@
 package dev.esgenius.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,16 +16,24 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Validates Supabase access tokens for /api/** by calling the Auth user endpoint.
+ * A 200 response must include a user id; that id and email are exposed as the
+ * {@code authenticatedUser} request attribute. Successful checks are cached by a
+ * SHA-256 of the token so later requests skip the remote call until the TTL.
  * When Supabase is not configured and {@code app.auth.supabase.required} is true,
  * API requests are rejected with 401. Health checks and CORS preflight are still skipped.
- * When required is false, an unconfigured filter no-ops (local-dev opt-out).
+ * When required is false, an unconfigured filter no-ops (local-dev opt-out) and sets no identity.
  * Not registered under the test profile.
  */
 public class SupabaseAuthFilter extends OncePerRequestFilter {
@@ -35,6 +45,7 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
 
     private final SupabaseAuthProperties properties;
     private final HttpClient httpClient;
+    private final SupabaseTokenValidationCache validationCache;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SupabaseAuthFilter(SupabaseAuthProperties properties) {
@@ -45,8 +56,16 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
     }
 
     SupabaseAuthFilter(SupabaseAuthProperties properties, HttpClient httpClient) {
+        this(properties, httpClient, Clock.systemUTC());
+    }
+
+    SupabaseAuthFilter(SupabaseAuthProperties properties, HttpClient httpClient, Clock clock) {
         this.properties = properties;
         this.httpClient = httpClient;
+        this.validationCache = new SupabaseTokenValidationCache(
+                properties.getTokenCacheTtl(),
+                SupabaseTokenValidationCache.MAX_ENTRIES,
+                clock);
     }
 
     @Override
@@ -79,11 +98,9 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
             return;
         }
 
+        final Optional<AuthenticatedUser> user;
         try {
-            if (!isAccessTokenValid(token)) {
-                writeUnauthorized(response, "Invalid or expired access token");
-                return;
-            }
+            user = resolveUser(token);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             log.warn("Supabase token validation was interrupted");
@@ -95,10 +112,30 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
             return;
         }
 
+        if (user.isEmpty()) {
+            writeUnauthorized(response, "Invalid or expired access token");
+            return;
+        }
+
+        request.setAttribute(AuthenticatedUser.REQUEST_ATTRIBUTE, user.get());
         filterChain.doFilter(request, response);
     }
 
-    private boolean isAccessTokenValid(String accessToken) throws IOException, InterruptedException {
+    /**
+     * Digest keys currently held. Package-visible so tests can assert the raw token is absent.
+     */
+    Set<String> validationCacheKeys() {
+        return validationCache.keys();
+    }
+
+    private Optional<AuthenticatedUser> resolveUser(String accessToken) throws IOException, InterruptedException {
+        String cacheKey = SupabaseTokenValidationCache.keyFor(accessToken);
+        Optional<AuthenticatedUser> cached = validationCache.get(cacheKey);
+        if (cached.isPresent()) {
+            log.debug("Supabase access token accepted for user {}", cached.get().userId());
+            return cached;
+        }
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(userEndpoint())
                 .timeout(REQUEST_TIMEOUT)
@@ -106,8 +143,52 @@ public class SupabaseAuthFilter extends OncePerRequestFilter {
                 .header("Authorization", "Bearer " + accessToken)
                 .GET()
                 .build();
-        HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
-        return response.statusCode() == 200;
+        HttpResponse<String> response = httpClient.send(
+                request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() != 200) {
+            log.debug("Supabase access token rejected with status {}", response.statusCode());
+            return Optional.empty();
+        }
+
+        Optional<AuthenticatedUser> user = parseUser(response.body());
+        if (user.isEmpty()) {
+            log.debug("Supabase access token rejected");
+            return Optional.empty();
+        }
+        validationCache.put(cacheKey, user.get());
+        log.debug("Supabase access token accepted for user {}", user.get().userId());
+        return user;
+    }
+
+    private Optional<AuthenticatedUser> parseUser(String body) {
+        if (body == null || body.isBlank()) {
+            return Optional.empty();
+        }
+        final JsonNode root;
+        try {
+            root = objectMapper.readTree(body);
+        } catch (JsonProcessingException ex) {
+            return Optional.empty();
+        }
+        if (root == null || !root.isObject()) {
+            return Optional.empty();
+        }
+        JsonNode idNode = root.get("id");
+        if (idNode == null || !idNode.isTextual()) {
+            return Optional.empty();
+        }
+        final UUID userId;
+        try {
+            userId = UUID.fromString(idNode.asText().trim());
+        } catch (IllegalArgumentException ex) {
+            return Optional.empty();
+        }
+        String email = null;
+        JsonNode emailNode = root.get("email");
+        if (emailNode != null && emailNode.isTextual()) {
+            email = emailNode.asText();
+        }
+        return Optional.of(new AuthenticatedUser(userId, email));
     }
 
     private URI userEndpoint() {

@@ -12,6 +12,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -33,7 +34,10 @@ class SupabaseAuthFilterTest {
             hits.incrementAndGet();
             apiKey.set(exchange.getRequestHeaders().getFirst("apikey"));
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+            String payload = statusCode == 200
+                    ? "{\"id\":\"11111111-1111-1111-1111-111111111111\",\"email\":\"user@example.com\"}"
+                    : "{}";
+            byte[] body = payload.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(statusCode, body.length);
             exchange.getResponseBody().write(body);
             exchange.close();
@@ -49,10 +53,14 @@ class SupabaseAuthFilterTest {
     @Test
     void validBearerTokenCallsSupabaseUserEndpointAndContinues() throws Exception {
         boolean[] continued = {false};
-        MockHttpServletResponse response = invoke(configuredFilter(), authorized("/api/v1/documents"), continued);
+        MockHttpServletRequest request = authorized("/api/v1/documents");
+        MockHttpServletResponse response = invoke(configuredFilter(), request, continued);
 
         assertThat(continued[0]).isTrue();
         assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(AuthenticatedUser.from(request)).contains(new AuthenticatedUser(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "user@example.com"));
         assertThat(hits.get()).isEqualTo(1);
         assertThat(apiKey.get()).isEqualTo("anon-test-key");
         assertThat(authorization.get()).isEqualTo("Bearer access-token");

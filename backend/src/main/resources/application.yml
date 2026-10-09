@@ -35,6 +35,7 @@ app:
       url: ${SUPABASE_URL:}
       anon-key: ${SUPABASE_ANON_KEY:}
       required: ${AUTH_REQUIRED:true}
+      token-cache-ttl: ${SUPABASE_TOKEN_CACHE_TTL:60s}
   ai:
     gemini:
       api-key: ${GEMINI_API_KEY:}

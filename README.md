@@ -65,6 +65,7 @@ From `backend/`. Env var names (see `backend/.env.example`; copy to `backend/.en
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `AUTH_REQUIRED`
+- `SUPABASE_TOKEN_CACHE_TTL`
 - `ALLOWED_ORIGINS`
 
 Local runs without Supabase need `AUTH_REQUIRED=false`.
