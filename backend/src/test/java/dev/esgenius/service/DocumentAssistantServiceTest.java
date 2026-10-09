@@ -4,6 +4,8 @@ import dev.esgenius.dto.AssistantAnswerResponse;
 import dev.esgenius.dto.AssistantAskRequest;
 import dev.esgenius.exception.AssistantUnavailableException;
 import dev.esgenius.exception.BadRequestException;
+import dev.esgenius.ratelimit.UsageLimitProperties;
+import dev.esgenius.ratelimit.UsageLimiter;
 import dev.esgenius.service.assistant.AssistantAnswerException;
 import dev.esgenius.service.assistant.AssistantAnswerFailureCategory;
 import dev.esgenius.service.assistant.AssistantAnswerProvider;
@@ -19,6 +21,7 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +44,7 @@ class DocumentAssistantServiceTest {
     @BeforeEach
     void setUp() {
         evidence = new RecordingEvidence();
-        service = new DocumentAssistantService(evidence, answerProvider);
+        service = new DocumentAssistantService(evidence, answerProvider, new UsageLimiter(new UsageLimitProperties(), Clock.systemUTC()));
     }
 
     @Test

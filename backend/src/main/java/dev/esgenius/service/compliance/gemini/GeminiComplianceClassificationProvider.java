@@ -24,6 +24,7 @@ import java.util.Set;
 public class GeminiComplianceClassificationProvider implements ComplianceClassificationProvider {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiComplianceClassificationProvider.class);
+    private static final String API_KEY_HEADER = "x-goog-api-key";
     private static final Set<Integer> RETRYABLE_HTTP_STATUSES = Set.of(429, 500, 502, 503, 504);
     private static final Set<String> BLOCKED_FINISH_REASONS = Set.of(
             "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "MALFORMED_FUNCTION_CALL");
@@ -103,8 +104,8 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
             String requirementCode, String requestBody, int attempt) {
         try {
             String responseBody = restClient.post()
-                    .uri("/v1beta/models/{model}:generateContent?key={apiKey}",
-                            properties.getModel(), properties.getApiKey())
+                    .uri("/v1beta/models/{model}:generateContent", properties.getModel())
+                    .header(API_KEY_HEADER, properties.getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()

@@ -4,6 +4,7 @@ import dev.esgenius.config.AuthenticatedUser;
 import dev.esgenius.dto.DocumentDetailResponse;
 import dev.esgenius.dto.DocumentPageResponse;
 import dev.esgenius.dto.DocumentSummaryResponse;
+import dev.esgenius.ratelimit.UsageLimiter;
 import dev.esgenius.service.Caller;
 import dev.esgenius.service.DocumentAccessPolicy;
 import dev.esgenius.service.DocumentService;
@@ -24,10 +25,15 @@ public class DocumentController {
 
     private final DocumentService documentService;
     private final DocumentAccessPolicy documentAccessPolicy;
+    private final UsageLimiter usageLimiter;
 
-    public DocumentController(DocumentService documentService, DocumentAccessPolicy documentAccessPolicy) {
+    public DocumentController(
+            DocumentService documentService,
+            DocumentAccessPolicy documentAccessPolicy,
+            UsageLimiter usageLimiter) {
         this.documentService = documentService;
         this.documentAccessPolicy = documentAccessPolicy;
+        this.usageLimiter = usageLimiter;
     }
 
     /**
@@ -41,6 +47,7 @@ public class DocumentController {
             @RequestParam String documentType,
             @RequestParam(required = false) Integer reportingYear,
             HttpServletRequest request) {
+        usageLimiter.consumeUpload(caller(request));
         DocumentDetailResponse response = documentService.uploadDocument(
                 file, organizationId, documentType, reportingYear, caller(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

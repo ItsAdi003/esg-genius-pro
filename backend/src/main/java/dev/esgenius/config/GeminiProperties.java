@@ -16,6 +16,7 @@ public class GeminiProperties {
     private int maxRetries = 2;
     private Duration initialRetryBackoff = Duration.ofMillis(500);
     private Duration maxRetryBackoff = Duration.ofSeconds(8);
+    private Duration assistantTotalDeadline = Duration.ofSeconds(80);
     private Duration interRequestDelay = Duration.ofMillis(300);
     private int maxConcurrentClassifications = 1;
 
@@ -92,6 +93,14 @@ public class GeminiProperties {
 
     public void setMaxRetryBackoff(Duration maxRetryBackoff) {
         this.maxRetryBackoff = maxRetryBackoff;
+    }
+
+    public Duration getAssistantTotalDeadline() {
+        return assistantTotalDeadline;
+    }
+
+    public void setAssistantTotalDeadline(Duration assistantTotalDeadline) {
+        this.assistantTotalDeadline = assistantTotalDeadline;
     }
 
     public Duration getInterRequestDelay() {

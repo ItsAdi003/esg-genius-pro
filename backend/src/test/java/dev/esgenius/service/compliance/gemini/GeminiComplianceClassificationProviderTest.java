@@ -66,8 +66,13 @@ class GeminiComplianceClassificationProviderTest {
 
     @Test
     void classifySendsStructuredRequestWithThinkingLevel() {
-        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString("/v1beta/models/gemini-3.5-flash:generateContent")))
+        mockServer.expect(requestTo(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("/v1beta/models/gemini-3.5-flash:generateContent"),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("?key=")),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("key=")),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("test-api-key")))))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(header("x-goog-api-key", "test-api-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(org.hamcrest.Matchers.allOf(
                         org.hamcrest.Matchers.containsString("responseMimeType"),

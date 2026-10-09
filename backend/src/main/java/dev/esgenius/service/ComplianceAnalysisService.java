@@ -13,6 +13,8 @@ import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
+import dev.esgenius.ratelimit.UsageLimitExceededException;
+import dev.esgenius.ratelimit.UsageLimiter;
 import dev.esgenius.repository.RequirementAssessmentRepository;
 import dev.esgenius.config.ComplianceClassificationExecutorConfig;
 import dev.esgenius.config.GeminiProperties;
@@ -60,6 +62,7 @@ public class ComplianceAnalysisService {
     private final ComplianceAnalysisPersistenceService persistenceService;
     private final ComplianceAnalysisProcessor complianceAnalysisProcessor;
     private final DocumentAccessPolicy documentAccessPolicy;
+    private final UsageLimiter usageLimiter;
 
     public ComplianceAnalysisService(
             ComplianceAnalysisRepository analysisRepository,
@@ -81,7 +84,8 @@ public class ComplianceAnalysisService {
             ComplianceAnalysisCreationService creationService,
             ComplianceAnalysisPersistenceService persistenceService,
             @Lazy ComplianceAnalysisProcessor complianceAnalysisProcessor,
-            DocumentAccessPolicy documentAccessPolicy) {
+            DocumentAccessPolicy documentAccessPolicy,
+            UsageLimiter usageLimiter) {
         this.analysisRepository = analysisRepository;
         this.assessmentRepository = assessmentRepository;
         this.documentRepository = documentRepository;
@@ -101,6 +105,7 @@ public class ComplianceAnalysisService {
         this.persistenceService = persistenceService;
         this.complianceAnalysisProcessor = complianceAnalysisProcessor;
         this.documentAccessPolicy = documentAccessPolicy;
+        this.usageLimiter = usageLimiter;
     }
 
     public ComplianceAnalysisResponse startAnalysis(Long documentId, StartAnalysisRequest request) {
@@ -112,6 +117,14 @@ public class ComplianceAnalysisService {
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
         documentAccessPolicy.requireModify(document, caller, "Document not found: " + documentId);
         Long analysisId = creationService.createInProgressAnalysis(documentId, request);
+        try {
+            usageLimiter.consumeAnalysis(caller);
+        } catch (UsageLimitExceededException ex) {
+            // Creation commits in its own transaction. Drop that row so a rejected
+            // start does not stay IN_PROGRESS and block the next attempt.
+            analysisRepository.deleteById(analysisId);
+            throw ex;
+        }
         ComplianceAnalysisResponse response = getAnalysis(analysisId, caller);
         complianceAnalysisProcessor.processAnalysis(analysisId);
         return response;

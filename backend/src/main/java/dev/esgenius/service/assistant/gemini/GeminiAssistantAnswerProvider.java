@@ -23,13 +23,16 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
 
 public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiAssistantAnswerProvider.class);
+    private static final String API_KEY_HEADER = "x-goog-api-key";
     private static final Set<Integer> RETRYABLE_HTTP_STATUSES = Set.of(429, 500, 502, 503, 504);
     private static final Set<String> BLOCKED_FINISH_REASONS = Set.of(
             "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "MALFORMED_FUNCTION_CALL");
@@ -39,6 +42,7 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
     private final AssistantAnswerPromptBuilder promptBuilder;
     private final AssistantAnswerResultParser resultParser;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     public GeminiAssistantAnswerProvider(
             GeminiProperties properties,
@@ -46,11 +50,22 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
             AssistantAnswerPromptBuilder promptBuilder,
             AssistantAnswerResultParser resultParser,
             ObjectMapper objectMapper) {
+        this(properties, geminiRestClient, promptBuilder, resultParser, objectMapper, Clock.systemUTC());
+    }
+
+    GeminiAssistantAnswerProvider(
+            GeminiProperties properties,
+            RestClient geminiRestClient,
+            AssistantAnswerPromptBuilder promptBuilder,
+            AssistantAnswerResultParser resultParser,
+            ObjectMapper objectMapper,
+            Clock clock) {
         this.properties = properties;
         this.restClient = geminiRestClient;
         this.promptBuilder = promptBuilder;
         this.resultParser = resultParser;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -72,6 +87,7 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
         String prompt = promptBuilder.buildPrompt(request);
         String requestBody = buildRequestBody(prompt);
         int maxAttempts = properties.getMaxRetries() + 1;
+        Instant startedAt = clock.instant();
 
         AssistantAnswerException lastFailure = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -85,7 +101,14 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
                     throw lastFailure;
                 }
 
-                sleepBeforeRetry(attempt, lastFailure);
+                Duration backoff = backoffBeforeRetry(attempt, lastFailure);
+                if (retryWouldExceedDeadline(startedAt, backoff)) {
+                    AssistantAnswerException deadlineFailure = deadlineExceeded(attempt);
+                    logAnswerFailure(deadlineFailure);
+                    throw deadlineFailure;
+                }
+
+                sleepBeforeRetry(attempt, backoff, lastFailure);
             }
         }
 
@@ -99,8 +122,8 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
             AssistantAnswerRequest request, String requestBody, int attempt) {
         try {
             String responseBody = restClient.post()
-                    .uri("/v1beta/models/{model}:generateContent?key={apiKey}",
-                            properties.getModel(), properties.getApiKey())
+                    .uri("/v1beta/models/{model}:generateContent", properties.getModel())
+                    .header(API_KEY_HEADER, properties.getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -193,7 +216,7 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
                 ex.getSafeDetail());
     }
 
-    private void sleepBeforeRetry(int attempt, AssistantAnswerException failure) {
+    private Duration backoffBeforeRetry(int attempt, AssistantAnswerException failure) {
         long backoffMs = Math.min(
                 properties.getMaxRetryBackoff().toMillis(),
                 properties.getInitialRetryBackoff().toMillis() * (1L << (attempt - 1)));
@@ -201,8 +224,29 @@ public class GeminiAssistantAnswerProvider implements AssistantAnswerProvider {
         if (retryAfter != null && !retryAfter.isZero() && !retryAfter.isNegative()) {
             backoffMs = Math.min(properties.getMaxRetryBackoff().toMillis(), retryAfter.toMillis());
         }
+        return Duration.ofMillis(Math.max(0, backoffMs));
+    }
+
+    private boolean retryWouldExceedDeadline(Instant startedAt, Duration backoff) {
+        // The next call can block for a full read timeout, so count that before starting it.
+        Duration readTimeout = properties.getReadTimeout() != null ? properties.getReadTimeout() : Duration.ZERO;
+        Duration projected = Duration.between(startedAt, clock.instant()).plus(backoff).plus(readTimeout);
+        return projected.compareTo(properties.getAssistantTotalDeadline()) > 0;
+    }
+
+    private AssistantAnswerException deadlineExceeded(int attempt) {
+        return new AssistantAnswerException(
+                AssistantAnswerFailureCategory.HTTP_SERVER_ERROR,
+                "Gemini API returned HTTP 502",
+                false,
+                502,
+                attempt,
+                "Assistant request exceeded the total time limit");
+    }
+
+    private void sleepBeforeRetry(int attempt, Duration backoff, AssistantAnswerException failure) {
         try {
-            Thread.sleep(backoffMs);
+            Thread.sleep(backoff.toMillis());
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new AssistantAnswerException(

@@ -13,12 +13,15 @@ import dev.esgenius.exception.ResourceNotFoundException;
 import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.OrganizationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -30,8 +33,13 @@ import java.util.stream.Collectors;
 @Service
 public class DocumentService {
 
+    private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
     private static final long MAX_FILE_SIZE_BYTES = 25L * 1024 * 1024;
+    private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
     private static final int MIN_EXTRACTED_TEXT_LENGTH = 10;
+    private static final String PDF_EXTRACTION_FAILED = "PDF extraction failed.";
+    private static final String STORE_FAILED = "Failed to store uploaded file";
+    private static final String DELETE_FAILED = "Failed to delete stored file";
     private static final String SCANNED_PDF_MESSAGE =
             "No extractable text found. Scanned or image-only PDFs are unsupported in this phase.";
 
@@ -88,7 +96,8 @@ public class DocumentService {
         try {
             storedPath = fileStorageService.store(new ByteArrayInputStream(fileContent), storedFilename);
         } catch (IOException ex) {
-            throw new BadRequestException("Failed to store uploaded file: " + ex.getMessage());
+            log.error("Failed to store uploaded file", ex);
+            throw new BadRequestException(STORE_FAILED);
         }
 
         Document document = new Document(
@@ -170,7 +179,8 @@ public class DocumentService {
         try {
             fileStorageService.delete(document.getStoredFilename());
         } catch (IOException ex) {
-            throw new BadRequestException("Failed to delete stored file: " + ex.getMessage());
+            log.error("Failed to delete stored file for document {}", documentId, ex);
+            throw new BadRequestException(DELETE_FAILED);
         }
 
         documentRepository.delete(document);
@@ -184,9 +194,7 @@ public class DocumentService {
             document.setPageCount(extractionResult.pageCount());
 
             if (extractionResult.fullText().length() < MIN_EXTRACTED_TEXT_LENGTH) {
-                document.setStatus(DocumentStatus.FAILED);
-                document.setFailureReason(SCANNED_PDF_MESSAGE);
-                document.setProcessedAt(Instant.now());
+                failDocument(document, SCANNED_PDF_MESSAGE);
                 return;
             }
 
@@ -194,10 +202,23 @@ public class DocumentService {
             persistDocumentPages(document, extractionResult.pages());
             document.setStatus(DocumentStatus.READY);
             document.setProcessedAt(Instant.now());
+        } catch (PdfExtractionLimitException ex) {
+            log.warn("PDF extraction rejected documentId={} reason={}", document.getId(), ex.getMessage());
+            failDocument(document, ex.getMessage());
         } catch (IOException ex) {
-            document.setStatus(DocumentStatus.FAILED);
-            document.setFailureReason("PDF extraction failed: " + ex.getMessage());
-            document.setProcessedAt(Instant.now());
+            log.error("PDF extraction failed documentId={}", document.getId(), ex);
+            failDocument(document, PDF_EXTRACTION_FAILED);
+        }
+    }
+
+    private void failDocument(Document document, String reason) {
+        document.setStatus(DocumentStatus.FAILED);
+        document.setFailureReason(reason);
+        document.setProcessedAt(Instant.now());
+        try {
+            fileStorageService.delete(document.getStoredFilename());
+        } catch (IOException ex) {
+            log.error("Failed to delete stored file after document failure documentId={}", document.getId(), ex);
         }
     }
 
@@ -268,11 +289,48 @@ public class DocumentService {
         if (originalFilename == null || originalFilename.isBlank()) {
             return "upload.pdf";
         }
-        String filename = Paths.get(originalFilename).getFileName().toString();
+        String stripped = stripControlCharacters(originalFilename).trim();
+        if (stripped.isBlank()) {
+            return "upload.pdf";
+        }
+        String filename;
+        try {
+            filename = Paths.get(stripped).getFileName().toString().trim();
+        } catch (InvalidPathException ex) {
+            throw new BadRequestException("Invalid original filename");
+        }
+        if (filename.isBlank()) {
+            return "upload.pdf";
+        }
         if (filename.contains("..")) {
             throw new BadRequestException("Invalid original filename");
         }
-        return filename;
+        return truncatePreservingPdfExtension(filename);
+    }
+
+    private static String stripControlCharacters(String value) {
+        StringBuilder stripped = new StringBuilder(value.length());
+        value.codePoints().forEach(codePoint -> {
+            if (!Character.isISOControl(codePoint)) {
+                stripped.appendCodePoint(codePoint);
+            }
+        });
+        return stripped.toString();
+    }
+
+    private static String truncatePreservingPdfExtension(String filename) {
+        if (filename.length() <= MAX_ORIGINAL_FILENAME_LENGTH) {
+            return filename;
+        }
+        String extension = "";
+        if (filename.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            extension = filename.substring(filename.length() - 4);
+        }
+        int stemBudget = MAX_ORIGINAL_FILENAME_LENGTH - extension.length();
+        if (stemBudget <= 0) {
+            return filename.substring(0, MAX_ORIGINAL_FILENAME_LENGTH);
+        }
+        return filename.substring(0, stemBudget) + extension;
     }
 
     private DocumentSummaryResponse toSummaryResponse(Document document, Caller caller) {

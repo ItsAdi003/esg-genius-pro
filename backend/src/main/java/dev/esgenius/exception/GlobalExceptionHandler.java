@@ -1,5 +1,7 @@
 package dev.esgenius.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -17,6 +19,9 @@ import java.util.Map;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String UNEXPECTED_ERROR_MESSAGE = "An unexpected error occurred.";
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
@@ -72,10 +77,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleUnexpected(Exception ex) {
+        log.error("Unexpected error", ex);
         Map<String, Object> body = Map.of(
                 "status", HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "error", "Internal Server Error",
-                "message", ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred",
+                "message", UNEXPECTED_ERROR_MESSAGE,
                 "timestamp", Instant.now().toString()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);

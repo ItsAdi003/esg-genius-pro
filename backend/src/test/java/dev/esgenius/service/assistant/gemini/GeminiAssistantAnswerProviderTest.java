@@ -20,12 +20,17 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -36,6 +41,8 @@ class GeminiAssistantAnswerProviderTest {
 
     private GeminiProperties properties;
     private MockRestServiceServer mockServer;
+    private RestClient restClient;
+    private ObjectMapper objectMapper;
     private GeminiAssistantAnswerProvider provider;
     private ListAppender<ILoggingEvent> logAppender;
 
@@ -54,9 +61,9 @@ class GeminiAssistantAnswerProviderTest {
 
         RestClient.Builder builder = RestClient.builder().baseUrl(properties.getBaseUrl());
         mockServer = MockRestServiceServer.bindTo(builder).build();
-        RestClient restClient = builder.build();
+        restClient = builder.build();
 
-        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper();
         provider = new GeminiAssistantAnswerProvider(
                 properties,
                 restClient,
@@ -72,9 +79,14 @@ class GeminiAssistantAnswerProviderTest {
 
     @Test
     void answerSendsStructuredRequestAndMapsPassageNumbers() {
-        mockServer.expect(requestTo(org.hamcrest.Matchers.containsString(
-                        "/v1beta/models/gemini-3.5-flash:generateContent")))
+        mockServer.expect(requestTo(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString(
+                                "/v1beta/models/gemini-3.5-flash:generateContent"),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("?key=")),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("key=")),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("test-api-key")))))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(header("x-goog-api-key", "test-api-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(org.hamcrest.Matchers.allOf(
                         org.hamcrest.Matchers.containsString("responseMimeType"),
@@ -90,6 +102,46 @@ class GeminiAssistantAnswerProviderTest {
 
         assertThat(result.answer()).isEqualTo("Withdrawal was 12500 kilolitres.");
         assertThat(result.passageIndices()).containsExactly(0);
+        mockServer.verify();
+    }
+
+    @Test
+    void stopsRetryingWhenFurtherAttemptWouldExceedTotalDeadline() {
+        properties.setAssistantTotalDeadline(Duration.ofSeconds(80));
+        properties.setReadTimeout(Duration.ofSeconds(60));
+        properties.setMaxRetries(5);
+        properties.setInitialRetryBackoff(Duration.ofMillis(500));
+        properties.setMaxRetryBackoff(Duration.ofSeconds(8));
+
+        MutableClock clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
+        GeminiAssistantAnswerProvider timedProvider = new GeminiAssistantAnswerProvider(
+                properties,
+                restClient,
+                new AssistantAnswerPromptBuilder(),
+                new AssistantAnswerResultParser(objectMapper),
+                objectMapper,
+                clock);
+
+        mockServer.expect(requestTo(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("generateContent"),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("test-api-key")))))
+                .andExpect(header("x-goog-api-key", "test-api-key"))
+                .andRespond(request -> {
+                    clock.advance(Duration.ofSeconds(30));
+                    return withStatus(HttpStatus.SERVICE_UNAVAILABLE).createResponse(request);
+                });
+
+        AssistantAnswerException ex = assertThrows(AssistantAnswerException.class, () ->
+                timedProvider.answer(sampleRequest()));
+
+        assertThat(ex.getCategory()).isEqualTo(AssistantAnswerFailureCategory.HTTP_SERVER_ERROR);
+        assertThat(ex.getHttpStatus()).isEqualTo(502);
+        assertThat(ex.isRetryable()).isFalse();
+        assertThat(ex.getAttempt()).isEqualTo(1);
+        String combinedLogs = logAppender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .reduce("", String::concat);
+        assertThat(combinedLogs).doesNotContain("test-api-key");
         mockServer.verify();
     }
 
@@ -305,6 +357,33 @@ class GeminiAssistantAnswerProviderTest {
                   }
                 }
                 """;
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant current;
+
+        private MutableClock(Instant current) {
+            this.current = current;
+        }
+
+        private void advance(Duration duration) {
+            current = current.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return current;
+        }
     }
 
     private String successResponse(String answer, String passageIndices) {

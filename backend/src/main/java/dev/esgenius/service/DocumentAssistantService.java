@@ -5,6 +5,7 @@ import dev.esgenius.dto.AssistantAskRequest;
 import dev.esgenius.dto.AssistantCitationResponse;
 import dev.esgenius.exception.AssistantUnavailableException;
 import dev.esgenius.exception.BadRequestException;
+import dev.esgenius.ratelimit.UsageLimiter;
 import dev.esgenius.service.assistant.AssistantAnswerException;
 import dev.esgenius.service.assistant.AssistantAnswerFailureCategory;
 import dev.esgenius.service.assistant.AssistantAnswerProvider;
@@ -38,12 +39,15 @@ public class DocumentAssistantService {
 
     private final DocumentAssistantEvidenceService evidenceService;
     private final AssistantAnswerProvider answerProvider;
+    private final UsageLimiter usageLimiter;
 
     public DocumentAssistantService(
             DocumentAssistantEvidenceService evidenceService,
-            AssistantAnswerProvider answerProvider) {
+            AssistantAnswerProvider answerProvider,
+            UsageLimiter usageLimiter) {
         this.evidenceService = evidenceService;
         this.answerProvider = answerProvider;
+        this.usageLimiter = usageLimiter;
     }
 
     public AssistantAnswerResponse ask(Long documentId, AssistantAskRequest request) {
@@ -55,6 +59,7 @@ public class DocumentAssistantService {
         List<RetrievedChunk> chunks = caller == null
                 ? evidenceService.retrieveForQuestion(documentId, question)
                 : evidenceService.retrieveForQuestion(documentId, question, caller);
+        usageLimiter.consumeAssistantAsk(caller);
         if (chunks.isEmpty()) {
             return new AssistantAnswerResponse(NOT_FOUND_ANSWER, List.of(), false);
         }
