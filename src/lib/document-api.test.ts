@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  canModifyDocument,
   formatDocumentStatus,
   formatDocumentType,
   formatFileSize,
   formatInstant,
   formatReportingYear,
+  isSharedDocument,
 } from "@/lib/document-api";
 
 describe("formatDocumentType", () => {
@@ -86,5 +88,27 @@ describe("formatInstant", () => {
       timeStyle: "short",
     });
     expect(format).toHaveBeenCalledWith(new Date("2024-06-01T12:00:00.000Z"));
+  });
+});
+
+describe("isSharedDocument", () => {
+  it("is true only when the backend flags the document as shared", () => {
+    expect(isSharedDocument({ shared: true })).toBe(true);
+    expect(isSharedDocument({ shared: false })).toBe(false);
+  });
+
+  it("treats a missing flag (older backend) as not shared", () => {
+    expect(isSharedDocument({})).toBe(false);
+  });
+});
+
+describe("canModifyDocument", () => {
+  it("follows the backend flag", () => {
+    expect(canModifyDocument({ canModify: true })).toBe(true);
+    expect(canModifyDocument({ canModify: false })).toBe(false);
+  });
+
+  it("treats a missing flag (older backend) as modifiable so nothing regresses", () => {
+    expect(canModifyDocument({})).toBe(true);
   });
 });

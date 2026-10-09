@@ -36,7 +36,11 @@ import {
 } from "@/components/ui/table";
 import { companyEsgQueryKeys, getCompanies } from "@/lib/company-esg-api";
 import { createComplianceAnalysis } from "@/lib/compliance-api";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  SHARED_DOCUMENT_TOOLTIP,
+  canModifyDocument,
   deleteDocument,
   documentQueryKeys,
   formatDocumentStatus,
@@ -44,6 +48,7 @@ import {
   formatFileSize,
   formatInstant,
   formatReportingYear,
+  isSharedDocument,
   listDocuments,
   type DocumentSummary,
 } from "@/lib/document-api";
@@ -323,6 +328,9 @@ function DocumentRow({
   onAnalyze: () => void;
   onDelete: () => void;
 }) {
+  const modifiable = canModifyDocument(document);
+  const shared = isSharedDocument(document);
+
   return (
     <TableRow className="group transition-colors hover:bg-accent/40">
       <TableCell>
@@ -338,7 +346,14 @@ function DocumentRow({
             >
               {document.originalFilename}
             </Link>
-            <p className="text-xs text-muted-foreground">{document.organizationName}</p>
+            <p className="text-xs text-muted-foreground">
+              {document.organizationName}
+              {shared && (
+                <Badge variant="secondary" className="ml-2 align-middle">
+                  Shared sample
+                </Badge>
+              )}
+            </p>
           </div>
         </div>
       </TableCell>
@@ -365,23 +380,43 @@ function DocumentRow({
               <Eye className="size-4" /> View
             </Link>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAnalyze}
-            disabled={document.status !== "READY" || analyzePending}
-          >
-            <ScanSearch className="size-4" />
-            {analyzePending ? "Analyzing…" : "Analyze"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-danger hover:bg-danger-soft hover:text-danger"
-            onClick={onDelete}
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          {modifiable ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onAnalyze}
+                disabled={document.status !== "READY" || analyzePending}
+              >
+                <ScanSearch className="size-4" />
+                {analyzePending ? "Analyzing…" : "Analyze"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-danger hover:bg-danger-soft hover:text-danger"
+                onClick={onDelete}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex gap-1">
+                    <Button variant="ghost" size="sm" disabled>
+                      <ScanSearch className="size-4" /> Analyze
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled aria-label="Delete (not allowed)">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{SHARED_DOCUMENT_TOOLTIP}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </TableCell>
     </TableRow>

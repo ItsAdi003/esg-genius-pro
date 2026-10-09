@@ -23,6 +23,10 @@ export interface DocumentSummary {
   pageCount: number | null;
   uploadedAt: string;
   processedAt: string | null;
+  /** True for shared sample documents (no owner). Absent on older backends. */
+  shared?: boolean;
+  /** True when the caller may delete or analyze this document. Absent on older backends. */
+  canModify?: boolean;
 }
 
 export interface DocumentDetail extends DocumentSummary {
@@ -141,6 +145,19 @@ export async function deleteDocument(documentId: number): Promise<void> {
     method: "DELETE",
   });
   await parseJsonResponse<void>(response, `Failed to delete document ${documentId}`);
+}
+
+export const SHARED_DOCUMENT_TOOLTIP =
+  "Shared samples can't be analyzed or deleted. Upload your own document to run an analysis.";
+
+/** Older backends omit the flag: treat the document as not shared. */
+export function isSharedDocument(document: Pick<DocumentSummary, "shared">): boolean {
+  return document.shared === true;
+}
+
+/** Older backends omit the flag: treat the document as modifiable (no regression). */
+export function canModifyDocument(document: Pick<DocumentSummary, "canModify">): boolean {
+  return document.canModify !== false;
 }
 
 export function formatDocumentType(documentType: DocumentType | string): string {

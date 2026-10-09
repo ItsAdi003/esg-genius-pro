@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -35,6 +35,7 @@ import {
   type AssessmentStatus,
   type RequirementAssessment,
 } from "@/lib/compliance-api";
+import { reportQueryKeys } from "@/lib/report-api";
 import {
   documentQueryKeys,
   formatReportingYear,
@@ -244,6 +245,7 @@ function triggerPdfDownload(blob: Blob, filename: string) {
 function GapAssessmentReport() {
   const { analysisId, analysisIdInvalid } = Route.useSearch();
   const [pdfDownloadPending, setPdfDownloadPending] = useState(false);
+  const queryClient = useQueryClient();
 
   const analysisQuery = useQuery({
     queryKey: analysisId != null
@@ -434,6 +436,8 @@ function GapAssessmentReport() {
     try {
       const blob = await fetchGapAssessmentPdf(reportAnalysis.id);
       triggerPdfDownload(blob, `gap-assessment-${reportAnalysis.id}.pdf`);
+      // The backend records each export; refresh the Reports page history.
+      void queryClient.invalidateQueries({ queryKey: reportQueryKeys.all });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to download the gap assessment PDF.";

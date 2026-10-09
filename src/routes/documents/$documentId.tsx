@@ -33,7 +33,10 @@ import {
   formatAnalysisSummaryCounts,
   getDocumentAnalyses,
 } from "@/lib/compliance-api";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  SHARED_DOCUMENT_TOOLTIP,
+  canModifyDocument,
   deleteDocument,
   documentQueryKeys,
   formatDocumentStatus,
@@ -43,6 +46,7 @@ import {
   formatReportingYear,
   getDocument,
   getDocumentPages,
+  isSharedDocument,
 } from "@/lib/document-api";
 
 export const Route = createFileRoute("/documents/$documentId")({
@@ -193,6 +197,8 @@ function DocumentDetailPage() {
   const isFailed = document.status === "FAILED";
   const isProcessing = document.status === "PROCESSING" || document.status === "UPLOADED";
   const hasAnalysisHistory = (analysesQuery.data?.length ?? 0) > 0;
+  const modifiable = canModifyDocument(document);
+  const shared = isSharedDocument(document);
   const documentPages = pagesQuery.data ?? [];
   const hasPageViewer = documentPages.length > 0;
   const activePage =
@@ -210,28 +216,51 @@ function DocumentDetailPage() {
               <ArrowLeft className="size-4" /> Back to Documents
             </Link>
           </Button>
-          <Button
-            variant={hasAnalysisHistory ? "outline" : "default"}
-            disabled={document.status !== "READY" || analyzeMutation.isPending}
-            onClick={() => analyzeMutation.mutate()}
-          >
-            <ScanSearch className="size-4" />
-            {analyzeMutation.isPending
-              ? "Starting analysis…"
-              : hasAnalysisHistory
-                ? "Run New Analysis"
-                : "Run Compliance Analysis"}
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-danger hover:bg-danger-soft hover:text-danger"
-            onClick={() => setConfirmDelete(true)}
-          >
-            <Trash2 className="size-4" /> Delete
-          </Button>
+          {modifiable ? (
+            <>
+              <Button
+                variant={hasAnalysisHistory ? "outline" : "default"}
+                disabled={document.status !== "READY" || analyzeMutation.isPending}
+                onClick={() => analyzeMutation.mutate()}
+              >
+                <ScanSearch className="size-4" />
+                {analyzeMutation.isPending
+                  ? "Starting analysis…"
+                  : hasAnalysisHistory
+                    ? "Run New Analysis"
+                    : "Run Compliance Analysis"}
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-danger hover:bg-danger-soft hover:text-danger"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="size-4" /> Delete
+              </Button>
+            </>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button variant="outline" disabled>
+                      <ScanSearch className="size-4" /> Run Compliance Analysis
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{SHARED_DOCUMENT_TOOLTIP}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </>
       }
     >
+      {shared && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          This is a shared sample document. You can view it and ask the assistant about it.
+        </p>
+      )}
+
       {isFailed && document.failureReason && (
         <Alert variant="destructive" className="mb-4">
           <AlertTitle>Text extraction failed</AlertTitle>
