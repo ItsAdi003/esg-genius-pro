@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: https://api.example.invalid
+      VITE_SUPABASE_URL: https://supabase.example.invalid
+      VITE_SUPABASE_ANON_KEY: ci-fake-anon-key-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Lockfile assumption: bun.lock is present and package-lock.json is not;
+      # Bun is used for install only (Node 22 runs npx/tsc/vitest/vite).
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # ESLint omitted: prettier/CRLF differences between dev (often Windows) and
+      # ubuntu-latest produce noisy failures unrelated to code correctness.
+      - name: Unit tests
+        run: npx vitest run src
+
+      - name: Production build
+        run: npx vite build
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Test
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B test
