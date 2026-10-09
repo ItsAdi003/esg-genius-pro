@@ -1,11 +1,13 @@
 package dev.esgenius.repository;
 
 import dev.esgenius.entity.Document;
+import dev.esgenius.entity.DocumentStatus;
 import dev.esgenius.entity.Organization;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,6 +15,8 @@ import java.util.UUID;
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     List<Document> findByOrganizationOrderByUploadedAtDesc(Organization organization);
+
+    List<Document> findByStatusIn(Collection<DocumentStatus> statuses);
 
     @Query("""
             SELECT d FROM Document d

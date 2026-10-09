@@ -4,7 +4,6 @@ import dev.esgenius.dto.DocumentDetailResponse;
 import dev.esgenius.dto.DocumentPageResponse;
 import dev.esgenius.dto.DocumentSummaryResponse;
 import dev.esgenius.entity.Document;
-import dev.esgenius.entity.DocumentPage;
 import dev.esgenius.entity.DocumentStatus;
 import dev.esgenius.entity.DocumentType;
 import dev.esgenius.entity.Organization;
@@ -22,9 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -36,18 +33,14 @@ public class DocumentService {
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
     private static final long MAX_FILE_SIZE_BYTES = 25L * 1024 * 1024;
     private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
-    private static final int MIN_EXTRACTED_TEXT_LENGTH = 10;
-    private static final String PDF_EXTRACTION_FAILED = "PDF extraction failed.";
     private static final String STORE_FAILED = "Failed to store uploaded file";
     private static final String DELETE_FAILED = "Failed to delete stored file";
-    private static final String SCANNED_PDF_MESSAGE =
-            "No extractable text found. Scanned or image-only PDFs are unsupported in this phase.";
 
     private final DocumentRepository documentRepository;
     private final DocumentPageRepository documentPageRepository;
     private final OrganizationRepository organizationRepository;
     private final LocalFileStorageService fileStorageService;
-    private final PdfTextExtractionService pdfTextExtractionService;
+    private final DocumentProcessingService documentProcessingService;
     private final DocumentAccessPolicy documentAccessPolicy;
 
     public DocumentService(
@@ -55,17 +48,16 @@ public class DocumentService {
             DocumentPageRepository documentPageRepository,
             OrganizationRepository organizationRepository,
             LocalFileStorageService fileStorageService,
-            PdfTextExtractionService pdfTextExtractionService,
+            DocumentProcessingService documentProcessingService,
             DocumentAccessPolicy documentAccessPolicy) {
         this.documentRepository = documentRepository;
         this.documentPageRepository = documentPageRepository;
         this.organizationRepository = organizationRepository;
         this.fileStorageService = fileStorageService;
-        this.pdfTextExtractionService = pdfTextExtractionService;
+        this.documentProcessingService = documentProcessingService;
         this.documentAccessPolicy = documentAccessPolicy;
     }
 
-    @Transactional
     public DocumentDetailResponse uploadDocument(
             MultipartFile file,
             Long organizationId,
@@ -75,7 +67,12 @@ public class DocumentService {
                 file, organizationId, documentType, reportingYear, documentAccessPolicy.callerWhenIdentityAbsent());
     }
 
-    @Transactional
+    /**
+     * Validates and stores the PDF, saves the document as PROCESSING and hands text extraction to
+     * a background worker. This method is deliberately not transactional: the worker must find a
+     * committed row. The response reflects the document's state right after hand-off (PROCESSING
+     * in production; already READY/FAILED when the executor runs inline, as in tests).
+     */
     public DocumentDetailResponse uploadDocument(
             MultipartFile file,
             Long organizationId,
@@ -92,9 +89,8 @@ public class DocumentService {
         String originalFilename = sanitizeOriginalFilename(file.getOriginalFilename());
         String storedFilename = UUID.randomUUID() + ".pdf";
 
-        Path storedPath;
         try {
-            storedPath = fileStorageService.store(new ByteArrayInputStream(fileContent), storedFilename);
+            fileStorageService.store(new ByteArrayInputStream(fileContent), storedFilename);
         } catch (IOException ex) {
             log.error("Failed to store uploaded file", ex);
             throw new BadRequestException(STORE_FAILED);
@@ -109,12 +105,14 @@ public class DocumentService {
                 (long) fileContent.length,
                 storedFilename);
         document.setOwnerUserId(caller.userId());
+        document.setStatus(DocumentStatus.PROCESSING);
 
-        document = documentRepository.save(document);
-        processDocument(document, storedPath);
-        document = documentRepository.save(document);
+        Long documentId = documentRepository.save(document).getId();
+        documentProcessingService.submit(documentId);
 
-        return toDetailResponse(document, caller);
+        Document current = documentRepository.findByIdWithOrganization(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        return toDetailResponse(current, caller);
     }
 
     @Transactional(readOnly = true)
@@ -184,49 +182,6 @@ public class DocumentService {
         }
 
         documentRepository.delete(document);
-    }
-
-    private void processDocument(Document document, Path storedPath) {
-        document.setStatus(DocumentStatus.PROCESSING);
-
-        try {
-            ExtractedPdf extractionResult = pdfTextExtractionService.extract(storedPath);
-            document.setPageCount(extractionResult.pageCount());
-
-            if (extractionResult.fullText().length() < MIN_EXTRACTED_TEXT_LENGTH) {
-                failDocument(document, SCANNED_PDF_MESSAGE);
-                return;
-            }
-
-            document.setExtractedText(extractionResult.fullText());
-            persistDocumentPages(document, extractionResult.pages());
-            document.setStatus(DocumentStatus.READY);
-            document.setProcessedAt(Instant.now());
-        } catch (PdfExtractionLimitException ex) {
-            log.warn("PDF extraction rejected documentId={} reason={}", document.getId(), ex.getMessage());
-            failDocument(document, ex.getMessage());
-        } catch (IOException ex) {
-            log.error("PDF extraction failed documentId={}", document.getId(), ex);
-            failDocument(document, PDF_EXTRACTION_FAILED);
-        }
-    }
-
-    private void failDocument(Document document, String reason) {
-        document.setStatus(DocumentStatus.FAILED);
-        document.setFailureReason(reason);
-        document.setProcessedAt(Instant.now());
-        try {
-            fileStorageService.delete(document.getStoredFilename());
-        } catch (IOException ex) {
-            log.error("Failed to delete stored file after document failure documentId={}", document.getId(), ex);
-        }
-    }
-
-    private void persistDocumentPages(Document document, List<ExtractedPdfPage> pages) {
-        documentPageRepository.deleteByDocument(document);
-        for (ExtractedPdfPage page : pages) {
-            documentPageRepository.save(new DocumentPage(document, page.pageNumber(), page.text()));
-        }
     }
 
     private void validateUploadRequest(

@@ -1,0 +1,21 @@
+package dev.esgenius.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
+
+/**
+ * Runs document processing inline under the test profile so an upload is READY (or FAILED)
+ * by the time the service call returns, which is what the existing tests assert.
+ */
+@Configuration
+@Profile("test")
+public class DocumentProcessingTestAsyncConfig {
+
+    @Bean(name = "documentProcessingExecutor")
+    public TaskExecutor documentProcessingExecutor() {
+        return new SyncTaskExecutor();
+    }
+}
