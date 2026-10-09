@@ -17,7 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { GlobalSearch } from "@/components/global-search";
 import { PrototypeBadge } from "@/components/prototype-notice";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -67,7 +67,7 @@ function SidebarContent({
             collapsed ? "justify-center px-2" : "px-5",
           )}
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-chart-2 text-primary-foreground shadow-[0_10px_25px_-12px_color-mix(in_oklab,var(--color-primary)_90%,transparent)] ring-1 ring-white/20">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-chart-2 text-primary-foreground shadow-[0_6px_16px_-8px_color-mix(in_oklab,var(--color-primary)_80%,transparent)] ring-1 ring-foreground/10">
             <Leaf className="size-5" />
           </div>
           {!collapsed && (
@@ -91,8 +91,8 @@ function SidebarContent({
                   "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                   collapsed && "justify-center px-2",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_20px_-15px_rgba(0,0,0,0.9)]"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5",
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
                 {active && (
@@ -171,16 +171,15 @@ export function AppLayout({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl transition-[width] duration-300 lg:block",
+          "fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-300 lg:block",
           collapsed ? "w-[72px]" : "w-64",
         )}
       >
-        <div className="pointer-events-none absolute -left-24 top-0 size-64 rounded-full bg-primary/15 blur-3xl" aria-hidden />
         <SidebarContent collapsed={collapsed} />
       </aside>
 
       <div className={cn("relative z-10 transition-[padding] duration-300", collapsed ? "lg:pl-[72px]" : "lg:pl-64")}>
-        <header className="sticky top-0 z-30 border-b border-border/55 bg-background/55 backdrop-blur-2xl shadow-[0_8px_30px_-20px_rgba(0,0,0,0.9)]">
+        <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
           <div className="flex h-[4.5rem] items-center gap-3 px-4 sm:px-6">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
@@ -188,7 +187,7 @@ export function AppLayout({
                   <Menu className="size-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-64 bg-sidebar/90 p-0 backdrop-blur-xl border-r-white/5">
+              <SheetContent side="left" className="w-64 bg-sidebar p-0">
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <SidebarContent onNavigate={() => setOpen(false)} />
               </SheetContent>
@@ -197,7 +196,7 @@ export function AppLayout({
             <Button
               variant="ghost"
               size="icon"
-              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+              className="hidden lg:inline-flex text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
@@ -212,12 +211,12 @@ export function AppLayout({
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
               <ThemeToggle />
-              <Button variant="ghost" size="icon" className="relative hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" className="relative text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <Bell className="size-[18px]" />
-                <span className="status-pulse absolute right-2.5 top-2.5 size-2 rounded-full bg-primary shadow-[0_0_8px_rgba(20,184,166,0.8)]" />
+                <span className="status-pulse absolute right-2.5 top-2.5 size-2 rounded-full bg-primary" />
               </Button>
               {!sessionReady ? (
-                <div className="flex items-center gap-3 pl-2 border-l border-white/5 ml-1">
+                <div className="flex items-center gap-3 pl-2 border-l border-border ml-1">
                   <div className="hidden space-y-1 leading-tight lg:block text-right">
                     <Skeleton className="ml-auto h-4 w-24" />
                     <Skeleton className="ml-auto h-3 w-32" />
@@ -225,14 +224,14 @@ export function AppLayout({
                   <Skeleton className="size-9 rounded-full" />
                 </div>
               ) : (
-                <div className="flex items-center gap-3 pl-2 border-l border-white/5 ml-1">
+                <div className="flex items-center gap-3 pl-2 border-l border-border ml-1">
                   <div className="hidden leading-tight lg:block text-right">
                     <p className="text-sm font-medium tracking-tight text-foreground/90">{displayName}</p>
                     {user?.email && (
                       <p className="text-[11px] text-muted-foreground">{user.email}</p>
                     )}
                   </div>
-                  <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-500 text-xs font-semibold text-white shadow-md ring-2 ring-background">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground ring-2 ring-background">
                     {initials}
                   </div>
                 </div>
@@ -251,50 +250,26 @@ export function AppLayout({
           </div>
         </header>
 
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={pathname}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
-          >
-            <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-              <div className="space-y-1">
-                <motion.h1
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1, duration: 0.4 }}
-                  className="text-3xl font-bold tracking-[-0.035em] text-foreground sm:text-[2rem]"
-                >
-                  {title}
-                </motion.h1>
-                {description && (
-                  <motion.p
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2, duration: 0.4 }}
-                    className="text-[15px] text-muted-foreground max-w-2xl"
-                  >
-                    {description}
-                  </motion.p>
-                )}
-              </div>
-              {actions && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2, duration: 0.4 }}
-                  className="flex flex-wrap items-center gap-3"
-                >
-                  {actions}
-                </motion.div>
+        <motion.main
+          key={pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+        >
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
+                {title}
+              </h1>
+              {description && (
+                <p className="max-w-2xl text-[15px] text-muted-foreground">{description}</p>
               )}
             </div>
-            {children}
-          </motion.main>
-        </AnimatePresence>
+            {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
+          </div>
+          {children}
+        </motion.main>
       </div>
     </div>
   );
