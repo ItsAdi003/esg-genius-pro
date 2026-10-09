@@ -130,7 +130,9 @@ class GapAssessmentPdfServiceTest {
                 Instant.parse("2026-01-01T00:00:00Z"),
                 Instant.parse("2026-01-01T00:00:01Z"),
                 "extracted",
-                null);
+                null,
+                false,
+                false);
     }
 
     private static RequirementAssessmentResponse assessment(

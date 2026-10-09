@@ -31,6 +31,7 @@ app:
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:8080}
   auth:
+    admin-user-ids: ${ADMIN_USER_IDS:}
     supabase:
       url: ${SUPABASE_URL:}
       anon-key: ${SUPABASE_ANON_KEY:}
@@ -47,6 +48,7 @@ app:
       initial-retry-backoff: 500ms
       max-retry-backoff: 8s
       inter-request-delay: 300ms
+      max-concurrent-classifications: ${GEMINI_MAX_CONCURRENCY:1}
 
 management:
   endpoints:

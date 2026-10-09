@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.esgenius.config.GeminiProperties;
 import dev.esgenius.entity.AssessmentStatus;
 import dev.esgenius.service.compliance.*;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -31,6 +30,7 @@ class GeminiComplianceClassificationProviderTest {
     private MockRestServiceServer mockServer;
     private GeminiComplianceClassificationProvider provider;
     private ListAppender<ILoggingEvent> logAppender;
+    private AnalysisRunContext runContext;
 
     @BeforeEach
     void setUp() {
@@ -61,7 +61,7 @@ class GeminiComplianceClassificationProviderTest {
         logAppender = new ListAppender<>();
         logAppender.start();
         logger.addAppender(logAppender);
-        QuotaExhaustionScope.begin();
+        runContext = new AnalysisRunContext();
     }
 
     @Test
@@ -80,11 +80,6 @@ class GeminiComplianceClassificationProviderTest {
 
         assertThat(result.status()).isEqualTo(AssessmentStatus.COVERED);
         mockServer.verify();
-    }
-
-    @AfterEach
-    void tearDown() {
-        QuotaExhaustionScope.end();
     }
 
     @Test
@@ -254,7 +249,8 @@ class GeminiComplianceClassificationProviderTest {
     private ComplianceClassificationRequest sampleRequest() {
         return new ComplianceClassificationRequest(
                 "ENV-003", "Scope 1 emissions", "Disclose Scope 1", "Framework text",
-                List.of("Scope 1 emissions totalled 1000 tCO2e."));
+                List.of("Scope 1 emissions totalled 1000 tCO2e."),
+                runContext);
     }
 
     private String perDayQuotaBody() {

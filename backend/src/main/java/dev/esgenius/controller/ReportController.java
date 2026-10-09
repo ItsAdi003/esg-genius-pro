@@ -1,6 +1,9 @@
 package dev.esgenius.controller;
 
+import dev.esgenius.config.AuthenticatedUser;
+import dev.esgenius.service.DocumentAccessPolicy;
 import dev.esgenius.service.GapAssessmentPdfService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,14 +18,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReportController {
 
     private final GapAssessmentPdfService gapAssessmentPdfService;
+    private final DocumentAccessPolicy documentAccessPolicy;
 
-    public ReportController(GapAssessmentPdfService gapAssessmentPdfService) {
+    public ReportController(
+            GapAssessmentPdfService gapAssessmentPdfService,
+            DocumentAccessPolicy documentAccessPolicy) {
         this.gapAssessmentPdfService = gapAssessmentPdfService;
+        this.documentAccessPolicy = documentAccessPolicy;
     }
 
     @GetMapping(value = "/analyses/{analysisId}/report.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> downloadGapAssessmentPdf(@PathVariable Long analysisId) {
-        byte[] pdf = gapAssessmentPdfService.generate(analysisId);
+    public ResponseEntity<byte[]> downloadGapAssessmentPdf(
+            @PathVariable Long analysisId,
+            HttpServletRequest request) {
+        byte[] pdf = gapAssessmentPdfService.generate(
+                analysisId, documentAccessPolicy.resolve(AuthenticatedUser.from(request)));
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDisposition(ContentDisposition.attachment()

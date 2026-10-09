@@ -13,19 +13,27 @@ public class ClassificationFailureHandler {
     private static final String HUMAN_REVIEW_RECOMMENDATION =
             "A human reviewer should assess this requirement against the submitted document.";
 
-    public ComplianceClassificationResult handleFailure() {
-        if (QuotaExhaustionScope.isExhausted()) {
-            return new ComplianceClassificationResult(
-                    AssessmentStatus.HUMAN_REVIEW_REQUIRED,
-                    null,
-                    QUOTA_EXHAUSTED_EXPLANATION,
-                    null,
-                    HUMAN_REVIEW_RECOMMENDATION);
+    public ComplianceClassificationResult handleFailure(AnalysisRunContext runContext) {
+        if (runContext != null && runContext.isQuotaExhausted()) {
+            return quotaExhaustedResult();
         }
+        return unexpectedFailure();
+    }
+
+    public ComplianceClassificationResult unexpectedFailure() {
         return new ComplianceClassificationResult(
                 AssessmentStatus.HUMAN_REVIEW_REQUIRED,
                 null,
                 GENERIC_FAILURE_EXPLANATION,
+                null,
+                HUMAN_REVIEW_RECOMMENDATION);
+    }
+
+    private static ComplianceClassificationResult quotaExhaustedResult() {
+        return new ComplianceClassificationResult(
+                AssessmentStatus.HUMAN_REVIEW_REQUIRED,
+                null,
+                QUOTA_EXHAUSTED_EXPLANATION,
                 null,
                 HUMAN_REVIEW_RECOMMENDATION);
     }

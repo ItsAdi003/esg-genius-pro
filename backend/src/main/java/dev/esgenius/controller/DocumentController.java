@@ -1,9 +1,13 @@
 package dev.esgenius.controller;
 
+import dev.esgenius.config.AuthenticatedUser;
 import dev.esgenius.dto.DocumentDetailResponse;
 import dev.esgenius.dto.DocumentPageResponse;
 import dev.esgenius.dto.DocumentSummaryResponse;
+import dev.esgenius.service.Caller;
+import dev.esgenius.service.DocumentAccessPolicy;
 import dev.esgenius.service.DocumentService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,9 +23,11 @@ import java.util.List;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentAccessPolicy documentAccessPolicy;
 
-    public DocumentController(DocumentService documentService) {
+    public DocumentController(DocumentService documentService, DocumentAccessPolicy documentAccessPolicy) {
         this.documentService = documentService;
+        this.documentAccessPolicy = documentAccessPolicy;
     }
 
     /**
@@ -33,9 +39,10 @@ public class DocumentController {
             @RequestParam("file") MultipartFile file,
             @RequestParam Long organizationId,
             @RequestParam String documentType,
-            @RequestParam(required = false) Integer reportingYear) {
+            @RequestParam(required = false) Integer reportingYear,
+            HttpServletRequest request) {
         DocumentDetailResponse response = documentService.uploadDocument(
-                file, organizationId, documentType, reportingYear);
+                file, organizationId, documentType, reportingYear, caller(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -45,8 +52,9 @@ public class DocumentController {
      */
     @GetMapping
     public ResponseEntity<List<DocumentSummaryResponse>> listDocuments(
-            @RequestParam Long organizationId) {
-        return ResponseEntity.ok(documentService.listDocuments(organizationId));
+            @RequestParam Long organizationId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(documentService.listDocuments(organizationId, caller(request)));
     }
 
     /**
@@ -54,8 +62,10 @@ public class DocumentController {
      * Get document detail including extracted text.
      */
     @GetMapping("/{documentId}")
-    public ResponseEntity<DocumentDetailResponse> getDocument(@PathVariable Long documentId) {
-        return ResponseEntity.ok(documentService.getDocument(documentId));
+    public ResponseEntity<DocumentDetailResponse> getDocument(
+            @PathVariable Long documentId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(documentService.getDocument(documentId, caller(request)));
     }
 
     /**
@@ -63,8 +73,10 @@ public class DocumentController {
      * List per-page extracted text in ascending page order.
      */
     @GetMapping("/{documentId}/pages")
-    public ResponseEntity<List<DocumentPageResponse>> getDocumentPages(@PathVariable Long documentId) {
-        return ResponseEntity.ok(documentService.getDocumentPages(documentId));
+    public ResponseEntity<List<DocumentPageResponse>> getDocumentPages(
+            @PathVariable Long documentId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(documentService.getDocumentPages(documentId, caller(request)));
     }
 
     /**
@@ -72,8 +84,12 @@ public class DocumentController {
      * Delete document metadata and stored file.
      */
     @DeleteMapping("/{documentId}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long documentId) {
-        documentService.deleteDocument(documentId);
+    public ResponseEntity<Void> deleteDocument(@PathVariable Long documentId, HttpServletRequest request) {
+        documentService.deleteDocument(documentId, caller(request));
         return ResponseEntity.noContent().build();
+    }
+
+    private Caller caller(HttpServletRequest request) {
+        return documentAccessPolicy.resolve(AuthenticatedUser.from(request));
     }
 }

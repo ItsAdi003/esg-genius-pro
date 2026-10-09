@@ -7,5 +7,21 @@ public record ComplianceClassificationRequest(
         String requirementTitle,
         String requirementDescription,
         String requirementFrameworkText,
-        List<String> evidencePassages) {
+        List<String> evidencePassages,
+        AnalysisRunContext runContext) {
+
+    public ComplianceClassificationRequest(
+            String requirementCode,
+            String requirementTitle,
+            String requirementDescription,
+            String requirementFrameworkText,
+            List<String> evidencePassages) {
+        this(
+                requirementCode,
+                requirementTitle,
+                requirementDescription,
+                requirementFrameworkText,
+                evidencePassages,
+                null);
+    }
 }

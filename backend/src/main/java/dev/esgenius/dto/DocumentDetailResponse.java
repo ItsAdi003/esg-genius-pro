@@ -18,5 +18,7 @@ public record DocumentDetailResponse(
         Instant uploadedAt,
         Instant processedAt,
         String extractedText,
-        String failureReason) {
+        String failureReason,
+        boolean shared,
+        boolean canModify) {
 }

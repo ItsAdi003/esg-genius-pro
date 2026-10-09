@@ -22,6 +22,8 @@ app:
     supabase:
       url: ""
       anon-key: ""
+      # Unconfigured and not required: requests with no identity act as admin.
+      required: false
   ai:
     gemini:
       inter-request-delay: 0ms

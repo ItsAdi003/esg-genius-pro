@@ -40,18 +40,21 @@ public class DocumentService {
     private final OrganizationRepository organizationRepository;
     private final LocalFileStorageService fileStorageService;
     private final PdfTextExtractionService pdfTextExtractionService;
+    private final DocumentAccessPolicy documentAccessPolicy;
 
     public DocumentService(
             DocumentRepository documentRepository,
             DocumentPageRepository documentPageRepository,
             OrganizationRepository organizationRepository,
             LocalFileStorageService fileStorageService,
-            PdfTextExtractionService pdfTextExtractionService) {
+            PdfTextExtractionService pdfTextExtractionService,
+            DocumentAccessPolicy documentAccessPolicy) {
         this.documentRepository = documentRepository;
         this.documentPageRepository = documentPageRepository;
         this.organizationRepository = organizationRepository;
         this.fileStorageService = fileStorageService;
         this.pdfTextExtractionService = pdfTextExtractionService;
+        this.documentAccessPolicy = documentAccessPolicy;
     }
 
     @Transactional
@@ -60,6 +63,17 @@ public class DocumentService {
             Long organizationId,
             String documentType,
             Integer reportingYear) {
+        return uploadDocument(
+                file, organizationId, documentType, reportingYear, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional
+    public DocumentDetailResponse uploadDocument(
+            MultipartFile file,
+            Long organizationId,
+            String documentType,
+            Integer reportingYear,
+            Caller caller) {
         validateUploadRequest(file, organizationId, documentType, reportingYear);
 
         Organization organization = organizationRepository.findById(organizationId)
@@ -85,35 +99,57 @@ public class DocumentService {
                 reportingYear,
                 (long) fileContent.length,
                 storedFilename);
+        document.setOwnerUserId(caller.userId());
 
         document = documentRepository.save(document);
         processDocument(document, storedPath);
         document = documentRepository.save(document);
 
-        return toDetailResponse(document);
+        return toDetailResponse(document, caller);
     }
 
     @Transactional(readOnly = true)
     public List<DocumentSummaryResponse> listDocuments(Long organizationId) {
+        return listDocuments(organizationId, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentSummaryResponse> listDocuments(Long organizationId, Caller caller) {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found: " + organizationId));
 
-        return documentRepository.findByOrganizationOrderByUploadedAtDesc(organization).stream()
-                .map(this::toSummaryResponse)
+        List<Document> documents = caller.admin()
+                ? documentRepository.findByOrganizationOrderByUploadedAtDesc(organization)
+                : documentRepository.findVisibleByOrganization(organization, caller.userId());
+
+        return documents.stream()
+                .map(document -> toSummaryResponse(document, caller))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public DocumentDetailResponse getDocument(Long documentId) {
+        return getDocument(documentId, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentDetailResponse getDocument(Long documentId, Caller caller) {
         Document document = documentRepository.findByIdWithOrganization(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
-        return toDetailResponse(document);
+        documentAccessPolicy.requireView(document, caller, "Document not found: " + documentId);
+        return toDetailResponse(document, caller);
     }
 
     @Transactional(readOnly = true)
     public List<DocumentPageResponse> getDocumentPages(Long documentId) {
+        return getDocumentPages(documentId, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentPageResponse> getDocumentPages(Long documentId, Caller caller) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        documentAccessPolicy.requireView(document, caller, "Document not found: " + documentId);
 
         return documentPageRepository.findByDocumentOrderByPageNumberAsc(document).stream()
                 .map(page -> new DocumentPageResponse(page.getPageNumber(), page.getExtractedText()))
@@ -122,8 +158,14 @@ public class DocumentService {
 
     @Transactional
     public void deleteDocument(Long documentId) {
+        deleteDocument(documentId, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional
+    public void deleteDocument(Long documentId, Caller caller) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        documentAccessPolicy.requireModify(document, caller, "Document not found: " + documentId);
 
         try {
             fileStorageService.delete(document.getStoredFilename());
@@ -233,7 +275,7 @@ public class DocumentService {
         return filename;
     }
 
-    private DocumentSummaryResponse toSummaryResponse(Document document) {
+    private DocumentSummaryResponse toSummaryResponse(Document document, Caller caller) {
         Organization organization = document.getOrganization();
         return new DocumentSummaryResponse(
                 document.getId(),
@@ -246,10 +288,12 @@ public class DocumentService {
                 document.getFileSize(),
                 document.getPageCount(),
                 document.getUploadedAt(),
-                document.getProcessedAt());
+                document.getProcessedAt(),
+                documentAccessPolicy.isShared(document),
+                documentAccessPolicy.canModify(document, caller));
     }
 
-    private DocumentDetailResponse toDetailResponse(Document document) {
+    private DocumentDetailResponse toDetailResponse(Document document, Caller caller) {
         Organization organization = document.getOrganization();
         return new DocumentDetailResponse(
                 document.getId(),
@@ -264,6 +308,8 @@ public class DocumentService {
                 document.getUploadedAt(),
                 document.getProcessedAt(),
                 document.getExtractedText(),
-                document.getFailureReason());
+                document.getFailureReason(),
+                documentAccessPolicy.isShared(document),
+                documentAccessPolicy.canModify(document, caller));
     }
 }

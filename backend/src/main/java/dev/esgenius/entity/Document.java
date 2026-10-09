@@ -2,6 +2,7 @@ package dev.esgenius.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "document")
@@ -14,6 +15,9 @@ public class Document {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    @Column(name = "owner_user_id")
+    private UUID ownerUserId;
 
     @Column(name = "original_filename", nullable = false, length = 255)
     private String originalFilename;
@@ -81,6 +85,14 @@ public class Document {
 
     public Organization getOrganization() {
         return organization;
+    }
+
+    public UUID getOwnerUserId() {
+        return ownerUserId;
+    }
+
+    public void setOwnerUserId(UUID ownerUserId) {
+        this.ownerUserId = ownerUserId;
     }
 
     public String getOriginalFilename() {

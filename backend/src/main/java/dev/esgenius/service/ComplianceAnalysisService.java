@@ -14,18 +14,25 @@ import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
+import dev.esgenius.config.ComplianceClassificationExecutorConfig;
 import dev.esgenius.config.GeminiProperties;
 import dev.esgenius.service.compliance.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,10 +54,12 @@ public class ComplianceAnalysisService {
     private final ClassificationFailureHandler failureHandler;
     private final ClassificationEvidenceBuilder classificationEvidenceBuilder;
     private final GeminiProperties geminiProperties;
+    private final ThreadPoolTaskExecutor classificationExecutor;
     private final ObjectMapper objectMapper;
     private final ComplianceAnalysisCreationService creationService;
     private final ComplianceAnalysisPersistenceService persistenceService;
     private final ComplianceAnalysisProcessor complianceAnalysisProcessor;
+    private final DocumentAccessPolicy documentAccessPolicy;
 
     public ComplianceAnalysisService(
             ComplianceAnalysisRepository analysisRepository,
@@ -66,10 +75,13 @@ public class ComplianceAnalysisService {
             ClassificationFailureHandler failureHandler,
             ClassificationEvidenceBuilder classificationEvidenceBuilder,
             GeminiProperties geminiProperties,
+            @Qualifier(ComplianceClassificationExecutorConfig.EXECUTOR_BEAN_NAME)
+            ThreadPoolTaskExecutor classificationExecutor,
             ObjectMapper objectMapper,
             ComplianceAnalysisCreationService creationService,
             ComplianceAnalysisPersistenceService persistenceService,
-            @Lazy ComplianceAnalysisProcessor complianceAnalysisProcessor) {
+            @Lazy ComplianceAnalysisProcessor complianceAnalysisProcessor,
+            DocumentAccessPolicy documentAccessPolicy) {
         this.analysisRepository = analysisRepository;
         this.assessmentRepository = assessmentRepository;
         this.documentRepository = documentRepository;
@@ -83,15 +95,24 @@ public class ComplianceAnalysisService {
         this.failureHandler = failureHandler;
         this.classificationEvidenceBuilder = classificationEvidenceBuilder;
         this.geminiProperties = geminiProperties;
+        this.classificationExecutor = classificationExecutor;
         this.objectMapper = objectMapper;
         this.creationService = creationService;
         this.persistenceService = persistenceService;
         this.complianceAnalysisProcessor = complianceAnalysisProcessor;
+        this.documentAccessPolicy = documentAccessPolicy;
     }
 
     public ComplianceAnalysisResponse startAnalysis(Long documentId, StartAnalysisRequest request) {
+        return startAnalysis(documentId, request, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    public ComplianceAnalysisResponse startAnalysis(Long documentId, StartAnalysisRequest request, Caller caller) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        documentAccessPolicy.requireModify(document, caller, "Document not found: " + documentId);
         Long analysisId = creationService.createInProgressAnalysis(documentId, request);
-        ComplianceAnalysisResponse response = getAnalysis(analysisId);
+        ComplianceAnalysisResponse response = getAnalysis(analysisId, caller);
         complianceAnalysisProcessor.processAnalysis(analysisId);
         return response;
     }
@@ -116,24 +137,12 @@ public class ComplianceAnalysisService {
 
         List<FrameworkRequirement> requirements = requirementRepository.findByFramework(framework);
         List<TextChunk> chunks = buildChunksForDocument(document);
+        AnalysisRunContext runContext = new AnalysisRunContext();
+        List<Future<?>> classifications = new ArrayList<>();
 
         for (FrameworkRequirement requirement : requirements) {
             List<RetrievedChunk> retrieved = retrievalService.retrieve(requirement, chunks);
-            boolean hadEvidence = !retrieved.isEmpty();
-
-            if (hadEvidence) {
-                double topScore = retrieved.get(0).score();
-                ComplianceClassificationResult classification =
-                        classifyWithEvidence(requirement, retrieved, chunks);
-                persistenceService.persistRequirementAssessment(
-                        analysisId,
-                        requirement.getId(),
-                        topScore,
-                        buildEvidenceText(retrieved),
-                        serializeEvidenceChunks(retrieved),
-                        classification);
-                paceBeforeNextClassification();
-            } else {
+            if (retrieved.isEmpty()) {
                 persistenceService.persistRequirementAssessment(
                         analysisId,
                         requirement.getId(),
@@ -141,24 +150,111 @@ public class ComplianceAnalysisService {
                         null,
                         null,
                         noEvidenceClassifier.classify(requirement));
+                continue;
+            }
+
+            try {
+                classifications.add(classificationExecutor.submit(
+                        () -> classifyAndPersistRequirement(
+                                analysisId, requirement, retrieved, chunks, runContext)));
+            } catch (RejectedExecutionException ex) {
+                log.error(
+                        "Classification was not accepted analysisId={} requirementCode={}",
+                        analysisId,
+                        requirement.getRequirementCode(),
+                        ex);
+                persistUnexpectedFailure(analysisId, requirement, retrieved);
             }
         }
 
+        awaitClassifications(analysisId, classifications);
         persistenceService.finalizeCompleted(analysisId);
+    }
+
+    private void awaitClassifications(Long analysisId, List<Future<?>> classifications) {
+        for (Future<?> classification : classifications) {
+            try {
+                classification.get();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Classification interrupted", ex);
+            } catch (ExecutionException ex) {
+                log.error("Classification task failed analysisId={}", analysisId, ex.getCause());
+            }
+        }
+    }
+
+    private void classifyAndPersistRequirement(
+            Long analysisId,
+            FrameworkRequirement requirement,
+            List<RetrievedChunk> retrieved,
+            List<TextChunk> sourceChunks,
+            AnalysisRunContext runContext) {
+        try {
+            ComplianceClassificationResult classification =
+                    classifyWithEvidence(requirement, retrieved, sourceChunks, runContext);
+            persistenceService.persistRequirementAssessment(
+                    analysisId,
+                    requirement.getId(),
+                    retrieved.get(0).score(),
+                    buildEvidenceText(retrieved),
+                    serializeEvidenceChunks(retrieved),
+                    classification);
+        } catch (RuntimeException ex) {
+            log.error(
+                    "Unexpected classification failure analysisId={} requirementCode={}",
+                    analysisId,
+                    requirement.getRequirementCode(),
+                    ex);
+            persistUnexpectedFailure(analysisId, requirement, retrieved);
+            return;
+        }
+        paceBeforeNextClassification();
+    }
+
+    private void persistUnexpectedFailure(
+            Long analysisId, FrameworkRequirement requirement, List<RetrievedChunk> retrieved) {
+        try {
+            persistenceService.persistRequirementAssessment(
+                    analysisId,
+                    requirement.getId(),
+                    retrieved.isEmpty() ? 0.0 : retrieved.get(0).score(),
+                    retrieved.isEmpty() ? null : buildEvidenceText(retrieved),
+                    retrieved.isEmpty() ? null : serializeEvidenceChunks(retrieved),
+                    failureHandler.unexpectedFailure());
+        } catch (RuntimeException persistEx) {
+            log.error(
+                    "Failed to persist human-review fallback analysisId={} requirementCode={}",
+                    analysisId,
+                    requirement.getRequirementCode(),
+                    persistEx);
+        }
     }
 
     @Transactional(readOnly = true)
     public ComplianceAnalysisResponse getAnalysis(Long analysisId) {
+        return getAnalysis(analysisId, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional(readOnly = true)
+    public ComplianceAnalysisResponse getAnalysis(Long analysisId, Caller caller) {
         ComplianceAnalysis analysis = analysisRepository.findByIdWithFrameworkAndDocument(analysisId)
                 .orElseThrow(() -> new ResourceNotFoundException("Analysis not found: " + analysisId));
+        documentAccessPolicy.requireView(
+                analysis.getDocument(), caller, "Analysis not found: " + analysisId);
         return toResponse(analysis);
     }
 
     @Transactional(readOnly = true)
     public List<ComplianceAnalysisSummaryResponse> listAnalysesForDocument(Long documentId) {
-        if (!documentRepository.existsById(documentId)) {
-            throw new ResourceNotFoundException("Document not found: " + documentId);
-        }
+        return listAnalysesForDocument(documentId, documentAccessPolicy.callerWhenIdentityAbsent());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ComplianceAnalysisSummaryResponse> listAnalysesForDocument(Long documentId, Caller caller) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+        documentAccessPolicy.requireView(document, caller, "Document not found: " + documentId);
 
         List<ComplianceAnalysis> analyses =
                 analysisRepository.findByDocumentIdWithFrameworkOrderByStartedAtDesc(documentId);
@@ -178,7 +274,13 @@ public class ComplianceAnalysisService {
     }
 
     private ComplianceClassificationResult classifyWithEvidence(
-            FrameworkRequirement requirement, List<RetrievedChunk> retrieved, List<TextChunk> sourceChunks) {
+            FrameworkRequirement requirement,
+            List<RetrievedChunk> retrieved,
+            List<TextChunk> sourceChunks,
+            AnalysisRunContext runContext) {
+        if (runContext.isQuotaExhausted()) {
+            return failureHandler.handleFailure(runContext);
+        }
         try {
             List<String> expandedPassages = classificationEvidenceBuilder.buildExpandedPassages(retrieved, sourceChunks);
             ComplianceClassificationRequest request = new ComplianceClassificationRequest(
@@ -186,9 +288,13 @@ public class ComplianceAnalysisService {
                     requirement.getTitle(),
                     requirement.getDescription(),
                     requirement.getFrameworkText(),
-                    expandedPassages);
+                    expandedPassages,
+                    runContext);
             return classificationProvider.classify(request);
         } catch (ComplianceClassificationException ex) {
+            if (ex.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
+                runContext.markQuotaExhausted();
+            }
             log.warn(
                     "Classification fallback for requirementCode={} category={} httpStatus={} attempt={} detail={}",
                     requirement.getRequirementCode(),
@@ -196,7 +302,7 @@ public class ComplianceAnalysisService {
                     ex.getHttpStatus(),
                     ex.getAttempt(),
                     ex.getSafeDetail());
-            return failureHandler.handleFailure();
+            return failureHandler.handleFailure(runContext);
         }
     }
 

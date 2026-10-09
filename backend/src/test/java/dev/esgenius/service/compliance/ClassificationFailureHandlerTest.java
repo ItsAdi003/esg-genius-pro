@@ -1,8 +1,6 @@
 package dev.esgenius.service.compliance;
 
 import dev.esgenius.entity.AssessmentStatus;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -11,19 +9,9 @@ class ClassificationFailureHandlerTest {
 
     private final ClassificationFailureHandler handler = new ClassificationFailureHandler();
 
-    @BeforeEach
-    void setUp() {
-        QuotaExhaustionScope.begin();
-    }
-
-    @AfterEach
-    void tearDown() {
-        QuotaExhaustionScope.end();
-    }
-
     @Test
     void genericFailureUsesAutomatedClassificationMessage() {
-        ComplianceClassificationResult result = handler.handleFailure();
+        ComplianceClassificationResult result = handler.handleFailure(new AnalysisRunContext());
 
         assertThat(result.status()).isEqualTo(AssessmentStatus.HUMAN_REVIEW_REQUIRED);
         assertThat(result.explanation()).isEqualTo(ClassificationFailureHandler.GENERIC_FAILURE_EXPLANATION);
@@ -31,9 +19,10 @@ class ClassificationFailureHandlerTest {
 
     @Test
     void quotaExhaustionUsesDailyQuotaExplanation() {
-        QuotaExhaustionScope.markExhausted();
+        AnalysisRunContext runContext = new AnalysisRunContext();
+        runContext.markQuotaExhausted();
 
-        ComplianceClassificationResult result = handler.handleFailure();
+        ComplianceClassificationResult result = handler.handleFailure(runContext);
 
         assertThat(result.status()).isEqualTo(AssessmentStatus.HUMAN_REVIEW_REQUIRED);
         assertThat(result.explanation()).isEqualTo(ClassificationFailureHandler.QUOTA_EXHAUSTED_EXPLANATION);

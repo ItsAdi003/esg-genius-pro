@@ -1,8 +1,6 @@
 package dev.esgenius.service.compliance;
 
 import dev.esgenius.entity.AssessmentStatus;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -12,18 +10,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class QuotaAwareComplianceClassificationProviderTest {
 
-    @BeforeEach
-    void setUp() {
-        QuotaExhaustionScope.begin();
-    }
-
-    @AfterEach
-    void tearDown() {
-        QuotaExhaustionScope.end();
-    }
-
     @Test
     void stopsDelegatingAfterQuotaOnThirdRequirement() {
+        AnalysisRunContext runContext = new AnalysisRunContext();
         AtomicInteger calls = new AtomicInteger();
         ComplianceClassificationProvider fake = request -> {
             int n = calls.incrementAndGet();
@@ -46,7 +35,7 @@ class QuotaAwareComplianceClassificationProviderTest {
         int covered = 0;
         for (int i = 0; i < 14; i++) {
             try {
-                ComplianceClassificationResult result = wrapper.classify(sampleRequest());
+                ComplianceClassificationResult result = wrapper.classify(sampleRequest(runContext));
                 if (result.status() == AssessmentStatus.COVERED) {
                     covered++;
                 }
@@ -61,8 +50,10 @@ class QuotaAwareComplianceClassificationProviderTest {
         assertThat(quotaFailures).isEqualTo(12);
     }
 
-    private static ComplianceClassificationRequest sampleRequest() {
+    private static ComplianceClassificationRequest sampleRequest(AnalysisRunContext runContext) {
         return new ComplianceClassificationRequest(
-                "ENV-003", "Scope 1", "Desc", "Text", List.of("Scope 1 emissions totalled 1000 tCO2e."));
+                "ENV-003", "Scope 1", "Desc", "Text",
+                List.of("Scope 1 emissions totalled 1000 tCO2e."),
+                runContext);
     }
 }

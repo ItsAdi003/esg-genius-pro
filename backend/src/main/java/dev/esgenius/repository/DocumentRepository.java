@@ -8,10 +8,21 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     List<Document> findByOrganizationOrderByUploadedAtDesc(Organization organization);
+
+    @Query("""
+            SELECT d FROM Document d
+            WHERE d.organization = :organization
+              AND (d.ownerUserId IS NULL OR d.ownerUserId = :userId)
+            ORDER BY d.uploadedAt DESC
+            """)
+    List<Document> findVisibleByOrganization(
+            @Param("organization") Organization organization,
+            @Param("userId") UUID userId);
 
     @Query("""
             SELECT d FROM Document d

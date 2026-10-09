@@ -16,5 +16,7 @@ public record DocumentSummaryResponse(
         Long fileSize,
         Integer pageCount,
         Instant uploadedAt,
-        Instant processedAt) {
+        Instant processedAt,
+        boolean shared,
+        boolean canModify) {
 }

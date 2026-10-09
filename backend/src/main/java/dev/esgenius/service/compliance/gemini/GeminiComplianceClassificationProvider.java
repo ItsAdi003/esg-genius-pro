@@ -63,7 +63,7 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     false);
         }
 
-        if (QuotaExhaustionScope.isExhausted()) {
+        if (isQuotaExhausted(request)) {
             throw new ComplianceClassificationException(
                     ClassificationFailureCategory.QUOTA_EXHAUSTED,
                     "Gemini daily quota has already been exhausted for this analysis",
@@ -80,6 +80,9 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                 return executeRequest(request.requirementCode(), requestBody, attempt);
             } catch (ComplianceClassificationException ex) {
                 lastFailure = ex.withAttempt(attempt);
+                if (lastFailure.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
+                    markQuotaExhausted(request);
+                }
                 logClassificationFailure(request.requirementCode(), lastFailure);
 
                 if (!ex.isRetryable() || attempt >= maxAttempts) {
@@ -183,6 +186,16 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                 safeMessage,
                 null,
                 retryAfter);
+    }
+
+    private static boolean isQuotaExhausted(ComplianceClassificationRequest request) {
+        return request.runContext() != null && request.runContext().isQuotaExhausted();
+    }
+
+    private static void markQuotaExhausted(ComplianceClassificationRequest request) {
+        if (request.runContext() != null) {
+            request.runContext().markQuotaExhausted();
+        }
     }
 
     private void logClassificationFailure(String requirementCode, ComplianceClassificationException ex) {

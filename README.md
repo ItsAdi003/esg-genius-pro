@@ -62,13 +62,15 @@ From `backend/`. Env var names (see `backend/.env.example`; copy to `backend/.en
 - `DB_PASSWORD`
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
+- `GEMINI_MAX_CONCURRENCY` (1–8, default 1)
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `AUTH_REQUIRED`
+- `ADMIN_USER_IDS`
 - `SUPABASE_TOKEN_CACHE_TTL`
 - `ALLOWED_ORIGINS`
 
-Local runs without Supabase need `AUTH_REQUIRED=false`.
+Local runs without Supabase need `AUTH_REQUIRED=false`. `ADMIN_USER_IDS` is a comma-separated list of user UUIDs that can manage every document, including shared samples.
 
 Create the Postgres database named in `DB_URL` (default database name `esgenius`). Then:
 

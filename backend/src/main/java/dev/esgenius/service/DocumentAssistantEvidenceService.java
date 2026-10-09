@@ -9,6 +9,7 @@ import dev.esgenius.exception.BadRequestException;
 import dev.esgenius.exception.ResourceNotFoundException;
 import dev.esgenius.repository.DocumentPageRepository;
 import dev.esgenius.repository.DocumentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,22 +30,50 @@ public class DocumentAssistantEvidenceService {
     private final DocumentPageRepository documentPageRepository;
     private final TextChunkingService chunkingService;
     private final LexicalEvidenceRetrievalService retrievalService;
+    private final DocumentAccessPolicy documentAccessPolicy;
 
+    @Autowired
     public DocumentAssistantEvidenceService(
             DocumentRepository documentRepository,
             DocumentPageRepository documentPageRepository,
             TextChunkingService chunkingService,
-            LexicalEvidenceRetrievalService retrievalService) {
+            LexicalEvidenceRetrievalService retrievalService,
+            DocumentAccessPolicy documentAccessPolicy) {
         this.documentRepository = documentRepository;
         this.documentPageRepository = documentPageRepository;
         this.chunkingService = chunkingService;
         this.retrievalService = retrievalService;
+        this.documentAccessPolicy = documentAccessPolicy;
+    }
+
+    DocumentAssistantEvidenceService(
+            DocumentRepository documentRepository,
+            DocumentPageRepository documentPageRepository,
+            TextChunkingService chunkingService,
+            LexicalEvidenceRetrievalService retrievalService) {
+        this(documentRepository, documentPageRepository, chunkingService, retrievalService, null);
     }
 
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public List<RetrievedChunk> retrieveForQuestion(Long documentId, String question) {
+        return retrieve(documentId, question, null);
+    }
+
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public List<RetrievedChunk> retrieveForQuestion(Long documentId, String question, Caller caller) {
+        return retrieve(documentId, question, caller);
+    }
+
+    private List<RetrievedChunk> retrieve(Long documentId, String question, Caller caller) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
+
+        if (caller != null) {
+            if (documentAccessPolicy == null) {
+                throw new IllegalStateException("Document access policy is not configured");
+            }
+            documentAccessPolicy.requireView(document, caller, "Document not found: " + documentId);
+        }
 
         if (document.getStatus() != DocumentStatus.READY) {
             throw new BadRequestException(

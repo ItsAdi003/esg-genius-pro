@@ -9,6 +9,7 @@ import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
+import dev.esgenius.service.compliance.ClassificationFailureHandler;
 import dev.esgenius.service.compliance.ComplianceClassificationProvider;
 import dev.esgenius.service.compliance.ComplianceClassificationResult;
 import dev.esgenius.support.ComplianceTestFixtures;
@@ -96,7 +97,7 @@ class ComplianceAnalysisAsyncExecutionTest {
     }
 
     @Test
-    void executeAnalysisMarksFailedOnUnhandledProcessingError() {
+    void workerFailureCompletesAnalysisWithHumanReview() {
         Document document = createReadyDocument(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
         ComplianceAnalysis analysis = new ComplianceAnalysis(document, frameworkRepository.findByCode("BRSR").orElseThrow());
         analysisRepository.save(analysis);
@@ -105,10 +106,14 @@ class ComplianceAnalysisAsyncExecutionTest {
 
         complianceAnalysisProcessor.processAnalysis(analysis.getId());
 
-        ComplianceAnalysisResponse failed = complianceAnalysisService.getAnalysis(analysis.getId());
-        assertThat(failed.status()).isEqualTo("FAILED");
-        assertThat(failed.failureReason()).contains("simulated pipeline failure");
-        assertThat(failed.completedAt()).isNotNull();
+        ComplianceAnalysisResponse completed = complianceAnalysisService.getAnalysis(analysis.getId());
+        assertThat(completed.status()).isEqualTo("COMPLETED");
+        assertThat(completed.failureReason()).isNull();
+        assertThat(completed.completedAt()).isNotNull();
+        assertThat(completed.assessments())
+                .filteredOn(assessment -> "HUMAN_REVIEW_REQUIRED".equals(assessment.assessmentStatus()))
+                .isNotEmpty()
+                .allMatch(assessment -> ClassificationFailureHandler.GENERIC_FAILURE_EXPLANATION.equals(assessment.explanation()));
     }
 
     @Test
@@ -128,12 +133,14 @@ class ComplianceAnalysisAsyncExecutionTest {
 
         complianceAnalysisProcessor.processAnalysis(analysis.getId());
 
-        ComplianceAnalysisResponse failed = complianceAnalysisService.getAnalysis(analysis.getId());
-        assertThat(failed.status()).isEqualTo("FAILED");
-        assertThat(failed.failureReason()).contains("failure after partial persistence");
-        assertThat(failed.assessments()).isNotEmpty();
-        assertThat(assessmentRepository.findByAnalysisOrderByFrameworkRequirement_RequirementCodeAsc(
-                analysisRepository.findById(analysis.getId()).orElseThrow())).isNotEmpty();
+        ComplianceAnalysisResponse completed = complianceAnalysisService.getAnalysis(analysis.getId());
+        assertThat(completed.status()).isEqualTo("COMPLETED");
+        assertThat(completed.failureReason()).isNull();
+        assertThat(completed.assessments()).isNotEmpty();
+        assertThat(completed.assessments())
+                .anyMatch(assessment -> "COVERED".equals(assessment.assessmentStatus()));
+        assertThat(completed.assessments())
+                .anyMatch(assessment -> ClassificationFailureHandler.GENERIC_FAILURE_EXPLANATION.equals(assessment.explanation()));
     }
 
     @Test

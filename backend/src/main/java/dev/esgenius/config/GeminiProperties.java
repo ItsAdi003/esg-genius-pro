@@ -17,6 +17,10 @@ public class GeminiProperties {
     private Duration initialRetryBackoff = Duration.ofMillis(500);
     private Duration maxRetryBackoff = Duration.ofSeconds(8);
     private Duration interRequestDelay = Duration.ofMillis(300);
+    private int maxConcurrentClassifications = 1;
+
+    public static final int MIN_CONCURRENT_CLASSIFICATIONS = 1;
+    public static final int MAX_CONCURRENT_CLASSIFICATIONS = 8;
 
     public String getApiKey() {
         return apiKey;
@@ -96,6 +100,20 @@ public class GeminiProperties {
 
     public void setInterRequestDelay(Duration interRequestDelay) {
         this.interRequestDelay = interRequestDelay;
+    }
+
+    public int getMaxConcurrentClassifications() {
+        return maxConcurrentClassifications;
+    }
+
+    public void setMaxConcurrentClassifications(int maxConcurrentClassifications) {
+        if (maxConcurrentClassifications < MIN_CONCURRENT_CLASSIFICATIONS
+                || maxConcurrentClassifications > MAX_CONCURRENT_CLASSIFICATIONS) {
+            throw new IllegalArgumentException(
+                    "GEMINI_MAX_CONCURRENCY (app.ai.gemini.max-concurrent-classifications) must be an integer from 1 to 8 inclusive, but was "
+                            + maxConcurrentClassifications);
+        }
+        this.maxConcurrentClassifications = maxConcurrentClassifications;
     }
 
     public boolean isConfigured() {

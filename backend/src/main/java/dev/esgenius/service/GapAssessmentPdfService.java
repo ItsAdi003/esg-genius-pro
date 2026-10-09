@@ -57,9 +57,9 @@ public class GapAssessmentPdfService {
         this.documentService = documentService;
     }
 
-    public byte[] generate(Long analysisId) {
-        ComplianceAnalysisResponse analysis = complianceAnalysisService.getAnalysis(analysisId);
-        DocumentDetailResponse document = documentService.getDocument(analysis.documentId());
+    public byte[] generate(Long analysisId, Caller caller) {
+        ComplianceAnalysisResponse analysis = complianceAnalysisService.getAnalysis(analysisId, caller);
+        DocumentDetailResponse document = documentService.getDocument(analysis.documentId(), caller);
         return render(analysis, document);
     }
 

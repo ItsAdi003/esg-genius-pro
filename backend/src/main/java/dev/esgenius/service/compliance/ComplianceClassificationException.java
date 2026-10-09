@@ -32,7 +32,6 @@ public class ComplianceClassificationException extends RuntimeException {
         this.safeDetail = safeDetail;
         this.retryable = retryable;
         this.retryAfter = null;
-        markQuotaIfNeeded();
     }
 
     public ComplianceClassificationException(
@@ -62,13 +61,6 @@ public class ComplianceClassificationException extends RuntimeException {
         this.safeDetail = safeDetail;
         this.retryable = retryable;
         this.retryAfter = retryAfter;
-        markQuotaIfNeeded();
-    }
-
-    private void markQuotaIfNeeded() {
-        if (category == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
-            QuotaExhaustionScope.markExhausted();
-        }
     }
 
     public ClassificationFailureCategory getCategory() {

@@ -47,8 +47,14 @@ public class DocumentAssistantService {
     }
 
     public AssistantAnswerResponse ask(Long documentId, AssistantAskRequest request) {
+        return ask(documentId, request, null);
+    }
+
+    public AssistantAnswerResponse ask(Long documentId, AssistantAskRequest request, Caller caller) {
         String question = validateQuestion(request);
-        List<RetrievedChunk> chunks = evidenceService.retrieveForQuestion(documentId, question);
+        List<RetrievedChunk> chunks = caller == null
+                ? evidenceService.retrieveForQuestion(documentId, question)
+                : evidenceService.retrieveForQuestion(documentId, question, caller);
         if (chunks.isEmpty()) {
             return new AssistantAnswerResponse(NOT_FOUND_ANSWER, List.of(), false);
         }

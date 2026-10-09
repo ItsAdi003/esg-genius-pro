@@ -16,7 +16,6 @@ import dev.esgenius.service.compliance.ComplianceClassificationProvider;
 import dev.esgenius.service.compliance.ComplianceClassificationRequest;
 import dev.esgenius.service.compliance.EvidenceContextExpander;
 import dev.esgenius.service.compliance.QuotaAwareComplianceClassificationProvider;
-import dev.esgenius.service.compliance.QuotaExhaustionScope;
 import dev.esgenius.service.compliance.ComplianceClassificationResult;
 import dev.esgenius.support.ComplianceTestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,7 +66,6 @@ class ComplianceAnalysisClassificationTest {
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
         reset(classificationProvider);
-        QuotaExhaustionScope.begin();
     }
 
     @Test
