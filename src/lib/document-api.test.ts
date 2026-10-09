@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DOCUMENT_POLLING_INTERVAL_MS,
   canModifyDocument,
   formatDocumentStatus,
   formatDocumentType,
   formatFileSize,
   formatInstant,
   formatReportingYear,
+  isDocumentInFlight,
   isSharedDocument,
+  resolveDocumentPollingInterval,
 } from "@/lib/document-api";
 
 describe("formatDocumentType", () => {
@@ -17,6 +20,54 @@ describe("formatDocumentType", () => {
 
   it("replaces underscores for unknown types", () => {
     expect(formatDocumentType("CUSTOM_TYPE")).toBe("CUSTOM TYPE");
+  });
+});
+
+describe("isDocumentInFlight", () => {
+  it("is true for UPLOADED and PROCESSING", () => {
+    expect(isDocumentInFlight("UPLOADED")).toBe(true);
+    expect(isDocumentInFlight("PROCESSING")).toBe(true);
+  });
+
+  it("is false for terminal statuses and missing values", () => {
+    expect(isDocumentInFlight("READY")).toBe(false);
+    expect(isDocumentInFlight("FAILED")).toBe(false);
+    expect(isDocumentInFlight(undefined)).toBe(false);
+  });
+});
+
+describe("resolveDocumentPollingInterval", () => {
+  it("polls while a document status is in flight", () => {
+    expect(resolveDocumentPollingInterval("UPLOADED")).toBe(DOCUMENT_POLLING_INTERVAL_MS);
+    expect(resolveDocumentPollingInterval("PROCESSING")).toBe(DOCUMENT_POLLING_INTERVAL_MS);
+  });
+
+  it("stops polling for terminal statuses or before status is known", () => {
+    expect(resolveDocumentPollingInterval("READY")).toBe(false);
+    expect(resolveDocumentPollingInterval("FAILED")).toBe(false);
+    expect(resolveDocumentPollingInterval(undefined)).toBe(false);
+  });
+
+  it("polls the list while any document is in flight", () => {
+    expect(
+      resolveDocumentPollingInterval([
+        { status: "READY" },
+        { status: "PROCESSING" },
+      ]),
+    ).toBe(DOCUMENT_POLLING_INTERVAL_MS);
+    expect(
+      resolveDocumentPollingInterval([{ status: "UPLOADED" }]),
+    ).toBe(DOCUMENT_POLLING_INTERVAL_MS);
+  });
+
+  it("does not poll an empty list or a list of only terminal statuses", () => {
+    expect(resolveDocumentPollingInterval([])).toBe(false);
+    expect(
+      resolveDocumentPollingInterval([
+        { status: "READY" },
+        { status: "FAILED" },
+      ]),
+    ).toBe(false);
   });
 });
 

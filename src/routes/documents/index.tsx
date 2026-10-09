@@ -44,6 +44,7 @@ import {
   deleteDocument,
   documentQueryKeys,
   formatDocumentStatus,
+  resolveDocumentPollingInterval,
   formatDocumentType,
   formatFileSize,
   formatInstant,
@@ -103,6 +104,7 @@ function Documents() {
         : [...documentQueryKeys.all, "list", "none"],
     queryFn: () => listDocuments(selectedOrganizationId!),
     enabled: selectedOrganizationId != null,
+    refetchInterval: (query) => resolveDocumentPollingInterval(query.state.data),
   });
 
   const documents = useMemo(

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, ScanSearch, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { StatusBadge } from "@/components/status-badge";
@@ -46,7 +46,9 @@ import {
   formatReportingYear,
   getDocument,
   getDocumentPages,
+  isDocumentInFlight,
   isSharedDocument,
+  resolveDocumentPollingInterval,
 } from "@/lib/document-api";
 
 export const Route = createFileRoute("/documents/$documentId")({
@@ -82,6 +84,8 @@ function DocumentDetailPage() {
     queryKey: isValidId ? documentQueryKeys.detail(documentId) : [...documentQueryKeys.all, "detail", "invalid"],
     queryFn: () => getDocument(documentId),
     enabled: isValidId,
+    refetchInterval: (query) =>
+      resolveDocumentPollingInterval(query.state.data?.status),
   });
 
   const pagesQuery = useQuery({
@@ -89,6 +93,21 @@ function DocumentDetailPage() {
     queryFn: () => getDocumentPages(documentId),
     enabled: isValidId && documentQuery.data?.status === "READY",
   });
+
+  const wasInFlightRef = useRef(false);
+  useEffect(() => {
+    const status = documentQuery.data?.status;
+    if (isDocumentInFlight(status)) {
+      wasInFlightRef.current = true;
+      return;
+    }
+    if (status === "READY" && wasInFlightRef.current) {
+      wasInFlightRef.current = false;
+      void queryClient.invalidateQueries({
+        queryKey: documentQueryKeys.pages(documentId),
+      });
+    }
+  }, [documentQuery.data?.status, documentId, queryClient]);
 
   const analysesQuery = useQuery({
     queryKey: isValidId ? complianceQueryKeys.documentAnalyses(documentId) : [...complianceQueryKeys.all, "invalid"],
@@ -195,7 +214,7 @@ function DocumentDetailPage() {
   const document = documentQuery.data;
   const statusLabel = formatDocumentStatus(document.status);
   const isFailed = document.status === "FAILED";
-  const isProcessing = document.status === "PROCESSING" || document.status === "UPLOADED";
+  const isProcessing = isDocumentInFlight(document.status);
   const hasAnalysisHistory = (analysesQuery.data?.length ?? 0) > 0;
   const modifiable = canModifyDocument(document);
   const shared = isSharedDocument(document);

@@ -11,6 +11,37 @@ export type DocumentType =
 /** Backend DocumentStatus enum values — must match dev.esgenius.entity.DocumentStatus */
 export type DocumentStatus = "UPLOADED" | "PROCESSING" | "READY" | "FAILED";
 
+/** Poll interval while a document is still processing (ms). */
+export const DOCUMENT_POLLING_INTERVAL_MS = 2000;
+
+/** True while PDF processing has not reached a terminal status. */
+export function isDocumentInFlight(status: DocumentStatus | string | undefined): boolean {
+  return status === "UPLOADED" || status === "PROCESSING";
+}
+
+/**
+ * TanStack Query refetch interval — polls while any document is UPLOADED or PROCESSING.
+ * Accepts a single status (detail) or a list of documents (library).
+ */
+export function resolveDocumentPollingInterval(
+  documentsOrStatus:
+    | DocumentStatus
+    | string
+    | undefined
+    | ReadonlyArray<Pick<DocumentSummary, "status">>,
+): number | false {
+  if (documentsOrStatus == null) {
+    return false;
+  }
+  if (typeof documentsOrStatus === "string") {
+    return isDocumentInFlight(documentsOrStatus) ? DOCUMENT_POLLING_INTERVAL_MS : false;
+  }
+  if (documentsOrStatus.some((document) => isDocumentInFlight(document.status))) {
+    return DOCUMENT_POLLING_INTERVAL_MS;
+  }
+  return false;
+}
+
 export interface DocumentSummary {
   id: number;
   organizationId: number;

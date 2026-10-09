@@ -26,6 +26,7 @@ import {
   DOCUMENT_TYPE_OPTIONS,
   REPORTING_YEAR_OPTIONS,
   documentQueryKeys,
+  isDocumentInFlight,
   uploadDocument,
   type DocumentType,
 } from "@/lib/document-api";
@@ -67,7 +68,11 @@ export function UploadDialog({
   const uploadMutation = useMutation({
     mutationFn: uploadDocument,
     onSuccess: (document) => {
-      toast.success(`${document.originalFilename} uploaded successfully`);
+      toast.success(
+        isDocumentInFlight(document.status)
+          ? "Uploaded. Processing the PDF…"
+          : `${document.originalFilename} uploaded successfully`,
+      );
       void queryClient.invalidateQueries({
         queryKey: documentQueryKeys.list(document.organizationId),
       });
