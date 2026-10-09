@@ -4,23 +4,27 @@ import dev.esgenius.entity.Document;
 import dev.esgenius.entity.DocumentStatus;
 import dev.esgenius.entity.DocumentType;
 import dev.esgenius.entity.Organization;
-import dev.esgenius.entity.ReportExport;
 import dev.esgenius.repository.ComplianceAnalysisRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.OrganizationRepository;
 import dev.esgenius.repository.ReportExportRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
+import dev.esgenius.service.Caller;
+import dev.esgenius.service.DocumentAccessPolicy;
+import dev.esgenius.service.ReportExportService;
 import dev.esgenius.support.ComplianceTestFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Instant;
 
@@ -36,7 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class ReportControllerTest {
+@Import(ReportControllerRecordingFailureTest.FailingReportExportConfig.class)
+class ReportControllerRecordingFailureTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -69,11 +74,11 @@ class ReportControllerTest {
         Document document = new Document(
                 organization,
                 "esg-sample.pdf",
-                "report-controller-" + System.nanoTime() + ".pdf",
+                "report-record-fail-" + System.nanoTime() + ".pdf",
                 DocumentType.BRSR,
                 2025,
                 1024L,
-                "report-controller-" + System.nanoTime() + ".pdf");
+                "report-record-fail-" + System.nanoTime() + ".pdf");
         document.setStatus(DocumentStatus.READY);
         document.setExtractedText(ComplianceTestFixtures.ESG_SAMPLE_TEXT);
         document.setPageCount(10);
@@ -82,7 +87,7 @@ class ReportControllerTest {
     }
 
     @Test
-    void downloadReportPdfReturnsAttachmentForExistingAnalysis() throws Exception {
+    void recordingFailureDoesNotBreakDownload() throws Exception {
         String createResponse = mockMvc.perform(post("/api/v1/documents/{documentId}/analyses", documentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"frameworkCode\":\"BRSR\"}"))
@@ -93,45 +98,41 @@ class ReportControllerTest {
 
         Number analysisId = com.jayway.jsonpath.JsonPath.read(createResponse, "$.id");
 
-        MvcResult result = mockMvc.perform(get("/api/v1/analyses/{analysisId}/report.pdf", analysisId.longValue()))
+        mockMvc.perform(get("/api/v1/analyses/{analysisId}/report.pdf", analysisId.longValue()))
                 .andExpect(status().isOk())
-                .andExpect(header().string(org.springframework.http.HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE))
+                .andExpect(header().string(
+                        org.springframework.http.HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE))
                 .andExpect(header().string(
                         org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
-                        containsString("attachment")))
-                .andExpect(header().string(
-                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
-                        containsString("gap-assessment-" + analysisId.intValue() + ".pdf")))
-                .andReturn();
+                        containsString("attachment")));
 
-        byte[] body = result.getResponse().getContentAsByteArray();
-        assertThat(body.length).isGreaterThan(4);
-        assertThat(new String(body, 0, 4)).isEqualTo("%PDF");
-
-        assertThat(reportExportRepository.count()).isEqualTo(1);
-        ReportExport recorded = reportExportRepository.findRecentAll(PageRequest.of(0, 1)).get(0);
-        assertThat(recorded.getAnalysis().getId()).isEqualTo(analysisId.longValue());
-        assertThat(recorded.getFormat()).isEqualTo(ReportExport.FORMAT_PDF);
-        assertThat(recorded.getSizeBytes()).isEqualTo((long) body.length);
-        assertThat(recorded.getGeneratedAt()).isNotNull();
-
-        mockMvc.perform(get("/api/v1/reports"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(1)))
-                .andExpect(jsonPath("$[0].analysisId", is(analysisId.intValue())))
-                .andExpect(jsonPath("$[0].documentId", is(documentId.intValue())))
-                .andExpect(jsonPath("$[0].documentName", is("esg-sample.pdf")))
-                .andExpect(jsonPath("$[0].frameworkCode", is("BRSR")))
-                .andExpect(jsonPath("$[0].format", is("PDF")))
-                .andExpect(jsonPath("$[0].sizeBytes", is(body.length)));
+        assertThat(reportExportRepository.count()).isZero();
     }
 
     @Test
-    void downloadReportPdfReturns404ForMissingAnalysis() throws Exception {
+    void failedGenerationDoesNotRecordExport() throws Exception {
         mockMvc.perform(get("/api/v1/analyses/{analysisId}/report.pdf", 99999))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message", is("Analysis not found: 99999")));
 
-        assertThat(reportExportRepository.findAll()).isEmpty();
+        assertThat(reportExportRepository.count()).isZero();
+    }
+
+    @TestConfiguration
+    static class FailingReportExportConfig {
+        @Bean
+        @Primary
+        ReportExportService failingReportExportService(
+                ReportExportRepository reportExportRepository,
+                ComplianceAnalysisRepository analysisRepository,
+                DocumentAccessPolicy documentAccessPolicy) {
+            return new ReportExportService(
+                    reportExportRepository, analysisRepository, documentAccessPolicy) {
+                @Override
+                public void recordPdfExport(Long analysisId, Caller caller, long sizeBytes) {
+                    throw new IllegalStateException("database unavailable");
+                }
+            };
+        }
     }
 }

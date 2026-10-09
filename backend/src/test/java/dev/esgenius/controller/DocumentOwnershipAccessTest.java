@@ -10,6 +10,7 @@ import dev.esgenius.repository.ComplianceAnalysisRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.OrganizationRepository;
+import dev.esgenius.repository.ReportExportRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
 import dev.esgenius.service.DocumentAccessPolicy;
 import dev.esgenius.support.TestPdfFixtures;
@@ -72,12 +73,16 @@ class DocumentOwnershipAccessTest {
     private RequirementAssessmentRepository assessmentRepository;
 
     @Autowired
+    private ReportExportRepository reportExportRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private Long organizationId;
 
     @BeforeEach
     void setUp() {
+        reportExportRepository.deleteAll();
         assessmentRepository.deleteAll();
         analysisRepository.deleteAll();
         documentRepository.deleteAll();
@@ -119,6 +124,7 @@ class DocumentOwnershipAccessTest {
         mockMvc.perform(asUser(get("/api/v1/analyses/{analysisId}/report.pdf", analysis.getId()), USER_B))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message", is("Analysis not found: " + analysis.getId())));
+        assertThat(reportExportRepository.findAll()).isEmpty();
 
         mockMvc.perform(asUser(get("/api/v1/documents/{documentId}", documentId), USER_A))
                 .andExpect(status().isOk())

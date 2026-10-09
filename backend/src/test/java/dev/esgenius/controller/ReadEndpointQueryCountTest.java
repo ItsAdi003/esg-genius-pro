@@ -11,11 +11,13 @@ import dev.esgenius.entity.FrameworkRequirement;
 import dev.esgenius.entity.FrameworkStatus;
 import dev.esgenius.entity.Organization;
 import dev.esgenius.entity.RequirementAssessment;
+import dev.esgenius.entity.ReportExport;
 import dev.esgenius.repository.ComplianceAnalysisRepository;
 import dev.esgenius.repository.DocumentRepository;
 import dev.esgenius.repository.FrameworkRepository;
 import dev.esgenius.repository.FrameworkRequirementRepository;
 import dev.esgenius.repository.OrganizationRepository;
+import dev.esgenius.repository.ReportExportRepository;
 import dev.esgenius.repository.RequirementAssessmentRepository;
 import dev.esgenius.support.SqlStatementCounter;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +75,9 @@ class ReadEndpointQueryCountTest {
     @Autowired
     private RequirementAssessmentRepository assessmentRepository;
 
+    @Autowired
+    private ReportExportRepository reportExportRepository;
+
     private Long organizationId;
     private Long frameworkId;
     private Long documentId;
@@ -82,6 +87,7 @@ class ReadEndpointQueryCountTest {
 
     @BeforeEach
     void setUp() {
+        reportExportRepository.deleteAll();
         assessmentRepository.deleteAll();
         analysisRepository.deleteAll();
         documentRepository.deleteAll();
@@ -126,6 +132,9 @@ class ReadEndpointQueryCountTest {
             assessment.setEvidenceChunks("[{\"chunkIndex\":0,\"pageNumber\":1,\"text\":\"evidence\",\"score\":0.8}]");
             assessmentRepository.save(assessment);
         }
+
+        reportExportRepository.save(new ReportExport(
+                analysis, null, ReportExport.FORMAT_PDF, 3800L, Instant.parse("2026-10-09T10:15:00Z")));
     }
 
     @Test
@@ -165,6 +174,13 @@ class ReadEndpointQueryCountTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.materialIssues.length()").value(5))
                 .andExpect(jsonPath("$.ticker").value("INFY"));
+
+        assertThat(countOf("GET /api/v1/reports", "/api/v1/reports")).isLessThanOrEqualTo(4);
+        mockMvc.perform(get("/api/v1/reports"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].documentName").value("seed-measure.pdf"))
+                .andExpect(jsonPath("$[0].frameworkCode").value("BRSR"))
+                .andExpect(jsonPath("$[0].format").value("PDF"));
 
         assertThat(countOf(
                 "GET /api/v1/companies/compare",

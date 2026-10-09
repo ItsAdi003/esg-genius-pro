@@ -122,9 +122,29 @@ class FlywaySeedDataIntegrationTest {
                 String.class);
         assertThat(version).isEqualTo("8");
 
+        // Schema availability only: other tests in the same JVM share this in-memory database,
+        // so row counts depend on test order and must not be asserted here.
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM compliance_analysis", Integer.class))
-                .isZero();
+                .isNotNull()
+                .isNotNegative();
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM requirement_assessment", Integer.class))
-                .isZero();
+                .isNotNull()
+                .isNotNegative();
+    }
+
+    @Test
+    void v11ReportExportSchemaIsAvailableAfterMigration() {
+        String version = jdbcTemplate.queryForObject(
+                "SELECT version FROM flyway_schema_history WHERE version = '11'",
+                String.class);
+        assertThat(version).isEqualTo("11");
+
+        Integer tableCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE lower(table_name) = 'report_export'
+                """,
+                Integer.class);
+        assertThat(tableCount).isEqualTo(1);
     }
 }
