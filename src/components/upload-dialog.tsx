@@ -146,7 +146,7 @@ export function UploadDialog({
         <DialogHeader>
           <DialogTitle>Upload Document</DialogTitle>
           <DialogDescription>
-            Upload a PDF to the evidence library. Text is extracted immediately using PDFBox.
+            Upload a PDF to the evidence library. Text is extracted in the background (PDFBox) after upload.
           </DialogDescription>
         </DialogHeader>
 

@@ -397,5 +397,6 @@ function Assistant() {
 
 function documentLabel(document: DocumentSummary): string {
   const year = formatReportingYear(document.reportingYear);
-  return year === "—" ? document.originalFilename : `${document.originalFilename} · ${year}`;
+  const name = `${document.originalFilename} (#${document.id})`;
+  return year === "—" ? name : `${name} · ${year}`;
 }

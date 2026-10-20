@@ -67,7 +67,9 @@ function Reports() {
               </span>
               <div>
                 <h2 className="font-semibold">{t.name}</h2>
-                <p className="text-xs text-muted-foreground">Approx. {t.pages} pages · PDF</p>
+                <p className="text-xs text-muted-foreground">
+                  {t.id === "gap-assessment" ? "PDF export available" : "Planned · PDF"}
+                </p>
               </div>
             </div>
             <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">

@@ -60,6 +60,9 @@ class GapAssessmentPdfServiceTest {
         assertThat(text).contains("GOV-003");
         assertThat(text).contains("Page 12");
         assertThat(text).contains("Source chunk 7");
+        assertThat(text).contains("Started: 2026-01-15 10:15 UTC");
+        assertThat(text).contains("Completed: 2026-01-15 10:16 UTC");
+        assertThat(text).doesNotContain("T10:15:30Z");
         assertThat(text).contains("14 selected BRSR requirements");
         assertThat(text).doesNotContain("official SEBI certification");
         assertThat(text).doesNotContain("official MSCI ratings");

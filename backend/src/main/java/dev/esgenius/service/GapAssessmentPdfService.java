@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -26,6 +28,9 @@ import java.util.Objects;
  */
 @Service
 public class GapAssessmentPdfService {
+
+    private static final DateTimeFormatter TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'", Locale.ROOT).withZone(ZoneOffset.UTC);
 
     static final String PROTOTYPE_DISCLAIMER =
             "This report is a research prototype covering 14 selected BRSR requirements. "
@@ -313,7 +318,7 @@ public class GapAssessmentPdfService {
     }
 
     private static String formatInstant(Instant instant) {
-        return instant == null ? "—" : instant.toString();
+        return instant == null ? "—" : TIMESTAMP_FORMAT.format(instant);
     }
 
     private static String formatAnalysisStatus(String status) {
