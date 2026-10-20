@@ -125,6 +125,41 @@ class GeminiBatchClassificationTest {
     }
 
     @Test
+    void waitsOutAPerMinuteRateLimitForTheDelayGeminiStatesInsteadOfTheShortBackoff() {
+        GeminiProperties slow = new GeminiProperties();
+        slow.setApiKey("test-api-key");
+        slow.setMaxRetries(1);
+        slow.setInitialRetryBackoff(Duration.ofMillis(1));
+        slow.setMaxRetryBackoff(Duration.ofMillis(5));
+        slow.setMaxRateLimitWait(Duration.ofMillis(400));
+        RestClient.Builder builder = RestClient.builder().baseUrl(slow.getBaseUrl());
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GeminiComplianceClassificationProvider waiting = new GeminiComplianceClassificationProvider(
+                slow, builder.build(), new ComplianceClassificationPromptBuilder(),
+                new ComplianceClassificationResultParser(objectMapper), objectMapper);
+
+        server.expect(requestTo(containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS).contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"error":{"code":429,"message":"Rate limit","status":"RESOURCE_EXHAUSTED",
+                                "details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"0.3s"}]}}
+                                """));
+        server.expect(requestTo(containsString("generateContent")))
+                .andRespond(withSuccess(
+                        envelope(entry("P1-E04", "COVERED"), entry("P1-E05", "COVERED")), MediaType.APPLICATION_JSON));
+
+        long started = System.nanoTime();
+        Map<String, ComplianceClassificationResult> results = waiting.classifyBatch(List.of(
+                request("P1-E04"), request("P1-E05")));
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
+
+        assertThat(results).hasSize(2);
+        // The 5 ms backoff would have retried almost instantly; Gemini's 0.3 s delay was honoured instead.
+        assertThat(elapsedMs).isGreaterThanOrEqualTo(280);
+        server.verify();
+    }
+
+    @Test
     void dailyQuotaFailsTheBatchAndMarksTheRunContext() {
         mockServer.expect(requestTo(containsString("generateContent")))
                 .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)

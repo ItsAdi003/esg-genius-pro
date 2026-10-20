@@ -16,6 +16,8 @@ public class GeminiProperties {
     private int maxRetries = 2;
     private Duration initialRetryBackoff = Duration.ofMillis(500);
     private Duration maxRetryBackoff = Duration.ofSeconds(8);
+    /** Longest wait honoured when Gemini says how long a per-minute rate limit will last (retryDelay). */
+    private Duration maxRateLimitWait = Duration.ofSeconds(65);
     private Duration assistantTotalDeadline = Duration.ofSeconds(80);
     private Duration interRequestDelay = Duration.ofMillis(300);
     private int maxConcurrentClassifications = 1;
@@ -99,6 +101,14 @@ public class GeminiProperties {
 
     public void setMaxRetryBackoff(Duration maxRetryBackoff) {
         this.maxRetryBackoff = maxRetryBackoff;
+    }
+
+    public Duration getMaxRateLimitWait() {
+        return maxRateLimitWait;
+    }
+
+    public void setMaxRateLimitWait(Duration maxRateLimitWait) {
+        this.maxRateLimitWait = maxRateLimitWait;
     }
 
     public Duration getAssistantTotalDeadline() {

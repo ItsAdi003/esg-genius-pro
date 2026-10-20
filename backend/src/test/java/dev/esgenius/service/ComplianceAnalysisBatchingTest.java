@@ -206,8 +206,10 @@ class ComplianceAnalysisBatchingTest {
         for (RequirementAssessmentResponse assessment : withEvidence(response)) {
             if (failedCodes.contains(assessment.requirementCode())) {
                 assertThat(assessment.assessmentStatus()).isEqualTo("HUMAN_REVIEW_REQUIRED");
+                // The failure reason is part of the stored explanation, so it can be diagnosed from the result.
                 assertThat(assessment.explanation())
-                        .isEqualTo(ClassificationFailureHandler.GENERIC_FAILURE_EXPLANATION);
+                        .startsWith(ClassificationFailureHandler.GENERIC_FAILURE_EXPLANATION)
+                        .contains("the AI provider returned a server error (HTTP 503)");
             } else {
                 assertThat(assessment.assessmentStatus()).isEqualTo("COVERED");
             }

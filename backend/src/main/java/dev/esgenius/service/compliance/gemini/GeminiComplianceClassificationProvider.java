@@ -266,7 +266,12 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                 properties.getInitialRetryBackoff().toMillis() * (1L << (attempt - 1)));
         Duration retryAfter = failure.getRetryAfter();
         if (retryAfter != null && !retryAfter.isZero() && !retryAfter.isNegative()) {
-            backoffMs = Math.min(properties.getMaxRetryBackoff().toMillis(), retryAfter.toMillis());
+            // A per-minute rate limit only clears after the delay Gemini states, so honour it up to a longer
+            // cap; retrying sooner just burns the attempt.
+            Duration cap = failure.getCategory() == ClassificationFailureCategory.HTTP_RATE_LIMIT
+                    ? properties.getMaxRateLimitWait()
+                    : properties.getMaxRetryBackoff();
+            backoffMs = Math.min(cap.toMillis(), retryAfter.toMillis());
         }
         try {
             Thread.sleep(backoffMs);

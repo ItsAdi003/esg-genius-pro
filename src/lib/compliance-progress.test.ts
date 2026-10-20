@@ -16,6 +16,17 @@ describe("resolveRequirementTotal", () => {
     expect(resolveRequirementTotal(0, 14)).toBe(14);
   });
 
+  it("uses the framework total while an analysis is running, even after some results are persisted", () => {
+    // Results land per model batch, so a running analysis reports only what is stored so far.
+    expect(resolveRequirementTotal(8, 140, true)).toBe(140);
+    expect(resolveRequirementTotal(0, 140, true)).toBe(140);
+    // Never below what is already stored, and falls back when the framework count is unknown.
+    expect(resolveRequirementTotal(150, 140, true)).toBe(150);
+    expect(resolveRequirementTotal(8, undefined, true)).toBe(8);
+    // A finished analysis keeps its own count.
+    expect(resolveRequirementTotal(14, 140, false)).toBe(14);
+  });
+
   it("returns 0 when neither source has a total", () => {
     expect(resolveRequirementTotal(0, undefined)).toBe(0);
     expect(resolveRequirementTotal(0, 0)).toBe(0);

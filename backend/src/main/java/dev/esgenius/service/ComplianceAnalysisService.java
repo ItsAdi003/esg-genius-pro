@@ -247,7 +247,8 @@ public class ComplianceAnalysisService {
             List<PendingClassification> batch,
             List<TextChunk> sourceChunks,
             AnalysisRunContext runContext) {
-        Map<String, ComplianceClassificationResult> results = classifyBatchWithEvidence(batch, sourceChunks, runContext);
+        BatchOutcome outcome = classifyBatchWithEvidence(batch, sourceChunks, runContext);
+        Map<String, ComplianceClassificationResult> results = outcome.results();
         for (PendingClassification item : batch) {
             FrameworkRequirement requirement = item.requirement();
             List<RetrievedChunk> retrieved = item.retrieved();
@@ -258,7 +259,7 @@ public class ComplianceAnalysisService {
                 if (classification == null) {
                     // Whole call failed (quota aware), or the model left this requirement out of its answer.
                     classification = results == null
-                            ? failureHandler.handleFailure(runContext)
+                            ? outcome.failure()
                             : failureHandler.unexpectedFailure();
                 }
                 persistenceService.persistRequirementAssessment(
@@ -280,13 +281,24 @@ public class ComplianceAnalysisService {
         paceBeforeNextClassification();
     }
 
-    /** Returns the batch results by requirement code, or null when the whole call failed. */
-    private Map<String, ComplianceClassificationResult> classifyBatchWithEvidence(
+    /** Results by requirement code, or (when the whole call failed) the fallback to apply to every item. */
+    private record BatchOutcome(
+            Map<String, ComplianceClassificationResult> results, ComplianceClassificationResult failure) {
+        static BatchOutcome of(Map<String, ComplianceClassificationResult> results) {
+            return new BatchOutcome(results, null);
+        }
+
+        static BatchOutcome failed(ComplianceClassificationResult fallback) {
+            return new BatchOutcome(null, fallback);
+        }
+    }
+
+    private BatchOutcome classifyBatchWithEvidence(
             List<PendingClassification> batch,
             List<TextChunk> sourceChunks,
             AnalysisRunContext runContext) {
         if (runContext.isQuotaExhausted()) {
-            return null;
+            return BatchOutcome.failed(failureHandler.handleFailure(runContext));
         }
         try {
             List<ComplianceClassificationRequest> requests = new ArrayList<>();
@@ -300,7 +312,7 @@ public class ComplianceAnalysisService {
                         classificationEvidenceBuilder.buildExpandedPassages(item.retrieved(), sourceChunks),
                         runContext));
             }
-            return classificationProvider.classifyBatch(requests);
+            return BatchOutcome.of(classificationProvider.classifyBatch(requests));
         } catch (ComplianceClassificationException ex) {
             if (ex.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
                 runContext.markQuotaExhausted();
@@ -313,7 +325,7 @@ public class ComplianceAnalysisService {
                     ex.getHttpStatus(),
                     ex.getAttempt(),
                     ex.getSafeDetail());
-            return null;
+            return BatchOutcome.failed(failureHandler.handleFailure(runContext, ex));
         } catch (RuntimeException ex) {
             // Never let one bad call lose a whole batch: its requirements fall back to human review.
             log.error(
@@ -321,7 +333,7 @@ public class ComplianceAnalysisService {
                     batch.get(0).requirement().getRequirementCode(),
                     batch.size(),
                     ex);
-            return null;
+            return BatchOutcome.failed(failureHandler.unexpectedFailure());
         }
     }
 

@@ -122,8 +122,7 @@ function ComplianceAnalysis() {
   const frameworkQuery = useQuery({
     queryKey: frameworkQueryKeys.detail(analysis?.frameworkId ?? 0),
     queryFn: () => getFramework(analysis!.frameworkId),
-    enabled:
-      analysis != null && analysis.status === "IN_PROGRESS" && analysis.requirementCount === 0,
+    enabled: analysis != null && analysis.status === "IN_PROGRESS",
   });
 
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -236,6 +235,7 @@ function ComplianceAnalysis() {
   const requirementTotal = resolveRequirementTotal(
     analysis.requirementCount,
     frameworkQuery.data?.requirementCount,
+    isInProgress,
   );
   const progressPercent = analysisProgressPercent(assessedCount, requirementTotal);
   const progressLabel = formatAssessedProgress(assessedCount, requirementTotal);

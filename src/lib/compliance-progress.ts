@@ -1,8 +1,16 @@
-/** Prefer the analysis payload total; while running it is often 0, so use the framework count. */
+/**
+ * Total requirements for a progress display. A finished analysis reports its own count. A running one
+ * reports only what has been persisted so far (results land per model batch), so the framework's
+ * requirement count is the real total.
+ */
 export function resolveRequirementTotal(
   analysisRequirementCount: number,
   frameworkRequirementCount: number | undefined,
+  inProgress = false,
 ): number {
+  if (inProgress && frameworkRequirementCount != null && frameworkRequirementCount > 0) {
+    return Math.max(frameworkRequirementCount, analysisRequirementCount);
+  }
   if (analysisRequirementCount > 0) {
     return analysisRequirementCount;
   }
