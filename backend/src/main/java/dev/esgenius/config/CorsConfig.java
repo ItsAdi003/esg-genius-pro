@@ -1,8 +1,10 @@
 package dev.esgenius.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
@@ -17,8 +19,13 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
+    /**
+     * Registered explicitly at HIGHEST_PRECEDENCE: a bare CorsFilter bean gets the lowest order, which
+     * would put it behind SupabaseAuthFilter and strip CORS headers from 401 responses (the browser then
+     * reports a misleading CORS error instead of the real 401).
+     */
     @Bean
-    public CorsFilter corsFilter(
+    public FilterRegistrationBean<CorsFilter> corsFilter(
             @Value("${app.cors.allowed-origins:http://localhost:8080}") String allowedOrigins) {
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
@@ -37,6 +44,10 @@ public class CorsConfig {
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
 
-        return new CorsFilter(source);
+        var registration = new FilterRegistrationBean<>(new CorsFilter(source));
+        registration.addUrlPatterns("/api/*");
+        registration.setName("corsFilter");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
     }
 }
