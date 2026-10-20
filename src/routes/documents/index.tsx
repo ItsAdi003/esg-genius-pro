@@ -35,7 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { companyEsgQueryKeys, getCompanies } from "@/lib/company-esg-api";
-import { createComplianceAnalysis } from "@/lib/compliance-api";
+import { complianceQueryKeys, createComplianceAnalysis } from "@/lib/compliance-api";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -115,6 +115,9 @@ function Documents() {
   const analyzeMutation = useMutation({
     mutationFn: (documentId: number) => createComplianceAnalysis(documentId),
     onSuccess: (analysis) => {
+      void queryClient.invalidateQueries({
+        queryKey: complianceQueryKeys.documentAnalyses(analysis.documentId),
+      });
       toast.success("Compliance analysis started");
       navigate({
         to: "/compliance",

@@ -44,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Guards statement counts on read endpoints whose queries were reduced.
  * Caps sit one statement above the optimized count, and still below the
  * pre-fix counts (analysis 16, company ESG 10, compare 19, document detail 2).
+ * Compare was later cut from 13 to 8 (current rating derived from the history query, one
+ * grouped event count, both companies loaded together).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -169,7 +171,7 @@ class ReadEndpointQueryCountTest {
 
         assertThat(countOf("GET /api/v1/companies", "/api/v1/companies")).isLessThanOrEqualTo(1);
         assertThat(countOf("GET /api/v1/companies/{id}/esg", "/api/v1/companies/" + companyAId + "/esg"))
-                .isLessThanOrEqualTo(6);
+                .isLessThanOrEqualTo(5);
         mockMvc.perform(get("/api/v1/companies/" + companyAId + "/esg"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.materialIssues.length()").value(5))
@@ -185,7 +187,7 @@ class ReadEndpointQueryCountTest {
         assertThat(countOf(
                 "GET /api/v1/companies/compare",
                 "/api/v1/companies/compare?companyA=" + companyAId + "&companyB=" + companyBId))
-                .isLessThanOrEqualTo(13);
+                .isLessThanOrEqualTo(9);
         mockMvc.perform(get("/api/v1/companies/compare")
                         .param("companyA", companyAId.toString())
                         .param("companyB", companyBId.toString()))

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 public interface EsgEventRepository extends JpaRepository<EsgEvent, Long> {
@@ -18,6 +19,21 @@ public interface EsgEventRepository extends JpaRepository<EsgEvent, Long> {
     List<EsgEvent> findByOrganizationOrderByEventDateDesc(Organization organization);
 
     long countByOrganization(Organization organization);
+
+    /** Event totals per organization, in one statement. Organizations with no events are absent. */
+    interface EventCountRow {
+        Long getOrganizationId();
+
+        Long getTotal();
+    }
+
+    @Query("""
+                SELECT e.organization.id AS organizationId, COUNT(e) AS total
+                FROM EsgEvent e
+                WHERE e.organization IN :organizations
+                GROUP BY e.organization.id
+            """)
+    List<EventCountRow> countByOrganizations(@Param("organizations") Collection<Organization> organizations);
 
     /**
      * Find recent ESG events for an organization (last N events).

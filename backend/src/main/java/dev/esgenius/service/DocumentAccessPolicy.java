@@ -44,7 +44,11 @@ public class DocumentAccessPolicy {
     }
 
     public boolean isShared(Document document) {
-        return document.getOwnerUserId() == null;
+        return isShared(document.getOwnerUserId());
+    }
+
+    public boolean isShared(UUID ownerUserId) {
+        return ownerUserId == null;
     }
 
     public boolean canView(Document document, Caller caller) {
@@ -56,10 +60,14 @@ public class DocumentAccessPolicy {
     }
 
     public boolean canModify(Document document, Caller caller) {
+        return canModify(document.getOwnerUserId(), caller);
+    }
+
+    public boolean canModify(UUID ownerUserId, Caller caller) {
         if (caller.admin()) {
             return true;
         }
-        return caller.userId() != null && caller.userId().equals(document.getOwnerUserId());
+        return caller.userId() != null && caller.userId().equals(ownerUserId);
     }
 
     public void requireView(Document document, Caller caller, String notFoundMessage) {

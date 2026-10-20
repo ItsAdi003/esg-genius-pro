@@ -125,12 +125,12 @@ public class DocumentService {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found: " + organizationId));
 
-        List<Document> documents = caller.admin()
-                ? documentRepository.findByOrganizationOrderByUploadedAtDesc(organization)
-                : documentRepository.findVisibleByOrganization(organization, caller.userId());
+        List<DocumentRepository.DocumentListRow> rows = caller.admin()
+                ? documentRepository.findListRowsByOrganization(organization)
+                : documentRepository.findVisibleListRowsByOrganization(organization, caller.userId());
 
-        return documents.stream()
-                .map(document -> toSummaryResponse(document, caller))
+        return rows.stream()
+                .map(row -> toSummaryResponse(organization, row, caller))
                 .collect(Collectors.toList());
     }
 
@@ -288,22 +288,22 @@ public class DocumentService {
         return filename.substring(0, stemBudget) + extension;
     }
 
-    private DocumentSummaryResponse toSummaryResponse(Document document, Caller caller) {
-        Organization organization = document.getOrganization();
+    private DocumentSummaryResponse toSummaryResponse(
+            Organization organization, DocumentRepository.DocumentListRow row, Caller caller) {
         return new DocumentSummaryResponse(
-                document.getId(),
+                row.getId(),
                 organization.getId(),
                 organization.getName(),
-                document.getOriginalFilename(),
-                document.getDocumentType().name(),
-                document.getReportingYear(),
-                document.getStatus().name(),
-                document.getFileSize(),
-                document.getPageCount(),
-                document.getUploadedAt(),
-                document.getProcessedAt(),
-                documentAccessPolicy.isShared(document),
-                documentAccessPolicy.canModify(document, caller));
+                row.getOriginalFilename(),
+                row.getDocumentType().name(),
+                row.getReportingYear(),
+                row.getStatus().name(),
+                row.getFileSize(),
+                row.getPageCount(),
+                row.getUploadedAt(),
+                row.getProcessedAt(),
+                documentAccessPolicy.isShared(row.getOwnerUserId()),
+                documentAccessPolicy.canModify(row.getOwnerUserId(), caller));
     }
 
     private DocumentDetailResponse toDetailResponse(Document document, Caller caller) {

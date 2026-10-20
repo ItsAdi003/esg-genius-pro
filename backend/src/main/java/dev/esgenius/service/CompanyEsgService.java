@@ -63,9 +63,15 @@ public class CompanyEsgService {
     public CompanyEsgProfileResponse getCompanyEsgProfile(Long companyId) {
         Organization company = organizationRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found: " + companyId));
+        return buildProfile(company);
+    }
 
-        EsgRatingResponse currentRating = getCurrentRating(company);
-        List<EsgRatingHistoryResponse> ratingHistory = getRatingHistory(company);
+    private CompanyEsgProfileResponse buildProfile(Organization company) {
+        // One snapshot query serves both the current rating (latest) and the history chart.
+        List<EsgRatingSnapshot> snapshots =
+                ratingSnapshotRepository.findByOrganizationOrderByAssessmentDateAsc(company);
+        EsgRatingResponse currentRating = getCurrentRating(company, snapshots);
+        List<EsgRatingHistoryResponse> ratingHistory = getRatingHistory(snapshots);
         List<KeyIssueAssessmentResponse> materialIssues = getMaterialIssues(company);
         List<EsgEventResponse> recentEvents = getRecentEvents(company, 10);
 
@@ -84,10 +90,13 @@ public class CompanyEsgService {
      * Compare two companies and return detailed comparison data.
      */
     public CompanyComparisonResponse compareCompanies(Long companyAId, Long companyBId) {
-        // Validate that both companies exist
-        Organization companyA = organizationRepository.findById(companyAId)
+        // Validate that both companies exist (one statement for both)
+        Map<Long, Organization> companiesById = organizationRepository
+                .findAllById(List.of(companyAId, companyBId)).stream()
+                .collect(Collectors.toMap(Organization::getId, company -> company));
+        Organization companyA = Optional.ofNullable(companiesById.get(companyAId))
                 .orElseThrow(() -> new ResourceNotFoundException("Company A not found: " + companyAId));
-        Organization companyB = organizationRepository.findById(companyBId)
+        Organization companyB = Optional.ofNullable(companiesById.get(companyBId))
                 .orElseThrow(() -> new ResourceNotFoundException("Company B not found: " + companyBId));
 
         // Reject if same company
@@ -96,8 +105,8 @@ public class CompanyEsgService {
         }
 
         // Get profiles for both companies
-        CompanyEsgProfileResponse profileA = getCompanyEsgProfile(companyAId);
-        CompanyEsgProfileResponse profileB = getCompanyEsgProfile(companyBId);
+        CompanyEsgProfileResponse profileA = buildProfile(companyA);
+        CompanyEsgProfileResponse profileB = buildProfile(companyB);
 
         // Reuse the ratings already loaded for the profiles.
         String insight = generateComparisonInsight(
@@ -109,8 +118,9 @@ public class CompanyEsgService {
     /**
      * Get current ESG rating for a company.
      */
-    private EsgRatingResponse getCurrentRating(Organization company) {
-        return ratingSnapshotRepository.findFirstByOrganizationOrderByAssessmentDateDesc(company)
+    private EsgRatingResponse getCurrentRating(Organization company, List<EsgRatingSnapshot> snapshotsOldestFirst) {
+        return snapshotsOldestFirst.stream()
+                .max(Comparator.comparing(EsgRatingSnapshot::getAssessmentDate))
                 .map(snapshot -> new EsgRatingResponse(
                         snapshot.getOverallScore(),
                         snapshot.getEnvironmentalScore(),
@@ -129,8 +139,8 @@ public class CompanyEsgService {
      * (not quarter-label lexicographic order).
      * Quarter labels (e.g. "Q4 2025") are presentation-only.
      */
-    private List<EsgRatingHistoryResponse> getRatingHistory(Organization company) {
-        return ratingSnapshotRepository.findByOrganizationOrderByAssessmentDateAsc(company).stream()
+    private List<EsgRatingHistoryResponse> getRatingHistory(List<EsgRatingSnapshot> snapshotsOldestFirst) {
+        return snapshotsOldestFirst.stream()
                 .map(snapshot -> new EsgRatingHistoryResponse(
                         formatDateAsQuarter(snapshot.getAssessmentDate()),
                         snapshot.getOverallScore()))
@@ -204,8 +214,12 @@ public class CompanyEsgService {
         addPillarAdvantage(leaderAdvantages, "Governance",
                 leaderRating.governanceScore(), otherRating.governanceScore());
 
-        int leaderEvents = (int) eventRepository.countByOrganization(leader);
-        int otherEvents = (int) eventRepository.countByOrganization(other);
+        Map<Long, Long> eventCounts = eventRepository.countByOrganizations(List.of(leader, other)).stream()
+                .collect(Collectors.toMap(
+                        EsgEventRepository.EventCountRow::getOrganizationId,
+                        EsgEventRepository.EventCountRow::getTotal));
+        int leaderEvents = eventCounts.getOrDefault(leader.getId(), 0L).intValue();
+        int otherEvents = eventCounts.getOrDefault(other.getId(), 0L).intValue();
         if (leaderEvents < otherEvents) {
             leaderAdvantages.add(String.format("fewer recorded ESG events (%d vs %d)", leaderEvents, otherEvents));
         }
