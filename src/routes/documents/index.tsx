@@ -348,14 +348,14 @@ function DocumentRow({
             >
               {document.originalFilename}
             </Link>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               {document.organizationName}
               {shared && (
                 <Badge variant="secondary" className="ml-2 align-middle">
                   Shared sample
                 </Badge>
               )}
-            </p>
+            </div>
           </div>
         </div>
       </TableCell>
