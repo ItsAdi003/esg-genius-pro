@@ -1,6 +1,6 @@
 # Data model
 
-Schema as migrated by Flyway scripts `V1`–`V11` under `backend/src/main/resources/db/migration/`. Migrations are written for PostgreSQL and H2 in PostgreSQL compatibility mode. JPA entities validate against this schema (`ddl-auto: validate`).
+Schema as migrated by Flyway scripts `V1`–`V12` under `backend/src/main/resources/db/migration/`. Migrations are written for PostgreSQL and H2 in PostgreSQL compatibility mode. JPA entities validate against this schema (`ddl-auto: validate`).
 
 ## Migration summary
 
@@ -9,7 +9,7 @@ Schema as migrated by Flyway scripts `V1`–`V11` under `backend/src/main/resour
 | **V1** | Core tables: `organization`, `framework`, `framework_requirement` |
 | **V2** | Seed demo org `ABC Industries Ltd.` |
 | **V3** | Seed SEBI BRSR framework row |
-| **V4** | Seed **14** prototype BRSR requirements (not the full official set) |
+| **V4** | Seed **14** prototype BRSR requirements (superseded by V12; kept, inactive) |
 | **V5** | ESG comparison schema: extend `organization`; add rating / key-issue / event tables |
 | **V6** | Seed listed IT companies + prototype ESG scores/events |
 | **V7** | `document` upload metadata + extracted text |
@@ -17,6 +17,7 @@ Schema as migrated by Flyway scripts `V1`–`V11` under `backend/src/main/resour
 | **V9** | `document_page` for page-aware provenance |
 | **V10** | `document.owner_user_id` — per-user ownership (`NULL` = shared sample visible to all signed-in users) |
 | **V11** | `report_export` — gap-assessment PDF export history |
+| **V12** | Complete BRSR requirement set: adds `section`, `indicator_type`, `sort_order`, `active` to `framework_requirement`; inserts **140** requirements; marks the 14 V4 requirements inactive |
 
 ## Tables and columns
 
@@ -59,9 +60,15 @@ Seed (V3): `BRSR` / SEBI BRSR / India / `BRSR 2023 (v1.2)`.
 | `framework_text` | `TEXT` |
 | `mandatory` | `BOOLEAN` NOT NULL default TRUE |
 | `version` | `VARCHAR(50)` |
+| `section` | `VARCHAR(10)` — `A`, `B`, `P1`…`P9`; NULL for legacy rows (V12) |
+| `indicator_type` | `VARCHAR(20)` — `GENERAL`, `MANAGEMENT`, `ESSENTIAL`, `LEADERSHIP`; NULL for legacy rows (V12) |
+| `sort_order` | `INT` — official framework order; NULL for legacy rows (V12) |
+| `active` | `BOOLEAN` NOT NULL default TRUE — inactive rows are kept for existing analyses but excluded from listings, counts and new analyses (V12) |
 | UNIQUE | `(framework_id, requirement_code)` |
 
-Seed (V4): 14 codes `ENV-001`…`ENV-007`, `SOC-001`…`SOC-004`, `GOV-001`…`GOV-003`, version `MVP-2026`.
+Seed (V12, `version = BRSR-FULL`, `active = TRUE`): 140 requirements in official order. Codes: `A-01`…`A-24` (Section A), `B-01`…`B-12` (Section B), `P{n}-E{nn}` Essential and `P{n}-L{nn}` Leadership indicators for Principles 1–9. Essential, Section A and Section B items are `mandatory`; the 42 Leadership indicators are not. Counts per principle (Essential + Leadership): P1 7+2, P2 4+5, P3 15+6, P4 2+3, P5 10+5, P6 12+9, P7 2+1, P8 4+6, P9 6+5.
+
+Seed (V4, now `active = FALSE`): 14 legacy codes `ENV-001`…`ENV-007`, `SOC-001`…`SOC-004`, `GOV-001`…`GOV-003`, version `MVP-2026`.
 
 ### `esg_rating_snapshot` (V5)
 
@@ -287,14 +294,14 @@ erDiagram
 ## Seed / prototype notes
 
 - V2 + V6 share one demo dataset (ABC Industries plus INFY / TCS / WPRO / HCLT). There is no per-user tenant table; V10 scopes **documents** by `owner_user_id` while organizations remain shared seed rows.
-- V4 explicitly documents the 14-requirement BRSR MVP subset.
+- V12 is the complete BRSR set. The 14-requirement MVP subset from V4 remains in the table (inactive) so analyses #11 and #16, which reference it, stay viewable.
 - V6 scores/events are illustrative prototype data (`is_prototype` default true on events).
 
 ## VERIFY
 
 | Section | Primary sources |
 | --- | --- |
-| Tables / columns / FKs | `V1__create_core_esg_tables.sql` … `V11__create_report_export.sql` |
+| Tables / columns / FKs | `V1__create_core_esg_tables.sql` … `V12__brsr_full_framework.sql` |
 | Ownership semantics | `V10__add_document_owner_user_id.sql`; `Document.java`; `DocumentAccessPolicy.java` |
 | Export history | `V11__create_report_export.sql`; `ReportExport.java`; `ReportExportService.java` |
 | Seed semantics | `V2__seed_demo_organization.sql`; `V3__seed_brsr_framework.sql`; `V4__seed_brsr_requirements.sql`; `V6__seed_demo_companies_with_esg_data.sql` |

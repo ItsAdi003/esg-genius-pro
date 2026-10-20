@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@TestPropertySource(properties = "app.ai.gemini.max-concurrent-classifications=1")
+@TestPropertySource(properties = {"app.ai.gemini.max-concurrent-classifications=1", "app.ai.gemini.max-requirements-per-call=1"})
 class ComplianceAnalysisConcurrencyTest {
 
     private static final int CALL_DELAY_MS = 40;
@@ -63,6 +63,7 @@ class ComplianceAnalysisConcurrencyTest {
         analysisRepository.deleteAll();
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
+        when(classificationProvider.classifyBatch(any())).thenCallRealMethod();
     }
 
     @Test
@@ -88,15 +89,19 @@ class ComplianceAnalysisConcurrencyTest {
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
         ComplianceAnalysisResponse response = complianceAnalysisService.getAnalysis(created.id());
 
+        // Requirements with no retrieved evidence skip the model, so calls match the ones with evidence.
+        java.util.List<RequirementAssessmentResponse> classified = response.assessments().stream()
+                .filter(assessment -> assessment.retrievalScore() != null && assessment.retrievalScore() > 0.0)
+                .toList();
         assertThat(maxInFlight.get()).isEqualTo(1);
-        assertThat(calls.get()).isEqualTo(14);
+        assertThat(calls.get()).isEqualTo(classified.size()).isGreaterThan(5);
         assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(response.assessments()).hasSize(14);
-        assertThat(response.assessments())
+        assertThat(response.assessments()).hasSize(140);
+        assertThat(classified)
                 .allMatch(assessment -> "COVERED".equals(assessment.assessmentStatus()))
                 .allMatch(assessment -> "OK".equals(assessment.explanation()))
                 .extracting(RequirementAssessmentResponse::requirementCode)
-                .contains("ENV-003", "ENV-004", "SOC-001", "GOV-001");
+                .contains("P6-E01", "P6-E06");
     }
 
     private Document createReadyDocument(String extractedText) {

@@ -76,7 +76,7 @@ function FrameworkCard({ framework }: { framework: Framework }) {
 
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
         {isBrsr
-          ? "Prototype BRSR requirement subset configured for MVP validation and compliance analysis."
+          ? "Complete SEBI BRSR format — Section A, Section B and the nine principles of Section C — used for compliance analysis."
           : `${framework.fullName} framework configuration.`}
       </p>
 

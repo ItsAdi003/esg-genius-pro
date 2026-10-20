@@ -211,8 +211,8 @@ function Dashboard() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <CapabilityCard
-          title="BRSR Prototype Requirements"
-          description="Browse the configured SEBI BRSR requirement subset used for compliance analysis. This is a 14-item MVP library, not the full disclosure set."
+          title="BRSR Requirement Library"
+          description="Browse every disclosure question of the SEBI BRSR format — general disclosures, management and process, and the nine principles — used for compliance analysis."
           icon={Library}
           href="/frameworks/brsr"
           cta="View requirements"

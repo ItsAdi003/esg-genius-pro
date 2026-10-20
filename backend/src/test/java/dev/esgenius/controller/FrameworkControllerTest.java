@@ -27,7 +27,7 @@ class FrameworkControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))))
                 .andExpect(jsonPath("$[0].code").value("BRSR"))
-                .andExpect(jsonPath("$[0].requirementCount").value(14));
+                .andExpect(jsonPath("$[0].requirementCount").value(140));
     }
 
     @Test
@@ -53,12 +53,14 @@ class FrameworkControllerTest {
     }
 
     @Test
-    void getRequirementsReturnsAll14() throws Exception {
+    void getRequirementsReturnsAllActiveRequirements() throws Exception {
         mockMvc.perform(get("/api/v1/frameworks/1/requirements"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(14)))
-                .andExpect(jsonPath("$[0].requirementCode").exists())
+                .andExpect(jsonPath("$", hasSize(140)))
+                .andExpect(jsonPath("$[0].requirementCode", is("A-01")))
+                .andExpect(jsonPath("$[0].section", is("A")))
+                .andExpect(jsonPath("$[0].indicatorType", is("GENERAL")))
                 .andExpect(jsonPath("$[0].category").exists())
                 .andExpect(jsonPath("$[0].mandatory").exists());
     }
@@ -68,7 +70,7 @@ class FrameworkControllerTest {
         mockMvc.perform(get("/api/v1/frameworks/1/requirements")
                         .param("category", "ENVIRONMENTAL"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(7)))
+                .andExpect(jsonPath("$", hasSize(30)))
                 .andExpect(jsonPath("$[*].category", everyItem(is("ENVIRONMENTAL"))));
     }
 

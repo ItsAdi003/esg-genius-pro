@@ -19,9 +19,15 @@ public class GeminiProperties {
     private Duration assistantTotalDeadline = Duration.ofSeconds(80);
     private Duration interRequestDelay = Duration.ofMillis(300);
     private int maxConcurrentClassifications = 1;
+    /** Compliance classification returns one result per requirement in a batch, so it needs longer than a chat reply. */
+    private Duration classificationReadTimeout = Duration.ofSeconds(180);
+    private int maxRequirementsPerCall = DEFAULT_REQUIREMENTS_PER_CALL;
 
     public static final int MIN_CONCURRENT_CLASSIFICATIONS = 1;
     public static final int MAX_CONCURRENT_CLASSIFICATIONS = 8;
+    public static final int MIN_REQUIREMENTS_PER_CALL = 1;
+    public static final int MAX_REQUIREMENTS_PER_CALL = 20;
+    public static final int DEFAULT_REQUIREMENTS_PER_CALL = 12;
 
     public String getApiKey() {
         return apiKey;
@@ -123,6 +129,27 @@ public class GeminiProperties {
                             + maxConcurrentClassifications);
         }
         this.maxConcurrentClassifications = maxConcurrentClassifications;
+    }
+
+    public Duration getClassificationReadTimeout() {
+        return classificationReadTimeout;
+    }
+
+    public void setClassificationReadTimeout(Duration classificationReadTimeout) {
+        this.classificationReadTimeout = classificationReadTimeout;
+    }
+
+    public int getMaxRequirementsPerCall() {
+        return maxRequirementsPerCall;
+    }
+
+    public void setMaxRequirementsPerCall(int maxRequirementsPerCall) {
+        if (maxRequirementsPerCall < MIN_REQUIREMENTS_PER_CALL || maxRequirementsPerCall > MAX_REQUIREMENTS_PER_CALL) {
+            throw new IllegalArgumentException(
+                    "GEMINI_MAX_REQUIREMENTS_PER_CALL (app.ai.gemini.max-requirements-per-call) must be an integer from 1 to 20 inclusive, but was "
+                            + maxRequirementsPerCall);
+        }
+        this.maxRequirementsPerCall = maxRequirementsPerCall;
     }
 
     public boolean isConfigured() {

@@ -38,13 +38,13 @@ public class FrameworkService {
     public FrameworkResponse getFramework(Long id) {
         Framework framework = frameworkRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Framework not found: " + id));
-        int count = (int) requirementRepository.countByFramework(framework);
+        int count = (int) requirementRepository.countActiveByFramework(framework);
         return FrameworkResponse.from(framework, count);
     }
 
     private Map<Long, Integer> requirementCountsByFrameworkId() {
         Map<Long, Integer> counts = new HashMap<>();
-        for (Object[] row : requirementRepository.countGroupedByFrameworkId()) {
+        for (Object[] row : requirementRepository.countActiveGroupedByFrameworkId()) {
             Long frameworkId = ((Number) row[0]).longValue();
             int count = ((Number) row[1]).intValue();
             counts.put(frameworkId, count);
@@ -58,9 +58,9 @@ public class FrameworkService {
 
         List<FrameworkRequirement> requirements;
         if (category != null) {
-            requirements = requirementRepository.findByFrameworkAndCategory(framework, category);
+            requirements = requirementRepository.findActiveByFrameworkAndCategory(framework, category);
         } else {
-            requirements = requirementRepository.findByFramework(framework);
+            requirements = requirementRepository.findActiveByFramework(framework);
         }
 
         return requirements.stream()

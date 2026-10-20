@@ -64,6 +64,9 @@ export interface RequirementAssessment {
   retrievalScore: number | null;
   evidenceText: string | null;
   evidenceChunks: EvidenceChunk[];
+  /** BRSR section ("A", "B", "P1".."P9") and indicator type; null for analyses run on the earlier 14-item set. */
+  section?: string | null;
+  indicatorType?: string | null;
 }
 
 export interface ComplianceAnalysis {

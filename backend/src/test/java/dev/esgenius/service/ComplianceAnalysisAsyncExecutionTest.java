@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@TestPropertySource(properties = "app.ai.gemini.max-requirements-per-call=1")
 class ComplianceAnalysisAsyncExecutionTest {
 
     @Autowired
@@ -67,6 +69,7 @@ class ComplianceAnalysisAsyncExecutionTest {
         analysisRepository.deleteAll();
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
+        when(classificationProvider.classifyBatch(any())).thenCallRealMethod();
         when(classificationProvider.classify(any())).thenReturn(new ComplianceClassificationResult(
                 AssessmentStatus.COVERED, 0.85, "OK", null, null));
     }
@@ -92,7 +95,7 @@ class ComplianceAnalysisAsyncExecutionTest {
 
         ComplianceAnalysisResponse completed = complianceAnalysisService.getAnalysis(analysis.getId());
         assertThat(completed.status()).isEqualTo("COMPLETED");
-        assertThat(completed.assessments()).hasSize(14);
+        assertThat(completed.assessments()).hasSize(140);
         assertThat(completed.completedAt()).isNotNull();
     }
 
@@ -164,11 +167,11 @@ class ComplianceAnalysisAsyncExecutionTest {
         ComplianceAnalysisResponse completed = complianceAnalysisService.getAnalysis(created.id());
 
         assertThat(completed.status()).isEqualTo("COMPLETED");
-        assertThat(completed.assessments()).hasSize(14);
+        assertThat(completed.assessments()).hasSize(140);
 
         ComplianceAnalysisResponse fetchedAgain = complianceAnalysisService.getAnalysis(created.id());
         assertThat(fetchedAgain.status()).isEqualTo("COMPLETED");
-        assertThat(fetchedAgain.assessments()).hasSize(14);
+        assertThat(fetchedAgain.assessments()).hasSize(140);
     }
 
     @Test

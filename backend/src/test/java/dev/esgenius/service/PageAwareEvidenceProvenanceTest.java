@@ -138,7 +138,7 @@ class PageAwareEvidenceProvenanceTest {
         ComplianceAnalysisResponse response = complianceAnalysisService.getAnalysis(created.id());
 
         RequirementAssessmentResponse scope1 = response.assessments().stream()
-                .filter(a -> "ENV-003".equals(a.requirementCode()))
+                .filter(a -> "P6-E06".equals(a.requirementCode()))
                 .findFirst()
                 .orElseThrow();
 

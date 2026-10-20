@@ -279,7 +279,7 @@ function SettingsPage() {
           icon={Library}
         >
           <div className="space-y-1 divide-y divide-border">
-            <ToggleRow label="SEBI BRSR" hint="Active framework · India · 14 prototype requirements" defaultChecked />
+            <ToggleRow label="SEBI BRSR" hint="Active framework · India · complete SEBI BRSR format" defaultChecked />
             <ToggleRow label="GRI Standards" hint="Planned · Global" />
             <ToggleRow label="IFRS S1 / S2" hint="Planned · Global" />
             <ToggleRow label="ESRS" hint="Planned · European Union" />

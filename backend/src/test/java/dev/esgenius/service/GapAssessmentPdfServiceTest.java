@@ -98,6 +98,64 @@ class GapAssessmentPdfServiceTest {
                 new EvidenceChunkResponse(2, null, "text", 1.0))).isEqualTo("Source chunk 2");
     }
 
+    @Test
+    void structuredBrsrAnalysisShowsSectionBreakdownPlacementAndFullFrameworkDisclaimer() throws IOException {
+        ComplianceAnalysisResponse analysis = analysis(List.of(
+                placed(assessment("A-01", "Corporate Identity Number (CIN)", "GOVERNANCE", "COVERED",
+                        null, null, "CIN is L85110KA1981PLC013115.",
+                        List.of(new EvidenceChunkResponse(1, 2, "CIN", 9.0))), "A", "GENERAL"),
+                placed(assessment("P6-E06", "Scope 1 and Scope 2 GHG Emissions", "ENVIRONMENTAL", "PARTIALLY_COVERED",
+                        "Scope 2 method is not stated.", "State the Scope 2 method.", null, List.of()),
+                        "P6", "ESSENTIAL"),
+                placed(assessment("P6-L04", "Scope 3 GHG Emissions and Intensity", "ENVIRONMENTAL", "NOT_COVERED",
+                        "No Scope 3 total.", "Disclose Scope 3.", null, List.of()), "P6", "LEADERSHIP"),
+                placed(assessment("P3-E10", "Occupational Health and Safety Management System", "SOCIAL",
+                        "HUMAN_REVIEW_REQUIRED", null, null, null, List.of()), "P3", "ESSENTIAL")));
+
+        String text = extractText(pdfService.render(analysis, document("Infosys Limited", "infosys.pdf", 2025)));
+
+        assertThat(text).contains("Coverage by BRSR section");
+        assertThat(text).contains("Section A");
+        assertThat(text).contains("Principle 6");
+        assertThat(text).contains("Principle 3");
+        // Principle 6 holds two of the four assessments: one partial, one not covered.
+        assertThat(text).containsPattern("Principle 6 .{1,4}total 2, covered 0, partial 1, not covered 1, review 0");
+        assertThat(text).contains("Principle 6, Essential");
+        assertThat(text).contains("Principle 6, Leadership");
+        assertThat(text).contains("Section A, Section B and the nine principles of Section C");
+        assertThat(text).doesNotContain("14 selected BRSR requirements");
+    }
+
+    @Test
+    void legacyAnalysisWithoutSectionsKeepsThePrototypeDisclaimerAndNoSectionBreakdown() throws IOException {
+        ComplianceAnalysisResponse analysis = analysis(List.of(
+                assessment("ENV-003", "Scope 1 GHG Emissions", "ENVIRONMENTAL", "COVERED", null, null,
+                        "Scope 1 was 3,200 tCO2e.", List.of(new EvidenceChunkResponse(4, 12, "Scope 1", 12.5)))));
+
+        String text = extractText(pdfService.render(analysis, document("Northwind", "n.pdf", 2025)));
+
+        assertThat(text).contains("14 selected BRSR requirements");
+        assertThat(text).doesNotContain("Coverage by BRSR section");
+    }
+
+    @Test
+    void formatsSectionsAndPlacements() {
+        assertThat(GapAssessmentPdfService.formatSection("A")).isEqualTo("Section A");
+        assertThat(GapAssessmentPdfService.formatSection("P6")).isEqualTo("Principle 6");
+        assertThat(GapAssessmentPdfService.formatSection(null)).isEmpty();
+        assertThat(GapAssessmentPdfService.formatPlacement("P6", "ESSENTIAL")).isEqualTo("Principle 6, Essential");
+        assertThat(GapAssessmentPdfService.formatPlacement("B", "MANAGEMENT")).isEqualTo("Section B");
+        assertThat(GapAssessmentPdfService.formatPlacement(null, null)).isEmpty();
+    }
+
+    private static RequirementAssessmentResponse placed(
+            RequirementAssessmentResponse base, String section, String indicatorType) {
+        return new RequirementAssessmentResponse(
+                base.requirementId(), base.requirementCode(), base.requirementTitle(), base.category(),
+                base.assessmentStatus(), base.confidence(), base.explanation(), base.gap(), base.recommendation(),
+                base.retrievalScore(), base.evidenceText(), base.evidenceChunks(), section, indicatorType);
+    }
+
     private static String extractText(byte[] pdf) throws IOException {
         try (PDDocument loaded = Loader.loadPDF(pdf)) {
             return new PDFTextStripper().getText(loaded);
@@ -148,6 +206,6 @@ class GapAssessmentPdfServiceTest {
             String evidenceText,
             List<EvidenceChunkResponse> chunks) {
         return new RequirementAssessmentResponse(
-                1L, code, title, category, status, 0.8, "explanation", gap, recommendation, 12.0, evidenceText, chunks);
+                1L, code, title, category, status, 0.8, "explanation", gap, recommendation, 12.0, evidenceText, chunks, null, null);
     }
 }

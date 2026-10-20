@@ -14,7 +14,9 @@ public record FrameworkRequirementResponse(
         String description,
         String frameworkText,
         boolean mandatory,
-        String version
+        String version,
+        String section,
+        String indicatorType
 ) {
     public static FrameworkRequirementResponse from(FrameworkRequirement entity) {
         return new FrameworkRequirementResponse(
@@ -25,7 +27,9 @@ public record FrameworkRequirementResponse(
                 entity.getDescription(),
                 entity.getFrameworkText(),
                 entity.isMandatory(),
-                entity.getVersion()
+                entity.getVersion(),
+                entity.getSection(),
+                entity.getIndicatorType()
         );
     }
 }

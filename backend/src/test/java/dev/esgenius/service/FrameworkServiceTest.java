@@ -33,7 +33,7 @@ class FrameworkServiceTest {
 
         assertThat(brsr.name()).isEqualTo("SEBI BRSR");
         assertThat(brsr.status()).isEqualTo("ACTIVE");
-        assertThat(brsr.requirementCount()).isEqualTo(14);
+        assertThat(brsr.requirementCount()).isEqualTo(140);
     }
 
     @Test
@@ -57,10 +57,11 @@ class FrameworkServiceTest {
     }
 
     @Test
-    void getRequirementsReturnsAll14() {
+    void getRequirementsReturnsAllActiveRequirements() {
         Long brsrId = getBrsrId();
         List<FrameworkRequirementResponse> requirements = frameworkService.getRequirements(brsrId, null);
-        assertThat(requirements).hasSize(14);
+        assertThat(requirements).hasSize(140);
+        assertThat(requirements.get(0).requirementCode()).isEqualTo("A-01");
     }
 
     @Test
@@ -70,8 +71,8 @@ class FrameworkServiceTest {
         List<FrameworkRequirementResponse> env = frameworkService.getRequirements(brsrId, EsgCategory.ENVIRONMENTAL);
         List<FrameworkRequirementResponse> gov = frameworkService.getRequirements(brsrId, EsgCategory.GOVERNANCE);
 
-        assertThat(env).hasSize(7);
-        assertThat(gov).hasSize(3);
+        assertThat(env).hasSize(30);
+        assertThat(gov).hasSize(44);
         assertThat(env).allSatisfy(r -> assertThat(r.category()).isEqualTo("ENVIRONMENTAL"));
     }
 

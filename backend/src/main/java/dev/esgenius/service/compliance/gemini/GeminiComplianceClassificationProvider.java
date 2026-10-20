@@ -18,7 +18,9 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class GeminiComplianceClassificationProvider implements ComplianceClassificationProvider {
@@ -71,20 +73,69 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     false);
         }
 
-        String prompt = promptBuilder.buildPrompt(request);
-        String requestBody = buildRequestBody(prompt);
+        String requestBody = buildRequestBody(promptBuilder.buildPrompt(request));
+        return callWithRetries(
+                request.requirementCode(), request.runContext(), requestBody, resultParser::parse);
+    }
+
+    /**
+     * One Gemini call for several requirements. The response is a JSON array keyed by requirement code.
+     * Requirements the model omitted or answered invalidly are absent from the returned map.
+     */
+    @Override
+    public Map<String, ComplianceClassificationResult> classifyBatch(List<ComplianceClassificationRequest> requests) {
+        if (requests.isEmpty()) {
+            return Map.of();
+        }
+        if (requests.size() == 1) {
+            ComplianceClassificationRequest only = requests.get(0);
+            return Map.of(only.requirementCode(), classify(only));
+        }
+        if (!properties.isConfigured()) {
+            throw new ComplianceClassificationException(
+                    ClassificationFailureCategory.CONFIGURATION_ERROR,
+                    "Gemini API key is not configured. Set GEMINI_API_KEY to enable compliance classification.",
+                    false);
+        }
+        for (ComplianceClassificationRequest request : requests) {
+            if (request.evidencePassages() == null || request.evidencePassages().isEmpty()) {
+                throw new ComplianceClassificationException(
+                        ClassificationFailureCategory.VALIDATION_FAILURE,
+                        "Classification requires retrieved evidence passages; none were provided for "
+                                + request.requirementCode() + ".",
+                        false);
+            }
+        }
+        ComplianceClassificationRequest first = requests.get(0);
+        if (isQuotaExhausted(first)) {
+            throw new ComplianceClassificationException(
+                    ClassificationFailureCategory.QUOTA_EXHAUSTED,
+                    "Gemini daily quota has already been exhausted for this analysis",
+                    false);
+        }
+
+        String label = batchLabel(requests);
+        String requestBody = buildBatchRequestBody(promptBuilder.buildBatchPrompt(requests));
+        return callWithRetries(label, first.runContext(), requestBody, resultParser::parseBatch);
+    }
+
+    private <T> T callWithRetries(
+            String label,
+            AnalysisRunContext runContext,
+            String requestBody,
+            java.util.function.Function<String, T> parse) {
         int maxAttempts = properties.getMaxRetries() + 1;
 
         ComplianceClassificationException lastFailure = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                return executeRequest(request.requirementCode(), requestBody, attempt);
+                return executeRequest(requestBody, attempt, parse);
             } catch (ComplianceClassificationException ex) {
                 lastFailure = ex.withAttempt(attempt);
-                if (lastFailure.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
-                    markQuotaExhausted(request);
+                if (lastFailure.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED && runContext != null) {
+                    runContext.markQuotaExhausted();
                 }
-                logClassificationFailure(request.requirementCode(), lastFailure);
+                logClassificationFailure(label, lastFailure);
 
                 if (!ex.isRetryable() || attempt >= maxAttempts) {
                     throw lastFailure;
@@ -100,8 +151,13 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                 false);
     }
 
-    private ComplianceClassificationResult executeRequest(
-            String requirementCode, String requestBody, int attempt) {
+    private static String batchLabel(List<ComplianceClassificationRequest> requests) {
+        return "batch[" + requests.get(0).requirementCode() + ".." + requests.get(requests.size() - 1).requirementCode()
+                + "," + requests.size() + "]";
+    }
+
+    private <T> T executeRequest(
+            String requestBody, int attempt, java.util.function.Function<String, T> parse) {
         try {
             String responseBody = restClient.post()
                     .uri("/v1beta/models/{model}:generateContent", properties.getModel())
@@ -118,7 +174,7 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
                     .body(String.class);
 
             String jsonText = extractResponseText(responseBody, attempt);
-            return resultParser.parse(jsonText);
+            return parse.apply(jsonText);
         } catch (ComplianceClassificationException ex) {
             throw ex.withAttempt(attempt);
         } catch (RestClientResponseException ex) {
@@ -193,12 +249,6 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
         return request.runContext() != null && request.runContext().isQuotaExhausted();
     }
 
-    private static void markQuotaExhausted(ComplianceClassificationRequest request) {
-        if (request.runContext() != null) {
-            request.runContext().markQuotaExhausted();
-        }
-    }
-
     private void logClassificationFailure(String requirementCode, ComplianceClassificationException ex) {
         log.warn(
                 "Gemini classification failed requirementCode={} category={} httpStatus={} attempt={} retryable={} detail={}",
@@ -234,6 +284,27 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
     }
 
     String buildRequestBody(String prompt) {
+        return buildRequestBody(prompt, buildResponseSchema());
+    }
+
+    String buildBatchRequestBody(String prompt) {
+        ObjectNode items = buildResponseSchema();
+        ((ObjectNode) items.get("properties")).set("requirementCode", stringSchema());
+        ((ArrayNode) items.get("required")).add("requirementCode");
+
+        ObjectNode schema = objectMapper.createObjectNode();
+        schema.put("type", "array");
+        schema.set("items", items);
+        return buildRequestBody(prompt, schema);
+    }
+
+    private ObjectNode stringSchema() {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "string");
+        return node;
+    }
+
+    private String buildRequestBody(String prompt, ObjectNode responseSchema) {
         ObjectNode root = objectMapper.createObjectNode();
 
         ObjectNode content = objectMapper.createObjectNode();
@@ -248,7 +319,7 @@ public class GeminiComplianceClassificationProvider implements ComplianceClassif
 
         ObjectNode generationConfig = objectMapper.createObjectNode();
         generationConfig.put("responseMimeType", "application/json");
-        generationConfig.set("responseSchema", buildResponseSchema());
+        generationConfig.set("responseSchema", responseSchema);
 
         ObjectNode thinkingConfig = objectMapper.createObjectNode();
         thinkingConfig.put("thinkingLevel", properties.getThinkingLevel().toUpperCase(Locale.ROOT));

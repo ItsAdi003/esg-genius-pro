@@ -42,6 +42,22 @@ public class FrameworkRequirement {
     @Column(length = 50)
     private String version;
 
+    /** Where the requirement sits in the framework, e.g. "A", "B" or "P6" for BRSR. Null for legacy rows. */
+    @Column(length = 10)
+    private String section;
+
+    /** GENERAL, MANAGEMENT, ESSENTIAL or LEADERSHIP for BRSR. Null for legacy rows. */
+    @Column(name = "indicator_type", length = 20)
+    private String indicatorType;
+
+    /** Position in the official framework order. Null for legacy rows. */
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
+    /** Inactive requirements are kept for existing analyses but excluded from listings and new analyses. */
+    @Column(nullable = false)
+    private boolean active = true;
+
     protected FrameworkRequirement() {}
 
     public FrameworkRequirement(Framework framework, String requirementCode, String title,
@@ -74,4 +90,20 @@ public class FrameworkRequirement {
     public boolean isMandatory() { return mandatory; }
 
     public String getVersion() { return version; }
+
+    public String getSection() { return section; }
+
+    public String getIndicatorType() { return indicatorType; }
+
+    public Integer getSortOrder() { return sortOrder; }
+
+    public boolean isActive() { return active; }
+
+    /** Placement metadata, set when building requirements outside the Flyway seed (tests, fixtures). */
+    public FrameworkRequirement withPlacement(String section, String indicatorType, Integer sortOrder) {
+        this.section = section;
+        this.indicatorType = indicatorType;
+        this.sortOrder = sortOrder;
+        return this;
+    }
 }

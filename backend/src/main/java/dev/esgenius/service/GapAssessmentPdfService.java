@@ -37,6 +37,15 @@ public class GapAssessmentPdfService {
                     + "It is not a full BRSR assessment and does not constitute SEBI certification, "
                     + "an official MSCI rating, regulatory compliance, or an assurance opinion.";
 
+    static final String FULL_BRSR_DISCLAIMER =
+            "This report assesses disclosure coverage against the disclosure questions of the SEBI BRSR format "
+                    + "(Annexure I): Section A, Section B and the nine principles of Section C. It does not include "
+                    + "later SEBI revisions such as BRSR Core, and it does not constitute SEBI certification, "
+                    + "an official MSCI rating, regulatory compliance, or an assurance opinion.";
+
+    private static final List<String> BRSR_SECTION_ORDER =
+            List.of("A", "B", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9");
+
     static final String REVIEW_DISCLAIMER =
             "This document presents an AI-assisted ESG reporting readiness assessment based on "
                     + "organizational documents and framework requirement sources. Findings should be "
@@ -151,6 +160,27 @@ public class GapAssessmentPdfService {
             if (!anyCategory) {
                 layout.write(regular, BODY_SIZE, BODY_LEADING, "No assessments are available to summarize by category.");
             }
+            boolean structured = assessments.stream().anyMatch(item -> hasText(item.section()));
+            if (structured) {
+                layout.blank();
+                layout.write(bold, BODY_SIZE, BODY_LEADING, "Coverage by BRSR section");
+                for (String section : BRSR_SECTION_ORDER) {
+                    List<RequirementAssessmentResponse> inSection = assessments.stream()
+                            .filter(item -> section.equals(item.section()))
+                            .toList();
+                    if (inSection.isEmpty()) {
+                        continue;
+                    }
+                    StatusCounts counts = countStatuses(inSection);
+                    layout.write(regular, BODY_SIZE, BODY_LEADING,
+                            formatSection(section)
+                                    + " — total " + inSection.size()
+                                    + ", covered " + counts.covered
+                                    + ", partial " + counts.partiallyCovered
+                                    + ", not covered " + counts.notCovered
+                                    + ", review " + counts.humanReviewRequired);
+                }
+            }
             layout.blank();
 
             layout.write(bold, SECTION_SIZE, SECTION_LEADING, "3. Identified Disclosure Gaps");
@@ -199,7 +229,8 @@ public class GapAssessmentPdfService {
             layout.write(bold, SECTION_SIZE, SECTION_LEADING, "6. Disclaimer");
             layout.writeWrapped(regular, BODY_SIZE, BODY_LEADING, REVIEW_DISCLAIMER);
             layout.blank();
-            layout.writeWrapped(regular, BODY_SIZE, BODY_LEADING, PROTOTYPE_DISCLAIMER);
+            layout.writeWrapped(regular, BODY_SIZE, BODY_LEADING,
+                    structured ? FULL_BRSR_DISCLAIMER : PROTOTYPE_DISCLAIMER);
 
             layout.close();
             pdf.save(output);
@@ -214,8 +245,11 @@ public class GapAssessmentPdfService {
             RequirementAssessmentResponse item) throws IOException {
         layout.write(bold, BODY_SIZE, BODY_LEADING,
                 item.requirementCode() + "  " + nullSafe(item.requirementTitle()));
+        String placement = formatPlacement(item.section(), item.indicatorType());
         layout.write(regular, BODY_SIZE, BODY_LEADING,
-                formatCategory(item.category()) + "  |  " + formatAssessmentStatus(item.assessmentStatus()));
+                formatCategory(item.category())
+                        + (placement.isEmpty() ? "" : "  |  " + placement)
+                        + "  |  " + formatAssessmentStatus(item.assessmentStatus()));
         if (hasText(item.gap())) {
             layout.writeWrapped(regular, BODY_SIZE, BODY_LEADING, "Gap: " + item.gap());
         }
@@ -327,6 +361,29 @@ public class GapAssessmentPdfService {
 
     private static String formatAssessmentStatus(String status) {
         return humanize(status);
+    }
+
+    /** "Section A" / "Principle 6". */
+    static String formatSection(String section) {
+        if (section == null || section.isBlank()) {
+            return "";
+        }
+        if (section.length() == 1) {
+            return "Section " + section;
+        }
+        return section.startsWith("P") ? "Principle " + section.substring(1) : section;
+    }
+
+    /** "Principle 6, Essential" — empty for requirements without a section (legacy). */
+    static String formatPlacement(String section, String indicatorType) {
+        if (section == null || section.isBlank()) {
+            return "";
+        }
+        // Sections A and B carry the indicator type implicitly.
+        if (section.length() == 1 || indicatorType == null || indicatorType.isBlank()) {
+            return formatSection(section);
+        }
+        return formatSection(section) + ", " + humanize(indicatorType);
     }
 
     private static String formatCategory(String category) {

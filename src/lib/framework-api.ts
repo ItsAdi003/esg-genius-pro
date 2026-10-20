@@ -27,6 +27,9 @@ export interface FrameworkRequirement {
   frameworkText: string;
   mandatory: boolean;
   version: string;
+  /** BRSR section ("A", "B", "P1".."P9") and indicator type (GENERAL, MANAGEMENT, ESSENTIAL, LEADERSHIP). */
+  section?: string | null;
+  indicatorType?: string | null;
 }
 
 export class FrameworkApiError extends Error {

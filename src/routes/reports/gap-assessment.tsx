@@ -36,6 +36,7 @@ import {
   type RequirementAssessment,
 } from "@/lib/compliance-api";
 import { reportQueryKeys } from "@/lib/report-api";
+import { BRSR_SECTIONS, formatPlacement } from "@/lib/brsr-structure";
 import {
   documentQueryKeys,
   formatReportingYear,
@@ -139,6 +140,8 @@ function RequirementCard({
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatEsgCategory(assessment.category)}
+            {formatPlacement(assessment.section, assessment.indicatorType) &&
+              ` · ${formatPlacement(assessment.section, assessment.indicatorType)}`}
           </p>
         </div>
         <StatusBadge status={formatAssessmentStatus(assessment.assessmentStatus)} />
@@ -329,6 +332,20 @@ function GapAssessmentReport() {
       return { category, counts, total: inCategory.length };
     }).filter((row) => row.total > 0);
   }, [assessments]);
+
+  const sectionBreakdown = useMemo(
+    () =>
+      BRSR_SECTIONS.map((entry) => {
+        const inSection = assessments.filter((a) => a.section === entry.value);
+        return {
+          section: entry.value,
+          label: entry.short,
+          counts: summarizeAssessments(inSection),
+          total: inSection.length,
+        };
+      }).filter((row) => row.total > 0),
+    [assessments],
+  );
 
   if (analysisIdInvalid) {
     return (
@@ -642,6 +659,38 @@ function GapAssessmentReport() {
                   {categoryBreakdown.map((row) => (
                     <tr key={row.category} className="border-b border-border/60">
                       <td className="py-2 pr-4">{formatEsgCategory(row.category)}</td>
+                      <td className="py-2 pr-4 tabular-nums">{row.total}</td>
+                      <td className="py-2 pr-4 tabular-nums">{row.counts.covered}</td>
+                      <td className="py-2 pr-4 tabular-nums">{row.counts.partiallyCovered}</td>
+                      <td className="py-2 pr-4 tabular-nums">{row.counts.notCovered}</td>
+                      <td className="py-2 tabular-nums">{row.counts.humanReviewRequired}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {sectionBreakdown.length > 0 && (
+            <div className="mt-6 overflow-x-auto print:break-inside-avoid">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                By BRSR section
+              </p>
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">Section</th>
+                    <th className="py-2 pr-4 font-medium tabular-nums">Total</th>
+                    <th className="py-2 pr-4 font-medium tabular-nums">Covered</th>
+                    <th className="py-2 pr-4 font-medium tabular-nums">Partial</th>
+                    <th className="py-2 pr-4 font-medium tabular-nums">Not covered</th>
+                    <th className="py-2 font-medium tabular-nums">Review</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sectionBreakdown.map((row) => (
+                    <tr key={row.section} className="border-b border-border/60">
+                      <td className="py-2 pr-4">{row.label}</td>
                       <td className="py-2 pr-4 tabular-nums">{row.total}</td>
                       <td className="py-2 pr-4 tabular-nums">{row.counts.covered}</td>
                       <td className="py-2 pr-4 tabular-nums">{row.counts.partiallyCovered}</td>

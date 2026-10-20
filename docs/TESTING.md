@@ -100,7 +100,9 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 - `ComplianceAnalysisStartupRecoveryTest`
 - `ComplianceAnalysisClassificationTest`
 - `ComplianceAnalysisConcurrencyTest`
-- `ComplianceAnalysisConcurrencyParallelTest` — `GEMINI_MAX_CONCURRENCY` pool behaviour
+- `ComplianceAnalysisConcurrencyParallelTest` — `GEMINI_MAX_CONCURRENCY` pool behaviour (runs with a batch size of 1 so each call is one requirement)
+- `ComplianceAnalysisBatchingTest` — full analysis with a stubbed provider: one call per section batch, grouping never mixes sections, an omitted requirement falls back alone, a failed call affects only its batch, daily quota stops later calls, an unexpected error does not lose its batch
+- `ComplianceBatchPlanningTest` — `planBatches`: even splitting, limit respected for every limit/size combination, section grouping, 140 requirements → 15 calls
 - `PageAwareEvidenceProvenanceTest`
 - `GapAssessmentPdfServiceTest`
 
@@ -117,6 +119,9 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 - `ClassificationFailureHandlerTest`
 - `EvidenceContextExpanderTest`
 - `ComplianceClassificationPromptBuilderTest`
+- `ComplianceBatchPromptBuilderTest` — batch prompt lists each requirement with its own rubric and evidence; shared strict rules; single prompt unchanged
+- `ComplianceClassificationBatchParserTest` — JSON-array answers keyed by `requirementCode`; malformed entries skipped, valid ones kept
+- `GeminiBatchClassificationTest` — one HTTP call for several requirements, array response schema, partial answers, retry, daily quota, no-evidence validation
 - `ComplianceClassificationResultParserTest`
 - `GeminiComplianceClassificationProviderTest`
 - `QuotaAwareComplianceClassificationProviderTest`
@@ -151,6 +156,7 @@ Classes named `*Test.java` under `backend/src/test/java` (support fixtures omitt
 Vitest specs under `src/**/*.test.ts`:
 
 - `src/lib/api-config.test.ts`
+- `src/lib/brsr-structure.test.ts` — BRSR section/indicator labels and counts
 - `src/lib/company-comparison-adapters.test.ts`
 - `src/lib/compliance-api.test.ts`
 - `src/lib/compliance-polling.test.ts`
@@ -183,6 +189,15 @@ Optional sanity check for the BRSR MVP seed size:
 
 ```powershell
 (Select-String -Path "backend\src\main\resources\db\migration\V4__seed_brsr_requirements.sql" -Pattern "ENV-|SOC-|GOV-").Count
+```
+
+## Retrieval evaluation against a real report
+
+`BrsrFullRetrievalEvaluationTest` runs retrieval for all 140 requirements against a real PDF and writes `backend/target/brsr-retrieval-eval.txt` (which requirements find evidence, on which pages, and the top passage). It calls no model and runs only when `BRSR_EVAL_PDF` points at a PDF:
+
+```powershell
+$env:BRSR_EVAL_PDF = "D:\path\to\report.pdf"
+.\mvnw.cmd -o test -Dtest=BrsrFullRetrievalEvaluationTest
 ```
 
 ## Known testing limitations

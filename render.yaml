@@ -21,6 +21,8 @@ services:
         sync: false
       - key: GEMINI_MAX_CONCURRENCY
         value: "1"
+      - key: GEMINI_MAX_REQUIREMENTS_PER_CALL
+        value: "12"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

@@ -2,6 +2,8 @@ package dev.esgenius.service.compliance;
 
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class ComplianceClassificationPromptBuilder {
 
@@ -11,6 +13,51 @@ public class ComplianceClassificationPromptBuilder {
         prompt.append("TASK: Determine whether the supplied document evidence contains the disclosure requested by the requirement rubric below.\n");
         prompt.append("This is disclosure/readiness coverage analysis only — NOT ESG performance scoring.\n\n");
 
+        appendStatusesAndRules(prompt);
+
+        prompt.append("EVALUATION RUBRIC (complete — evaluate only these explicitly stated components):\n");
+        appendRubric(prompt, request);
+
+        prompt.append("\nDOCUMENT EVIDENCE PASSAGES:\n");
+        appendPassages(prompt, request);
+
+        return prompt.toString();
+    }
+
+    /**
+     * One prompt covering several requirements. Each requirement is evaluated independently against only
+     * its own evidence passages, and the answer is a JSON array with one object per requirement.
+     */
+    public String buildBatchPrompt(List<ComplianceClassificationRequest> requests) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are an AI assistant performing disclosure coverage analysis for ESG reporting requirements.\n\n");
+        prompt.append("TASK: For EACH of the ").append(requests.size())
+                .append(" requirements below, determine whether the document evidence supplied for that requirement contains the disclosure requested by its rubric.\n");
+        prompt.append("This is disclosure/readiness coverage analysis only — NOT ESG performance scoring.\n\n");
+
+        appendStatusesAndRules(prompt);
+
+        prompt.append("BATCH RULES (mandatory):\n");
+        prompt.append("- Evaluate every requirement independently. Use ONLY the rubric and the evidence passages listed under that same requirement; never use another requirement's passages as evidence.\n");
+        prompt.append("- Return a JSON array with exactly one object per requirement, in the order given.\n");
+        prompt.append("- Each object must carry requirementCode copied exactly as written in the requirement header, plus status, confidence, explanation, gap and recommendation.\n");
+        prompt.append("- Do not skip a requirement and do not add requirements that were not listed.\n\n");
+
+        for (int index = 0; index < requests.size(); index++) {
+            ComplianceClassificationRequest request = requests.get(index);
+            prompt.append("=== REQUIREMENT ").append(index + 1).append(" of ").append(requests.size())
+                    .append(" — requirementCode: ").append(request.requirementCode()).append(" ===\n");
+            prompt.append("EVALUATION RUBRIC (complete — evaluate only these explicitly stated components):\n");
+            appendRubric(prompt, request);
+            prompt.append("\nDOCUMENT EVIDENCE PASSAGES for ").append(request.requirementCode()).append(":\n");
+            appendPassages(prompt, request);
+            prompt.append('\n');
+        }
+
+        return prompt.toString();
+    }
+
+    private static void appendStatusesAndRules(StringBuilder prompt) {
         prompt.append("CLASSIFICATION STATUSES (use exactly one):\n");
         prompt.append("- COVERED: Every material component explicitly requested in the evaluation rubric is clearly present in the evidence.\n");
         prompt.append("- PARTIALLY_COVERED: The evidence addresses the rubric but one or more material components explicitly requested in the rubric are incomplete, unclear, or missing.\n");
@@ -37,8 +84,9 @@ public class ComplianceClassificationPromptBuilder {
         prompt.append("- recommendation: what should be disclosed to satisfy the requirement (null if fully covered).\n");
         prompt.append("- For explanation, gap, and recommendation: write for a compliance professional. Refer to 'the requirement' or 'the disclosure requirement'. Never use the words 'rubric', 'evaluation rubric', 'prompt', or 'instructions' in these fields.\n");
         prompt.append("- confidence: number from 0.0 to 1.0 reflecting classification certainty.\n\n");
+    }
 
-        prompt.append("EVALUATION RUBRIC (complete — evaluate only these explicitly stated components):\n");
+    private static void appendRubric(StringBuilder prompt, ComplianceClassificationRequest request) {
         prompt.append("Title: ").append(request.requirementTitle()).append('\n');
         if (request.requirementDescription() != null && !request.requirementDescription().isBlank()) {
             prompt.append("Description: ").append(request.requirementDescription()).append('\n');
@@ -46,13 +94,12 @@ public class ComplianceClassificationPromptBuilder {
         if (request.requirementFrameworkText() != null && !request.requirementFrameworkText().isBlank()) {
             prompt.append("Framework text: ").append(request.requirementFrameworkText()).append('\n');
         }
+    }
 
-        prompt.append("\nDOCUMENT EVIDENCE PASSAGES:\n");
+    private static void appendPassages(StringBuilder prompt, ComplianceClassificationRequest request) {
         for (int i = 0; i < request.evidencePassages().size(); i++) {
             prompt.append("--- Passage ").append(i + 1).append(" ---\n");
             prompt.append(request.evidencePassages().get(i)).append('\n');
         }
-
-        return prompt.toString();
     }
 }

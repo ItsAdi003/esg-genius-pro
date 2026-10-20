@@ -48,6 +48,12 @@ import {
   resolveRequirementTotal,
 } from "@/lib/compliance-progress";
 import { frameworkQueryKeys, getFramework } from "@/lib/framework-api";
+import {
+  BRSR_INDICATOR_TYPES,
+  BRSR_SECTIONS,
+  formatPlacement,
+  hasStructuredSections,
+} from "@/lib/brsr-structure";
 
 type ComplianceSearch = {
   analysisId?: number;
@@ -90,6 +96,8 @@ const STATUS_FILTER_OPTIONS: { value: AssessmentStatus | "all"; label: string }[
 function ComplianceAnalysis() {
   const { analysisId } = Route.useSearch();
   const [category, setCategory] = useState("all");
+  const [section, setSection] = useState("all");
+  const [indicator, setIndicator] = useState("all");
   const [status, setStatus] = useState<AssessmentStatus | "all">("all");
   const [query, setQuery] = useState("");
 
@@ -137,13 +145,18 @@ function ComplianceAnalysis() {
         const matchesCategory = category === "all" || categoryLabel === category;
         const matchesStatus =
           status === "all" || assessment.assessmentStatus === status;
+        const matchesSection = section === "all" || assessment.section === section;
+        const matchesIndicator = indicator === "all" || assessment.indicatorType === indicator;
         const haystack = `${assessment.requirementCode} ${assessment.requirementTitle}`.toLowerCase();
         const matchesQuery =
           query.trim() === "" || haystack.includes(query.trim().toLowerCase());
-        return matchesCategory && matchesStatus && matchesQuery;
+        return (
+          matchesCategory && matchesStatus && matchesSection && matchesIndicator && matchesQuery
+        );
       }),
-    [assessments, category, status, query],
+    [assessments, category, status, section, indicator, query],
   );
+  const hasSections = useMemo(() => hasStructuredSections(assessments), [assessments]);
 
   const summary = useMemo(() => summarizeAssessments(assessments), [assessments]);
   const hasLegacyStatuses = summary.evidenceRetrieved > 0 || summary.noEvidenceFound > 0;
@@ -379,7 +392,11 @@ function ComplianceAnalysis() {
       )}
 
       {!isInProgress && (
-      <div className="surface-card mt-4 grid gap-3 p-4 md:grid-cols-3">
+      <div
+        className={`surface-card mt-4 grid gap-3 p-4 ${
+          hasSections ? "md:grid-cols-2 xl:grid-cols-5" : "md:grid-cols-3"
+        }`}
+      >
         <div className="relative md:col-span-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -400,6 +417,36 @@ function ComplianceAnalysis() {
             <SelectItem value="Governance">Governance</SelectItem>
           </SelectContent>
         </Select>
+        {hasSections && (
+          <Select value={section} onValueChange={setSection}>
+            <SelectTrigger>
+              <SelectValue placeholder="Section" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sections</SelectItem>
+              {BRSR_SECTIONS.map((entry) => (
+                <SelectItem key={entry.value} value={entry.value}>
+                  {entry.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {hasSections && (
+          <Select value={indicator} onValueChange={setIndicator}>
+            <SelectTrigger>
+              <SelectValue placeholder="Indicator type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Indicator Types</SelectItem>
+              {BRSR_INDICATOR_TYPES.map((entry) => (
+                <SelectItem key={entry.value} value={entry.value}>
+                  {entry.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select
           value={status}
           onValueChange={(value) => setStatus(value as AssessmentStatus | "all")}
@@ -458,7 +505,14 @@ function ComplianceAnalysis() {
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {assessment.requirementCode}
                     </TableCell>
-                    <TableCell className="font-medium">{assessment.requirementTitle}</TableCell>
+                    <TableCell className="font-medium">
+                      {assessment.requirementTitle}
+                      {formatPlacement(assessment.section, assessment.indicatorType) && (
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                          {formatPlacement(assessment.section, assessment.indicatorType)}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatEsgCategory(assessment.category)}
                     </TableCell>

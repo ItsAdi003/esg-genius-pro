@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +42,14 @@ import java.util.stream.Collectors;
 public class ComplianceAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(ComplianceAnalysisService.class);
+
+    /** Official framework order; requirements without a sort order (legacy) follow, by code. */
+    private static final Comparator<RequirementAssessment> FRAMEWORK_ORDER = Comparator
+            .<RequirementAssessment, Integer>comparing(
+                    a -> a.getFrameworkRequirement().getSortOrder() == null
+                            ? Integer.MAX_VALUE
+                            : a.getFrameworkRequirement().getSortOrder())
+            .thenComparing(a -> a.getFrameworkRequirement().getRequirementCode());
     static final String GENERIC_FAILURE_REASON = ComplianceAnalysisPersistenceService.GENERIC_FAILURE_REASON;
 
     private final ComplianceAnalysisRepository analysisRepository;
@@ -148,11 +157,13 @@ public class ComplianceAnalysisService {
         Framework framework = frameworkRepository.findById(frameworkId)
                 .orElseThrow(() -> new ResourceNotFoundException("Framework not found: " + frameworkId));
 
-        List<FrameworkRequirement> requirements = requirementRepository.findByFramework(framework);
+        List<FrameworkRequirement> requirements = requirementRepository.findActiveByFramework(framework);
         List<TextChunk> chunks = buildChunksForDocument(document);
         AnalysisRunContext runContext = new AnalysisRunContext();
         List<Future<?>> classifications = new ArrayList<>();
 
+        // Retrieval is local and fast; only requirements with evidence go to the model.
+        List<PendingClassification> pending = new ArrayList<>();
         for (FrameworkRequirement requirement : requirements) {
             List<RetrievedChunk> retrieved = retrievalService.retrieve(requirement, chunks);
             if (retrieved.isEmpty()) {
@@ -165,23 +176,57 @@ public class ComplianceAnalysisService {
                         noEvidenceClassifier.classify(requirement));
                 continue;
             }
+            pending.add(new PendingClassification(requirement, retrieved));
+        }
 
+        // One model call per batch: requirements are grouped by framework section (so a call covers one
+        // principle) and large sections are split evenly, which keeps a full analysis near a dozen calls.
+        for (List<PendingClassification> batch : planBatches(pending, geminiProperties.getMaxRequirementsPerCall())) {
             try {
                 classifications.add(classificationExecutor.submit(
-                        () -> classifyAndPersistRequirement(
-                                analysisId, requirement, retrieved, chunks, runContext)));
+                        () -> classifyAndPersistBatch(analysisId, batch, chunks, runContext)));
             } catch (RejectedExecutionException ex) {
                 log.error(
-                        "Classification was not accepted analysisId={} requirementCode={}",
+                        "Classification batch was not accepted analysisId={} firstRequirement={} size={}",
                         analysisId,
-                        requirement.getRequirementCode(),
+                        batch.get(0).requirement().getRequirementCode(),
+                        batch.size(),
                         ex);
-                persistUnexpectedFailure(analysisId, requirement, retrieved);
+                batch.forEach(item -> persistUnexpectedFailure(analysisId, item.requirement(), item.retrieved()));
             }
         }
 
         awaitClassifications(analysisId, classifications);
         persistenceService.finalizeCompleted(analysisId);
+    }
+
+    /**
+     * Groups pending requirements by section (keeping framework order) and splits each group into the
+     * fewest batches of at most {@code maxPerCall}, sized as evenly as possible.
+     */
+    static List<List<PendingClassification>> planBatches(List<PendingClassification> pending, int maxPerCall) {
+        Map<String, List<PendingClassification>> bySection = new LinkedHashMap<>();
+        for (PendingClassification item : pending) {
+            String section = item.requirement().getSection() == null ? "" : item.requirement().getSection();
+            bySection.computeIfAbsent(section, ignored -> new ArrayList<>()).add(item);
+        }
+
+        List<List<PendingClassification>> batches = new ArrayList<>();
+        for (List<PendingClassification> group : bySection.values()) {
+            int batchCount = (group.size() + maxPerCall - 1) / maxPerCall;
+            int baseSize = group.size() / batchCount;
+            int extra = group.size() % batchCount;
+            int start = 0;
+            for (int i = 0; i < batchCount; i++) {
+                int size = baseSize + (i < extra ? 1 : 0);
+                batches.add(List.copyOf(group.subList(start, start + size)));
+                start += size;
+            }
+        }
+        return batches;
+    }
+
+    record PendingClassification(FrameworkRequirement requirement, List<RetrievedChunk> retrieved) {
     }
 
     private void awaitClassifications(Long analysisId, List<Future<?>> classifications) {
@@ -197,32 +242,87 @@ public class ComplianceAnalysisService {
         }
     }
 
-    private void classifyAndPersistRequirement(
+    private void classifyAndPersistBatch(
             Long analysisId,
-            FrameworkRequirement requirement,
-            List<RetrievedChunk> retrieved,
+            List<PendingClassification> batch,
             List<TextChunk> sourceChunks,
             AnalysisRunContext runContext) {
-        try {
-            ComplianceClassificationResult classification =
-                    classifyWithEvidence(requirement, retrieved, sourceChunks, runContext);
-            persistenceService.persistRequirementAssessment(
-                    analysisId,
-                    requirement.getId(),
-                    retrieved.get(0).score(),
-                    buildEvidenceText(retrieved),
-                    serializeEvidenceChunks(retrieved),
-                    classification);
-        } catch (RuntimeException ex) {
-            log.error(
-                    "Unexpected classification failure analysisId={} requirementCode={}",
-                    analysisId,
-                    requirement.getRequirementCode(),
-                    ex);
-            persistUnexpectedFailure(analysisId, requirement, retrieved);
-            return;
+        Map<String, ComplianceClassificationResult> results = classifyBatchWithEvidence(batch, sourceChunks, runContext);
+        for (PendingClassification item : batch) {
+            FrameworkRequirement requirement = item.requirement();
+            List<RetrievedChunk> retrieved = item.retrieved();
+            try {
+                ComplianceClassificationResult classification = results != null
+                        ? results.get(requirement.getRequirementCode())
+                        : null;
+                if (classification == null) {
+                    // Whole call failed (quota aware), or the model left this requirement out of its answer.
+                    classification = results == null
+                            ? failureHandler.handleFailure(runContext)
+                            : failureHandler.unexpectedFailure();
+                }
+                persistenceService.persistRequirementAssessment(
+                        analysisId,
+                        requirement.getId(),
+                        retrieved.get(0).score(),
+                        buildEvidenceText(retrieved),
+                        serializeEvidenceChunks(retrieved),
+                        classification);
+            } catch (RuntimeException ex) {
+                log.error(
+                        "Unexpected classification failure analysisId={} requirementCode={}",
+                        analysisId,
+                        requirement.getRequirementCode(),
+                        ex);
+                persistUnexpectedFailure(analysisId, requirement, retrieved);
+            }
         }
         paceBeforeNextClassification();
+    }
+
+    /** Returns the batch results by requirement code, or null when the whole call failed. */
+    private Map<String, ComplianceClassificationResult> classifyBatchWithEvidence(
+            List<PendingClassification> batch,
+            List<TextChunk> sourceChunks,
+            AnalysisRunContext runContext) {
+        if (runContext.isQuotaExhausted()) {
+            return null;
+        }
+        try {
+            List<ComplianceClassificationRequest> requests = new ArrayList<>();
+            for (PendingClassification item : batch) {
+                FrameworkRequirement requirement = item.requirement();
+                requests.add(new ComplianceClassificationRequest(
+                        requirement.getRequirementCode(),
+                        requirement.getTitle(),
+                        requirement.getDescription(),
+                        requirement.getFrameworkText(),
+                        classificationEvidenceBuilder.buildExpandedPassages(item.retrieved(), sourceChunks),
+                        runContext));
+            }
+            return classificationProvider.classifyBatch(requests);
+        } catch (ComplianceClassificationException ex) {
+            if (ex.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
+                runContext.markQuotaExhausted();
+            }
+            log.warn(
+                    "Classification fallback for batch firstRequirement={} size={} category={} httpStatus={} attempt={} detail={}",
+                    batch.get(0).requirement().getRequirementCode(),
+                    batch.size(),
+                    ex.getCategory(),
+                    ex.getHttpStatus(),
+                    ex.getAttempt(),
+                    ex.getSafeDetail());
+            return null;
+        } catch (RuntimeException ex) {
+            // Never let one bad call lose a whole batch: its requirements fall back to human review.
+            log.error(
+                    "Unexpected classification failure firstRequirement={} size={}",
+                    batch.get(0).requirement().getRequirementCode(),
+                    batch.size(),
+                    ex);
+            return null;
+        }
     }
 
     private void persistUnexpectedFailure(
@@ -284,39 +384,6 @@ public class ComplianceAnalysisService {
                         analysis,
                         statusCountsByAnalysis.getOrDefault(analysis.getId(), AssessmentStatusCounts.empty())))
                 .toList();
-    }
-
-    private ComplianceClassificationResult classifyWithEvidence(
-            FrameworkRequirement requirement,
-            List<RetrievedChunk> retrieved,
-            List<TextChunk> sourceChunks,
-            AnalysisRunContext runContext) {
-        if (runContext.isQuotaExhausted()) {
-            return failureHandler.handleFailure(runContext);
-        }
-        try {
-            List<String> expandedPassages = classificationEvidenceBuilder.buildExpandedPassages(retrieved, sourceChunks);
-            ComplianceClassificationRequest request = new ComplianceClassificationRequest(
-                    requirement.getRequirementCode(),
-                    requirement.getTitle(),
-                    requirement.getDescription(),
-                    requirement.getFrameworkText(),
-                    expandedPassages,
-                    runContext);
-            return classificationProvider.classify(request);
-        } catch (ComplianceClassificationException ex) {
-            if (ex.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
-                runContext.markQuotaExhausted();
-            }
-            log.warn(
-                    "Classification fallback for requirementCode={} category={} httpStatus={} attempt={} detail={}",
-                    requirement.getRequirementCode(),
-                    ex.getCategory(),
-                    ex.getHttpStatus(),
-                    ex.getAttempt(),
-                    ex.getSafeDetail());
-            return failureHandler.handleFailure(runContext);
-        }
     }
 
     private void paceBeforeNextClassification() {
@@ -402,7 +469,7 @@ public class ComplianceAnalysisService {
                 .findByAnalysisOrderByFrameworkRequirement_RequirementCodeAsc(analysis);
 
         List<RequirementAssessmentResponse> assessmentResponses = assessments.stream()
-                .sorted(Comparator.comparing(a -> a.getFrameworkRequirement().getRequirementCode()))
+                .sorted(FRAMEWORK_ORDER)
                 .map(this::toAssessmentResponse)
                 .toList();
 
@@ -434,7 +501,9 @@ public class ComplianceAnalysisService {
                 assessment.getRecommendation(),
                 assessment.getRetrievalScore(),
                 assessment.getEvidenceText(),
-                deserializeEvidenceChunks(assessment.getEvidenceChunks()));
+                deserializeEvidenceChunks(assessment.getEvidenceChunks()),
+                requirement.getSection(),
+                requirement.getIndicatorType());
     }
 
     private List<EvidenceChunkResponse> deserializeEvidenceChunks(String json) {

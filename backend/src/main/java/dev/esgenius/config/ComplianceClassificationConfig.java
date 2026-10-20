@@ -5,6 +5,7 @@ import dev.esgenius.service.compliance.ComplianceClassificationPromptBuilder;
 import dev.esgenius.service.compliance.ComplianceClassificationProvider;
 import dev.esgenius.service.compliance.ComplianceClassificationResultParser;
 import dev.esgenius.service.compliance.gemini.GeminiComplianceClassificationProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -17,11 +18,11 @@ public class ComplianceClassificationConfig {
     @Bean
     ComplianceClassificationProvider complianceClassificationProvider(
             GeminiProperties properties,
-            RestClient geminiRestClient,
+            @Qualifier(GeminiConfig.CLASSIFICATION_REST_CLIENT) RestClient geminiClassificationRestClient,
             ComplianceClassificationPromptBuilder promptBuilder,
             ComplianceClassificationResultParser resultParser,
             ObjectMapper objectMapper) {
         return new GeminiComplianceClassificationProvider(
-                properties, geminiRestClient, promptBuilder, resultParser, objectMapper);
+                properties, geminiClassificationRestClient, promptBuilder, resultParser, objectMapper);
     }
 }

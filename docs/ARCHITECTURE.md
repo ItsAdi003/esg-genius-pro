@@ -22,7 +22,7 @@ flowchart TB
 
   subgraph data ["Persistence"]
     PG[(PostgreSQL)]
-    Flyway["Flyway V1–V11"]
+    Flyway["Flyway V1–V12"]
   end
 
   UI -->|"Bearer access token"| AuthFilter
@@ -41,7 +41,7 @@ flowchart TB
 | **Frontend** | TanStack Start / React Router app (`package.json`, `src/routes/**`). Calls the backend via `apiFetch` helpers in `src/lib/*-api.ts`. Supabase client holds the user session; the access token is sent as `Authorization: Bearer …`. |
 | **Auth filter** | `SupabaseAuthFilter` validates tokens against Supabase Auth `GET {url}/auth/v1/user`, caches successes by SHA-256 of the token (`SupabaseTokenValidationCache`, TTL from `SUPABASE_TOKEN_CACHE_TTL`), and sets request attribute `authenticatedUser`. Registered for `/api/*` outside the `test` profile. Skips `OPTIONS` and `GET /api/v1/health`. |
 | **API / services** | Controllers under `dev.esgenius.controller` delegate to services. Document-backed flows resolve `Caller` + `DocumentAccessPolicy` (ownership, shared samples, `ADMIN_USER_IDS`). `MeController` exposes usage snapshots; `ReportExportController` lists PDF export history. |
-| **Postgres + Flyway** | Runtime datasource is PostgreSQL (`application.yml`). Schema and seed data come from `classpath:db/migration` V1–V11; JPA `ddl-auto: validate`. |
+| **Postgres + Flyway** | Runtime datasource is PostgreSQL (`application.yml`). Schema and seed data come from `classpath:db/migration` V1–V12; JPA `ddl-auto: validate`. |
 | **Local file storage** | Uploaded PDFs are stored under `app.storage.upload-dir` (default `uploads`) as `{uuid}.pdf` via `LocalFileStorageService`. Metadata and extracted text live in Postgres. |
 | **Gemini providers** | Production (`!test`) wires `GeminiComplianceClassificationProvider` and `GeminiAssistantAnswerProvider` when `GEMINI_API_KEY` is set. Test profile replaces both with in-process fakes. |
 
@@ -55,14 +55,15 @@ flowchart TB
 
 Triggered by `POST /api/v1/documents/{documentId}/analyses` → `ComplianceAnalysisService.startAnalysis` → async `ComplianceAnalysisProcessor`.
 
-1. **Create row** — `ComplianceAnalysisCreationService` requires document `READY` with non-blank extracted text, a resolvable framework (`frameworkId` or `frameworkCode`), at least one requirement, and no existing `IN_PROGRESS` analysis for the same document+framework. Status starts as `IN_PROGRESS`.
+1. **Create row** — `ComplianceAnalysisCreationService` requires document `READY` with non-blank extracted text, a resolvable framework (`frameworkId` or `frameworkCode`), at least one *active* requirement, and no existing `IN_PROGRESS` analysis for the same document+framework. Status starts as `IN_PROGRESS`.
 2. **Dispatch** — `ComplianceAnalysisProcessor` submits work to `complianceAnalysisExecutor` (core 1 / max 2 / queue 8, abort on reject). Rejection or uncaught failure marks the analysis `FAILED`.
 3. **Extraction (already done after upload)** — `DocumentProcessingService` + `PdfTextExtractionService` (PDFBox, no OCR) produce full text and `document_page` rows in a background worker (`documentProcessingExecutor`, core 1 / max 2 / queue 8, abort on reject) after the upload request returns. Analysis requires the document to be `READY` and reuses the stored text/pages.
 4. **Chunking** — `TextChunkingService.chunkPages` (preferred when pages exist) or legacy `chunk` (~1200–1800 chars, 200 overlap). Page-aware chunks never cross page boundaries.
 5. **Lexical retrieval** — `LexicalEvidenceRetrievalService` scores chunks with BM25-inspired / IDF lexical matching, requirement anchor gates, and ESG aliases. Top 3 chunks above score threshold `0.15`. **No embeddings / vector search.**
-6. **Classification** (parallel per requirement when evidence exists)
+6. **Classification** (one model call per batch of requirements)
+   - **Batching** — requirements with evidence are grouped by framework `section` (`A`, `B`, `P1`–`P9`) so a call covers one principle, and each group is split evenly into batches of at most `GEMINI_MAX_REQUIREMENTS_PER_CALL` (default 12). The full 140-requirement BRSR set becomes about 15 calls. See `ComplianceAnalysisService.planBatches`.
    - **No evidence** → `DeterministicNoEvidenceClassifier` (always `NOT_COVERED`, confidence `0.75`). Gemini is **not** called.
-   - **Has evidence** → expand passages → `ComplianceClassificationProvider.classify` (Gemini in production), submitted to `complianceClassificationExecutor` with pool size `GEMINI_MAX_CONCURRENCY` (`app.ai.gemini.max-concurrent-classifications`, 1–8, default 1). On `ComplianceClassificationException`, `ClassificationFailureHandler` returns `HUMAN_REVIEW_REQUIRED` (quota-specific explanation when `QuotaExhaustionScope` is exhausted on the analysis thread).
+   - **Has evidence** → expand passages → `ComplianceClassificationProvider.classifyBatch` (Gemini in production; one prompt and one JSON-array answer keyed by `requirementCode`), each batch submitted to `complianceClassificationExecutor` with pool size `GEMINI_MAX_CONCURRENCY` (`app.ai.gemini.max-concurrent-classifications`, 1–8, default 1). A requirement the model omitted or answered invalidly falls back to `HUMAN_REVIEW_REQUIRED` on its own; a failed call falls back for its whole batch. On `ComplianceClassificationException`, `ClassificationFailureHandler` returns `HUMAN_REVIEW_REQUIRED` (quota-specific explanation when `QuotaExhaustionScope` is exhausted on the analysis thread).
 7. **Async persistence** — each assessment is saved in a new transaction via `ComplianceAnalysisPersistenceService.persistRequirementAssessment`; then `finalizeCompleted` sets analysis `COMPLETED`.
 8. **Startup recovery** — `ComplianceAnalysisStartupRecovery` on `ApplicationReadyEvent` marks leftover `IN_PROGRESS` rows `FAILED` with reason *"Analysis was interrupted when the application restarted."*
 
@@ -119,8 +120,8 @@ sequenceDiagram
 
   Exec->>Store: chunk + lexical retrieve
   alt evidence found
-    Exec->>Gemini: classify requirement
-    Gemini-->>Exec: COVERED / PARTIAL / NOT_COVERED
+    Exec->>Gemini: classify batch (one BRSR section)
+    Gemini-->>Exec: one result per requirement
   else no evidence
     Exec->>Exec: DeterministicNoEvidenceClassifier
   end
@@ -139,7 +140,9 @@ Frontend polling uses TanStack Query `refetchInterval` driven by `resolveAnalysi
 - **Free-tier Gemini quota:** compliance providers mark `QuotaExhaustionScope` and degrade evidenced requirements to `HUMAN_REVIEW_REQUIRED`; assistant returns **503** with a user-facing quota message.
 - **Per-instance rate limits:** upload/analysis/assistant caps are not shared across multiple backend replicas.
 - **Lexical retrieval only:** no semantic / vector index.
-- **Prototype 14-requirement BRSR subset:** Flyway V4 seeds 14 requirements (`MVP-2026`), not the full SEBI BRSR set; PDF export states this explicitly.
+- **BRSR format version:** V12 loads the 140 questions of SEBI's original Annexure I format. Later revisions (BRSR Core, value-chain disclosures, assurance) are not included, and the PDF export states this. The 14 MVP requirements from V4 are kept but inactive so earlier analyses stay readable.
+- **Batched classification trades isolation for quota:** a batch's requirements share one model call, so one failed call affects up to 12 requirements (they fall back to human review) and an answer for one requirement cannot see another's evidence by design.
+- **Line-based retrieval on tables:** multi-column table layouts (for example Section B's nine-principle table) retrieve less precisely than prose.
 - **No OCR:** scanned / image-only PDFs fail upload with a scanned-PDF message.
 - **Upload size:** multipart max 25 MB. The upload request returns immediately with status `PROCESSING`; extraction runs on a small in-memory background queue, so documents still `UPLOADED`/`PROCESSING` after a restart are marked `FAILED` at startup (`DocumentStartupRecovery`) and must be uploaded again. A full queue fails the document with a "server is busy" message.
 - **Report export history:** successful gap-assessment PDF downloads append `report_export`; listing is per-user (or all for admins).

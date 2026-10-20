@@ -3,11 +3,23 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
-import { PrototypeNotice } from "@/components/prototype-notice";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  BRSR_INDICATOR_TYPES,
+  BRSR_SECTIONS,
+  formatPlacement,
+  hasStructuredSections,
+} from "@/lib/brsr-structure";
 import {
   Table,
   TableBody,
@@ -55,6 +67,8 @@ const TAB_TO_CATEGORY: Record<CategoryTab, EsgCategory | null> = {
 
 function BrsrRequirements() {
   const [tab, setTab] = useState<CategoryTab>("all");
+  const [section, setSection] = useState("all");
+  const [indicator, setIndicator] = useState("all");
 
   const frameworksQuery = useQuery({
     queryKey: frameworkQueryKeys.list(),
@@ -70,7 +84,13 @@ function BrsrRequirements() {
     enabled: brsrFramework != null,
   });
 
-  const rows = requirementsQuery.data ?? [];
+  const allRows = requirementsQuery.data ?? [];
+  const rows = allRows.filter(
+    (r) =>
+      (section === "all" || r.section === section) &&
+      (indicator === "all" || r.indicatorType === indicator),
+  );
+  const hasSections = hasStructuredSections(allRows);
   const isLoading = frameworksQuery.isLoading || requirementsQuery.isLoading;
   const isError = frameworksQuery.isError || requirementsQuery.isError;
 
@@ -90,10 +110,12 @@ function BrsrRequirements() {
         </Button>
       }
     >
-      <PrototypeNotice title="Prototype coverage" className="mb-4">
-        This implementation currently includes 14 selected BRSR requirements for MVP validation
-        and does not represent the complete SEBI BRSR framework.
-      </PrototypeNotice>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Every numbered disclosure question of the SEBI BRSR format (Annexure I): Section A general
+        disclosures, Section B management and process, and Section C — the nine principles, each with
+        Essential and Leadership indicators. Essential indicators are mandatory; Leadership indicators
+        are voluntary. Later SEBI revisions (BRSR Core, value-chain disclosures) are not included.
+      </p>
 
       {isError && (
         <Alert variant="destructive" className="mb-4">
@@ -114,14 +136,46 @@ function BrsrRequirements() {
         </Alert>
       )}
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as CategoryTab)}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="ENVIRONMENTAL">Environmental</TabsTrigger>
-          <TabsTrigger value="SOCIAL">Social</TabsTrigger>
-          <TabsTrigger value="GOVERNANCE">Governance</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-wrap items-center gap-3">
+        <Tabs value={tab} onValueChange={(value) => setTab(value as CategoryTab)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="ENVIRONMENTAL">Environmental</TabsTrigger>
+            <TabsTrigger value="SOCIAL">Social</TabsTrigger>
+            <TabsTrigger value="GOVERNANCE">Governance</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {hasSections && (
+          <>
+            <Select value={section} onValueChange={setSection}>
+              <SelectTrigger className="w-full sm:w-[340px]">
+                <SelectValue placeholder="Section" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sections</SelectItem>
+                {BRSR_SECTIONS.map((entry) => (
+                  <SelectItem key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={indicator} onValueChange={setIndicator}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Indicator type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Indicator Types</SelectItem>
+                {BRSR_INDICATOR_TYPES.map((entry) => (
+                  <SelectItem key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+      </div>
 
       <div className="surface-card mt-4 overflow-hidden">
         <div className="overflow-x-auto">
@@ -152,7 +206,14 @@ function BrsrRequirements() {
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {r.requirementCode}
                       </TableCell>
-                      <TableCell className="font-medium">{r.title}</TableCell>
+                      <TableCell className="font-medium">
+                        {r.title}
+                        {formatPlacement(r.section, r.indicatorType) && (
+                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                            {formatPlacement(r.section, r.indicatorType)}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatEsgCategory(r.category)}
                       </TableCell>
@@ -176,8 +237,9 @@ function BrsrRequirements() {
         </div>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Showing {rows.length} configured prototype requirement{rows.length === 1 ? "" : "s"}
-        {brsrFramework ? ` for ${brsrFramework.name}` : ""}.
+        Showing {rows.length} of {brsrFramework?.requirementCount ?? allRows.length} requirement
+        {(brsrFramework?.requirementCount ?? allRows.length) === 1 ? "" : "s"}
+        {brsrFramework ? ` in ${brsrFramework.name}` : ""}.
       </p>
     </AppLayout>
   );

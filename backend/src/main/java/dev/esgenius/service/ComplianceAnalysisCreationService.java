@@ -53,7 +53,7 @@ public class ComplianceAnalysisCreationService {
         }
 
         Framework framework = resolveFramework(request);
-        List<FrameworkRequirement> requirements = requirementRepository.findByFramework(framework);
+        List<FrameworkRequirement> requirements = requirementRepository.findActiveByFramework(framework);
         if (requirements.isEmpty()) {
             throw new BadRequestException("Framework has no requirements: " + framework.getCode());
         }

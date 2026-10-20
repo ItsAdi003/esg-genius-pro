@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@TestPropertySource(properties = "app.ai.gemini.max-requirements-per-call=1")
 class ComplianceAnalysisClassificationTest {
 
     @Autowired
@@ -66,6 +68,7 @@ class ComplianceAnalysisClassificationTest {
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
         reset(classificationProvider);
+        when(classificationProvider.classifyBatch(any())).thenCallRealMethod();
     }
 
     @Test
@@ -77,7 +80,7 @@ class ComplianceAnalysisClassificationTest {
         ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
-        RequirementAssessmentResponse env003 = findAssessment(response, "ENV-003");
+        RequirementAssessmentResponse env003 = findAssessment(response, "P6-E06");
         assertThat(env003.assessmentStatus()).isEqualTo("COVERED");
         assertThat(env003.confidence()).isEqualTo(0.95);
         assertThat(env003.explanation()).isEqualTo("Fully disclosed.");
@@ -97,7 +100,10 @@ class ComplianceAnalysisClassificationTest {
         ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
-        RequirementAssessmentResponse assessment = response.assessments().get(0);
+        RequirementAssessmentResponse assessment = response.assessments().stream()
+                .filter(a -> a.retrievalScore() != null && a.retrievalScore() > 0.0)
+                .findFirst()
+                .orElseThrow();
         assertThat(assessment.assessmentStatus()).isEqualTo("PARTIALLY_COVERED");
         assertThat(assessment.gap()).isEqualTo("Missing baseline year.");
         assertThat(assessment.recommendation()).isEqualTo("Add baseline year.");
@@ -139,7 +145,7 @@ class ComplianceAnalysisClassificationTest {
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(response.requirementCount()).isEqualTo(14);
+        assertThat(response.requirementCount()).isEqualTo(140);
         assertThat(response.assessments())
                 .allMatch(a -> a.assessmentStatus().equals("NOT_COVERED"));
         assertThat(response.assessments())
@@ -172,7 +178,7 @@ class ComplianceAnalysisClassificationTest {
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(response.assessments()).hasSize(14);
+        assertThat(response.assessments()).hasSize(140);
 
         long humanReviewCount = response.assessments().stream()
                 .filter(a -> "HUMAN_REVIEW_REQUIRED".equals(a.assessmentStatus()))
@@ -212,13 +218,18 @@ class ComplianceAnalysisClassificationTest {
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
         assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(response.assessments()).hasSize(14);
+        assertThat(response.assessments()).hasSize(140);
         assertThat(callCount.get()).isEqualTo(3);
 
+        // Every requirement with retrieved evidence reached the provider path: two answered, one hit the
+        // daily quota, and the rest were stopped without calling the provider again.
+        long withEvidence = response.assessments().stream()
+                .filter(a -> a.retrievalScore() != null && a.retrievalScore() > 0.0)
+                .count();
         long quotaExplanations = response.assessments().stream()
                 .filter(a -> ClassificationFailureHandler.QUOTA_EXHAUSTED_EXPLANATION.equals(a.explanation()))
                 .count();
-        assertThat(quotaExplanations).isEqualTo(12);
+        assertThat(quotaExplanations).isEqualTo(withEvidence - 2);
 
         assertThat(response.assessments())
                 .allMatch(a -> a.evidenceText() != null || a.retrievalScore() != null);
@@ -228,7 +239,7 @@ class ComplianceAnalysisClassificationTest {
         assertThat(coveredCount).isEqualTo(2);
         assertThat(response.assessments().stream()
                 .filter(a -> "HUMAN_REVIEW_REQUIRED".equals(a.assessmentStatus()))
-                .count()).isEqualTo(12);
+                .count()).isEqualTo(withEvidence - 2);
     }
 
     @Test
@@ -236,7 +247,9 @@ class ComplianceAnalysisClassificationTest {
         when(classificationProvider.classify(any())).thenAnswer(invocation -> {
             ComplianceClassificationRequest request = invocation.getArgument(0);
             String combined = String.join(" ", request.evidencePassages());
-            assertThat(combined).contains("Scope 1");
+            if ("P6-E06".equals(request.requirementCode())) {
+                assertThat(combined).contains("Scope 1");
+            }
             assertThat(combined.length()).isLessThanOrEqualTo(
                     EvidenceContextExpander.MAX_EXPANDED_PASSAGE_CHARS * 3);
             return new ComplianceClassificationResult(
@@ -266,14 +279,14 @@ class ComplianceAnalysisClassificationTest {
         ComplianceAnalysisResponse fetched = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
-        RequirementAssessmentResponse env003 = findAssessment(fetched, "ENV-003");
+        RequirementAssessmentResponse env003 = findAssessment(fetched, "P6-E06");
         assertThat(env003.evidenceText()).containsIgnoringCase("Scope 1");
         assertThat(env003.retrievalScore()).isGreaterThan(0.0);
         assertThat(env003.evidenceChunks()).isNotEmpty();
     }
 
     @Test
-    void allFourteenBrsrRequirementsStillProcess() {
+    void allBrsrRequirementsAreProcessed() {
         when(classificationProvider.classify(any())).thenReturn(new ComplianceClassificationResult(
                 AssessmentStatus.COVERED, 0.85, "OK", null, null));
 
@@ -281,10 +294,10 @@ class ComplianceAnalysisClassificationTest {
         ComplianceAnalysisResponse response = startAndAwaitCompletion(
                 document.getId(), new StartAnalysisRequest(null, "BRSR"));
 
-        assertThat(response.requirementCount()).isEqualTo(14);
+        assertThat(response.requirementCount()).isEqualTo(140);
         assertThat(response.assessments())
                 .extracting(RequirementAssessmentResponse::requirementCode)
-                .contains("ENV-003", "ENV-004", "SOC-001", "GOV-001");
+                .contains("A-01", "B-12", "P1-E04", "P3-E10", "P6-E06", "P9-L05");
     }
 
     private ComplianceAnalysisResponse startAndAwaitCompletion(

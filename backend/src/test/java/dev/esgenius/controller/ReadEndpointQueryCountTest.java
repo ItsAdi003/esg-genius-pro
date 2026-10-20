@@ -123,7 +123,7 @@ class ReadEndpointQueryCountTest {
         analysis = analysisRepository.save(analysis);
         analysisId = analysis.getId();
 
-        List<FrameworkRequirement> requirements = requirementRepository.findByFramework(framework);
+        List<FrameworkRequirement> requirements = requirementRepository.findActiveByFramework(framework);
         for (FrameworkRequirement requirement : requirements) {
             RequirementAssessment assessment = new RequirementAssessment(analysis, requirement);
             assessment.setAssessmentStatus(AssessmentStatus.COVERED);
@@ -145,7 +145,7 @@ class ReadEndpointQueryCountTest {
         mockMvc.perform(get("/api/v1/frameworks"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].code").value("BRSR"))
-                .andExpect(jsonPath("$[0].requirementCount").value(14));
+                .andExpect(jsonPath("$[0].requirementCount").value(140));
         assertThat(countOf("GET /api/v1/frameworks", "/api/v1/frameworks")).isLessThanOrEqualTo(3);
         assertThat(countOf("GET /api/v1/frameworks/{id}/requirements",
                 "/api/v1/frameworks/" + frameworkId + "/requirements")).isLessThanOrEqualTo(2);
@@ -165,8 +165,8 @@ class ReadEndpointQueryCountTest {
                 .isLessThanOrEqualTo(4);
         mockMvc.perform(get("/api/v1/analyses/" + analysisId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.requirementCount").value(14))
-                .andExpect(jsonPath("$.assessments.length()").value(14))
+                .andExpect(jsonPath("$.requirementCount").value(140))
+                .andExpect(jsonPath("$.assessments.length()").value(140))
                 .andExpect(jsonPath("$.assessments[0].evidenceText").exists());
 
         assertThat(countOf("GET /api/v1/companies", "/api/v1/companies")).isLessThanOrEqualTo(1);
@@ -212,7 +212,7 @@ class ReadEndpointQueryCountTest {
                 .isLessThanOrEqualTo(3);
         mockMvc.perform(get("/api/v1/frameworks"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.code=='BRSR')].requirementCount").value(org.hamcrest.Matchers.hasItem(14)));
+                .andExpect(jsonPath("$[?(@.code=='BRSR')].requirementCount").value(org.hamcrest.Matchers.hasItem(140)));
     }
 
     private int countOf(String label, String url) throws Exception {

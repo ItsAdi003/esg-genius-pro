@@ -33,6 +33,26 @@ public final class QuotaAwareComplianceClassificationProvider implements Complia
         }
     }
 
+    @Override
+    public java.util.Map<String, ComplianceClassificationResult> classifyBatch(
+            java.util.List<ComplianceClassificationRequest> requests) {
+        ComplianceClassificationRequest first = requests.isEmpty() ? null : requests.get(0);
+        if (first != null && isQuotaExhausted(first)) {
+            throw new ComplianceClassificationException(
+                    ClassificationFailureCategory.QUOTA_EXHAUSTED,
+                    "Gemini daily quota has already been exhausted for this analysis",
+                    false);
+        }
+        try {
+            return delegate.classifyBatch(requests);
+        } catch (ComplianceClassificationException ex) {
+            if (first != null && ex.getCategory() == ClassificationFailureCategory.QUOTA_EXHAUSTED) {
+                markQuotaExhausted(first);
+            }
+            throw ex;
+        }
+    }
+
     private static boolean isQuotaExhausted(ComplianceClassificationRequest request) {
         return request.runContext() != null && request.runContext().isQuotaExhausted();
     }

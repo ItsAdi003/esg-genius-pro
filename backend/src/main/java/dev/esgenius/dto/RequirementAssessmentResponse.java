@@ -14,5 +14,8 @@ public record RequirementAssessmentResponse(
         String recommendation,
         Double retrievalScore,
         String evidenceText,
-        List<EvidenceChunkResponse> evidenceChunks) {
+        List<EvidenceChunkResponse> evidenceChunks,
+        /** Framework section (e.g. "P6") and indicator type (e.g. "ESSENTIAL"); null for legacy requirements. */
+        String section,
+        String indicatorType) {
 }

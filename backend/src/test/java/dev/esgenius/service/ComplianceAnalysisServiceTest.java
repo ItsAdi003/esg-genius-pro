@@ -79,11 +79,11 @@ class ComplianceAnalysisServiceTest {
 
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.frameworkCode()).isEqualTo("BRSR");
-        assertThat(response.requirementCount()).isEqualTo(14);
-        assertThat(response.assessments()).hasSize(14);
+        assertThat(response.requirementCount()).isEqualTo(140);
+        assertThat(response.assessments()).hasSize(140);
         assertThat(response.assessments())
                 .extracting(RequirementAssessmentResponse::requirementCode)
-                .contains("ENV-003", "ENV-004", "SOC-001", "GOV-001");
+                .contains("A-01", "B-01", "P1-E01", "P6-E06");
     }
 
     @Test
@@ -94,7 +94,7 @@ class ComplianceAnalysisServiceTest {
                 document.getId(), new StartAnalysisRequest(brsrFramework.getId(), null));
 
         RequirementAssessmentResponse scope1 = response.assessments().stream()
-                .filter(a -> "ENV-003".equals(a.requirementCode()))
+                .filter(a -> "P6-E06".equals(a.requirementCode()))
                 .findFirst()
                 .orElseThrow();
 
@@ -244,7 +244,7 @@ class ComplianceAnalysisServiceTest {
         ComplianceAnalysisResponse fetched = complianceAnalysisService.getAnalysis(created.id());
 
         assertThat(fetched.id()).isEqualTo(created.id());
-        assertThat(fetched.assessments()).hasSize(14);
+        assertThat(fetched.assessments()).hasSize(140);
         assertThat(fetched.assessments().get(0).requirementTitle()).isNotBlank();
         assertThat(fetched.assessments().get(0).category()).isIn("ENVIRONMENTAL", "SOCIAL", "GOVERNANCE");
     }

@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@TestPropertySource(properties = "app.ai.gemini.max-concurrent-classifications=4")
+@TestPropertySource(properties = {"app.ai.gemini.max-concurrent-classifications=4", "app.ai.gemini.max-requirements-per-call=1"})
 class ComplianceAnalysisConcurrencyParallelTest {
 
     private static final int CALL_DELAY_MS = 200;
@@ -72,13 +72,16 @@ class ComplianceAnalysisConcurrencyParallelTest {
         analysisRepository.deleteAll();
         documentRepository.deleteAll();
         organization = organizationRepository.findByTicker("INFY").orElseThrow();
+        when(classificationProvider.classifyBatch(any())).thenCallRealMethod();
     }
 
     @Test
-    void fourWorkersClassifyFourteenRequirementsFasterThanSequential() {
+    void fourWorkersClassifyRequirementsFasterThanSequential() {
+        AtomicInteger calls = new AtomicInteger();
         AtomicInteger inFlight = new AtomicInteger();
         AtomicInteger maxInFlight = new AtomicInteger();
         when(classificationProvider.classify(any())).thenAnswer(invocation -> {
+            calls.incrementAndGet();
             int current = inFlight.incrementAndGet();
             maxInFlight.updateAndGet(seen -> Math.max(seen, current));
             try {
@@ -94,10 +97,13 @@ class ComplianceAnalysisConcurrencyParallelTest {
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
 
         assertThat(maxInFlight.get()).isGreaterThan(1).isLessThanOrEqualTo(4);
-        assertThat(elapsedMs).isLessThan(CALL_DELAY_MS * 8L);
+        // Four workers should finish well inside the time the same calls would take back to back.
+        assertThat(calls.get()).isGreaterThan(8);
+        assertThat(elapsedMs).isLessThan(calls.get() * CALL_DELAY_MS * 6L / 10L);
         assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(response.assessments()).hasSize(14);
+        assertThat(response.assessments()).hasSize(140);
         assertThat(response.assessments())
+                .filteredOn(assessment -> assessment.retrievalScore() != null && assessment.retrievalScore() > 0.0)
                 .allMatch(assessment -> "COVERED".equals(assessment.assessmentStatus()));
     }
 
@@ -141,14 +147,18 @@ class ComplianceAnalysisConcurrencyParallelTest {
         assertThat(callsAfterQuota.get()).isZero();
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.failureReason()).isNull();
-        assertThat(response.assessments()).hasSize(14);
+        assertThat(response.assessments()).hasSize(140);
+        long withEvidence = response.assessments().stream()
+                .filter(assessment -> assessment.retrievalScore() != null && assessment.retrievalScore() > 0.0)
+                .count();
+        assertThat(withEvidence).isGreaterThan(4);
         assertThat(response.assessments())
                 .filteredOn(assessment -> "COVERED".equals(assessment.assessmentStatus()))
                 .hasSize(3);
         assertThat(response.assessments())
                 .filteredOn(assessment -> ClassificationFailureHandler.QUOTA_EXHAUSTED_EXPLANATION
                         .equals(assessment.explanation()))
-                .hasSize(11);
+                .hasSize((int) withEvidence - 3);
     }
 
     @Test
@@ -170,10 +180,13 @@ class ComplianceAnalysisConcurrencyParallelTest {
 
             assertThat(response.status()).isEqualTo("COMPLETED");
             assertThat(response.failureReason()).isNull();
-            assertThat(response.assessments()).hasSize(14);
+            assertThat(response.assessments()).hasSize(140);
+            long withEvidence = response.assessments().stream()
+                    .filter(assessment -> assessment.retrievalScore() != null && assessment.retrievalScore() > 0.0)
+                    .count();
             assertThat(response.assessments())
                     .filteredOn(assessment -> "COVERED".equals(assessment.assessmentStatus()))
-                    .hasSize(13);
+                    .hasSize((int) withEvidence - 1);
             assertThat(response.assessments())
                     .filteredOn(assessment -> ClassificationFailureHandler.GENERIC_FAILURE_EXPLANATION
                             .equals(assessment.explanation()))
