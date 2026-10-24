@@ -69,6 +69,21 @@ class ComplianceClassificationResultParserTest {
     }
 
     @Test
+    void rejectsNotApplicableBecauseOnlyAReviewerMaySetIt() {
+        assertThrows(
+                ComplianceClassificationException.class,
+                () -> parser.parse("""
+                        {
+                          "status": "NOT_APPLICABLE",
+                          "confidence": 0.9,
+                          "explanation": "Model tries to declare it not applicable.",
+                          "gap": null,
+                          "recommendation": null
+                        }
+                        """));
+    }
+
+    @Test
     void rejectsConfidenceBelowZero() {
         ComplianceClassificationException ex = assertThrows(ComplianceClassificationException.class, () ->
                 parser.parse("""

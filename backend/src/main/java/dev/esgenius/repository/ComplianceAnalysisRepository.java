@@ -2,6 +2,7 @@ package dev.esgenius.repository;
 
 import dev.esgenius.entity.AnalysisStatus;
 import dev.esgenius.entity.ComplianceAnalysis;
+import dev.esgenius.entity.EsgIndustry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,6 +20,17 @@ public interface ComplianceAnalysisRepository extends JpaRepository<ComplianceAn
             """)
     List<ComplianceAnalysis> findByDocumentIdWithFrameworkOrderByStartedAtDesc(
             @Param("documentId") Long documentId);
+
+    @Query("""
+            SELECT a FROM ComplianceAnalysis a
+            JOIN FETCH a.document
+            WHERE a.status = dev.esgenius.entity.AnalysisStatus.COMPLETED
+              AND a.industry = :industry
+              AND a.framework.code = :frameworkCode
+            ORDER BY a.id DESC
+            """)
+    List<ComplianceAnalysis> findCompletedByIndustry(
+            @Param("industry") EsgIndustry industry, @Param("frameworkCode") String frameworkCode);
 
     boolean existsByDocumentIdAndFrameworkIdAndStatus(
             Long documentId, Long frameworkId, AnalysisStatus status);

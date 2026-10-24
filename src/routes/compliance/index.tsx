@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Search, ArrowRight, FileText, MinusCircle, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
+import { EsgScoreCard } from "@/components/esg-score-card";
 import { ConfidenceMeter, StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ const STATUS_FILTER_OPTIONS: { value: AssessmentStatus | "all"; label: string }[
   { value: "PARTIALLY_COVERED", label: "Partially Covered" },
   { value: "NOT_COVERED", label: "Not Covered" },
   { value: "HUMAN_REVIEW_REQUIRED", label: "Human Review Required" },
+  { value: "NOT_APPLICABLE", label: "Not Applicable" },
   { value: "EVIDENCE_RETRIEVED", label: "Evidence Retrieved (legacy)" },
   { value: "NO_EVIDENCE_FOUND", label: "No Evidence Found (legacy)" },
 ];
@@ -367,6 +369,8 @@ function ComplianceAnalysis() {
               </div>
             ))}
           </div>
+
+          {analysis.status === "COMPLETED" && hasSections && <EsgScoreCard analysisId={analysis.id} />}
 
           {hasLegacyStatuses && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">

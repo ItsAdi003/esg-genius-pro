@@ -2,6 +2,7 @@ package dev.esgenius.service;
 
 import dev.esgenius.dto.ComplianceAnalysisResponse;
 import dev.esgenius.dto.DocumentDetailResponse;
+import dev.esgenius.dto.EsgScoreResponse;
 import dev.esgenius.dto.EvidenceChunkResponse;
 import dev.esgenius.dto.RequirementAssessmentResponse;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -11,6 +12,9 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import dev.esgenius.service.esgscore.EsgScoreCalculator;
+import dev.esgenius.service.esgscore.EsgScoreService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -63,30 +67,56 @@ public class GapAssessmentPdfService {
 
     private final ComplianceAnalysisService complianceAnalysisService;
     private final DocumentService documentService;
+    private final EsgScoreService esgScoreService;
 
+    @Autowired
     public GapAssessmentPdfService(
             ComplianceAnalysisService complianceAnalysisService,
-            DocumentService documentService) {
+            DocumentService documentService,
+            EsgScoreService esgScoreService) {
         this.complianceAnalysisService = complianceAnalysisService;
         this.documentService = documentService;
+        this.esgScoreService = esgScoreService;
+    }
+
+    GapAssessmentPdfService(ComplianceAnalysisService complianceAnalysisService, DocumentService documentService) {
+        this(complianceAnalysisService, documentService, null);
     }
 
     public byte[] generate(Long analysisId, Caller caller) {
         ComplianceAnalysisResponse analysis = complianceAnalysisService.getAnalysis(analysisId, caller);
         DocumentDetailResponse document = documentService.getDocument(analysis.documentId(), caller);
-        return render(analysis, document);
+        return render(analysis, document, loadScore(analysisId, caller));
+    }
+
+    private EsgScoreResponse loadScore(Long analysisId, Caller caller) {
+        if (esgScoreService == null) {
+            return null;
+        }
+        try {
+            EsgScoreResponse score = esgScoreService.getScore(analysisId, caller);
+            return score.scorable() ? score : null;
+        } catch (RuntimeException ex) {
+            // The score is an extra; the gap assessment must still be producible without it.
+            return null;
+        }
     }
 
     byte[] render(ComplianceAnalysisResponse analysis, DocumentDetailResponse document) {
+        return render(analysis, document, null);
+    }
+
+    byte[] render(ComplianceAnalysisResponse analysis, DocumentDetailResponse document, EsgScoreResponse score) {
         try {
-            return writePdf(analysis, document);
+            return writePdf(analysis, document, score);
         } catch (IOException ex) {
             throw new IllegalStateException(
                     "Failed to generate gap assessment PDF for analysis " + analysis.id(), ex);
         }
     }
 
-    private byte[] writePdf(ComplianceAnalysisResponse analysis, DocumentDetailResponse document)
+    private byte[] writePdf(
+            ComplianceAnalysisResponse analysis, DocumentDetailResponse document, EsgScoreResponse score)
             throws IOException {
         List<RequirementAssessmentResponse> assessments =
                 analysis.assessments() == null ? List.of() : analysis.assessments();
@@ -131,6 +161,18 @@ public class GapAssessmentPdfService {
             layout.write(regular, BODY_SIZE, BODY_LEADING, "Partially covered: " + summary.partiallyCovered);
             layout.write(regular, BODY_SIZE, BODY_LEADING, "Not covered: " + summary.notCovered);
             layout.write(regular, BODY_SIZE, BODY_LEADING, "Human review required: " + summary.humanReviewRequired);
+            if (summary.notApplicable > 0) {
+                layout.write(regular, BODY_SIZE, BODY_LEADING,
+                        "Not applicable (marked by a reviewer, excluded from the score): " + summary.notApplicable);
+            }
+            if (score != null) {
+                writeScoreSummary(layout, regular, bold, score);
+            }
+            for (RequirementAssessmentResponse item : filterStatuses(assessments, "NOT_APPLICABLE")) {
+                layout.writeWrapped(regular, BODY_SIZE, BODY_LEADING,
+                        "Not applicable: " + item.requirementCode() + " — " + nullSafe(item.requirementTitle())
+                                + ". Reason: " + nullSafe(item.notApplicableReason()));
+            }
             if (summary.evidenceRetrieved > 0 || summary.noEvidenceFound > 0) {
                 layout.write(regular, BODY_SIZE, BODY_LEADING,
                         "Legacy evidence retrieved: " + summary.evidenceRetrieved
@@ -335,6 +377,7 @@ public class GapAssessmentPdfService {
                 case "PARTIALLY_COVERED" -> counts.partiallyCovered++;
                 case "NOT_COVERED" -> counts.notCovered++;
                 case "HUMAN_REVIEW_REQUIRED" -> counts.humanReviewRequired++;
+                case "NOT_APPLICABLE" -> counts.notApplicable++;
                 case "EVIDENCE_RETRIEVED" -> counts.evidenceRetrieved++;
                 case "NO_EVIDENCE_FOUND" -> counts.noEvidenceFound++;
                 default -> {
@@ -342,6 +385,31 @@ public class GapAssessmentPdfService {
             }
         }
         return counts;
+    }
+
+    private static void writeScoreSummary(
+            PdfLayout layout, PDFont regular, PDFont bold, EsgScoreResponse score) throws IOException {
+        layout.blank();
+        layout.write(bold, BODY_SIZE, BODY_LEADING, "MSCI-style ESG score (disclosure quality, not an official rating)");
+        layout.write(regular, BODY_SIZE, BODY_LEADING,
+                "Rating band: " + nullSafe(score.ratingBand())
+                        + "  |  Industry-adjusted score: " + formatScore(score.industryAdjustedScore()) + " / 10"
+                        + "  |  Weighted average key issue score: "
+                        + formatScore(score.weightedAverageKeyIssueScore()));
+        layout.write(regular, BODY_SIZE, BODY_LEADING,
+                "Environmental " + formatScore(score.environmentalScore())
+                        + "  |  Social " + formatScore(score.socialScore())
+                        + "  |  Governance " + formatScore(score.governanceScore()));
+        layout.writeWrapped(regular, BODY_SIZE, BODY_LEADING,
+                score.industryAdjusted()
+                        ? "Adjusted against " + score.peerCount() + " analyses in the industry: "
+                                + nullSafe(score.industryLabel()) + "."
+                        : "Not adjusted against industry peers (industry not set, or fewer than "
+                                + EsgScoreCalculator.MIN_PEERS_FOR_ADJUSTMENT + " analyses in the industry).");
+    }
+
+    private static String formatScore(Double value) {
+        return value == null ? "—" : String.format(java.util.Locale.ROOT, "%.1f", value);
     }
 
     private static String reportingYearSuffix(Integer reportingYear) {
@@ -424,6 +492,7 @@ public class GapAssessmentPdfService {
         int partiallyCovered;
         int notCovered;
         int humanReviewRequired;
+        int notApplicable;
         int evidenceRetrieved;
         int noEvidenceFound;
     }

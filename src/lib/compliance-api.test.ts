@@ -9,6 +9,9 @@ import {
   formatEsgCategory,
   formatEvidenceSourceLabel,
   formatRetrievalScore,
+  formatScore,
+  scorePercent,
+  countNotApplicable,
   findAssessmentByCode,
   getPrimaryEvidenceChunk,
   isLegacyRetrievalStatus,
@@ -258,5 +261,31 @@ describe("ComplianceApiError", () => {
     const err = new ComplianceApiError("nope", 404);
     expect(err.name).toBe("ComplianceApiError");
     expect(err.status).toBe(404);
+  });
+});
+
+describe("not applicable and ESG score helpers", () => {
+  it("formats the not applicable status", () => {
+    expect(formatAssessmentStatus("NOT_APPLICABLE")).toBe("Not Applicable");
+  });
+
+  it("counts not applicable assessments without changing the summary counts", () => {
+    const make = (assessmentStatus: RequirementAssessment["assessmentStatus"]) =>
+      ({ assessmentStatus }) as RequirementAssessment;
+    const items = [make("COVERED"), make("NOT_APPLICABLE"), make("NOT_APPLICABLE")];
+    expect(countNotApplicable(items)).toBe(2);
+    expect(summarizeAssessments(items).covered).toBe(1);
+  });
+
+  it("clamps score bars to 0-100 percent", () => {
+    expect(scorePercent(null)).toBe(0);
+    expect(scorePercent(5)).toBe(50);
+    expect(scorePercent(12)).toBe(100);
+    expect(scorePercent(-3)).toBe(0);
+  });
+
+  it("formats scores to one decimal or a dash", () => {
+    expect(formatScore(7.349)).toBe("7.3");
+    expect(formatScore(null)).toBe("—");
   });
 });

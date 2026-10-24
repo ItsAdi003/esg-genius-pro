@@ -34,6 +34,11 @@ public class ComplianceAnalysis {
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
 
+    /** Reviewer-chosen sector; picks the weight profile and the peer group for the ESG score. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 60)
+    private EsgIndustry industry;
+
     @OneToMany(mappedBy = "analysis", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RequirementAssessment> assessments = new ArrayList<>();
 
@@ -85,6 +90,14 @@ public class ComplianceAnalysis {
 
     public void setFailureReason(String failureReason) {
         this.failureReason = failureReason;
+    }
+
+    public EsgIndustry getIndustry() {
+        return industry;
+    }
+
+    public void setIndustry(EsgIndustry industry) {
+        this.industry = industry;
     }
 
     public List<RequirementAssessment> getAssessments() {

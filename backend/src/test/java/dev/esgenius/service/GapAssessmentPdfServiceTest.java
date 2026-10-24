@@ -2,6 +2,7 @@ package dev.esgenius.service;
 
 import dev.esgenius.dto.ComplianceAnalysisResponse;
 import dev.esgenius.dto.DocumentDetailResponse;
+import dev.esgenius.dto.EsgScoreResponse;
 import dev.esgenius.dto.EvidenceChunkResponse;
 import dev.esgenius.dto.RequirementAssessmentResponse;
 import org.apache.pdfbox.Loader;
@@ -148,12 +149,37 @@ class GapAssessmentPdfServiceTest {
         assertThat(GapAssessmentPdfService.formatPlacement(null, null)).isEmpty();
     }
 
+    @Test
+    void renderListsNotApplicableItemsWithReasonAndShowsTheEsgScore() throws IOException {
+        RequirementAssessmentResponse notApplicable = new RequirementAssessmentResponse(
+                9L, "P6-E04", "Water withdrawal", "ENVIRONMENTAL", "NOT_APPLICABLE",
+                null, null, null, null, null, null, List.of(), "P6", "ESSENTIAL",
+                "The entity does not use process water.");
+        ComplianceAnalysisResponse analysis = analysis(List.of(
+                assessment("ENV-003", "Scope 1 GHG Emissions", "ENVIRONMENTAL", "COVERED",
+                        null, null, "Scope 1 emissions were 3,200 tCO2e.", List.of()),
+                notApplicable));
+        EsgScoreResponse score = new EsgScoreResponse(
+                1L, "ENERGY", "Energy", true, 7.5, 6.0, true, 4, 3.0, 9.0, "A",
+                8.0, 7.0, 6.0, 0.45, 0.22, 0.33, 1, 1, 0, 2, List.of(), "note");
+
+        byte[] pdf = pdfService.render(analysis, document("Northwind Limited", "northwind-brsr.pdf", 2025), score);
+
+        String text = extractText(pdf);
+        assertThat(text).contains("Not applicable (marked by a reviewer, excluded from the score): 1");
+        assertThat(text).contains("P6-E04");
+        assertThat(text).contains("The entity does not use process water.");
+        assertThat(text).contains("MSCI-style ESG score");
+        assertThat(text).contains("Rating band: A");
+        assertThat(text).contains("Adjusted against 4 analyses in the industry: Energy.");
+    }
+
     private static RequirementAssessmentResponse placed(
             RequirementAssessmentResponse base, String section, String indicatorType) {
         return new RequirementAssessmentResponse(
                 base.requirementId(), base.requirementCode(), base.requirementTitle(), base.category(),
                 base.assessmentStatus(), base.confidence(), base.explanation(), base.gap(), base.recommendation(),
-                base.retrievalScore(), base.evidenceText(), base.evidenceChunks(), section, indicatorType);
+                base.retrievalScore(), base.evidenceText(), base.evidenceChunks(), section, indicatorType, base.notApplicableReason());
     }
 
     private static String extractText(byte[] pdf) throws IOException {
@@ -206,6 +232,6 @@ class GapAssessmentPdfServiceTest {
             String evidenceText,
             List<EvidenceChunkResponse> chunks) {
         return new RequirementAssessmentResponse(
-                1L, code, title, category, status, 0.8, "explanation", gap, recommendation, 12.0, evidenceText, chunks, null, null);
+                1L, code, title, category, status, 0.8, "explanation", gap, recommendation, 12.0, evidenceText, chunks, null, null, null);
     }
 }

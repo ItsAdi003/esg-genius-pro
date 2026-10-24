@@ -9,6 +9,7 @@ const statusStyles: Record<string, string> = {
   "No Evidence Found": "bg-muted text-muted-foreground border-border",
   "Evidence Retrieved": "bg-muted text-muted-foreground border-border",
   "Human Review Required": "bg-warning-soft text-warning border-warning/30",
+  "Not Applicable": "bg-muted text-muted-foreground border-border",
   Missing: "bg-danger-soft text-danger border-danger/25",
   Partial: "bg-warning-soft text-warning border-warning/30",
   Analyzed: "bg-success-soft text-success border-success/25",

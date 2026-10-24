@@ -173,6 +173,22 @@ REST surface implemented under `backend/src/main/java/dev/esgenius/controller/**
 
 ---
 
+## EsgScoreController — `/api/v1/analyses/{analysisId}`
+
+MSCI-style score of a completed BRSR analysis. It scores the quality of disclosure, not real-world ESG performance, and is not an official MSCI rating.
+
+### `GET /api/v1/analyses/{analysisId}/esg-score`
+
+Returns the Weighted Average Key Issue Score (0–10), the Industry-Adjusted Score, the AAA–CCC band, pillar scores and weights, and the ten key issue scores. The score is adjusted against the latest completed analyses of other documents in the same industry once at least 3 exist; otherwise `industryAdjusted` is `false` and the adjusted score equals the weighted average. `400` if the analysis has not completed.
+
+### `PUT /api/v1/analyses/{analysisId}/industry`
+
+Body `{ "industry": "ENERGY" }` (an `EsgIndustry` name, or `null` to clear). Requires modify access to the document. Returns the recalculated score.
+
+### `PUT /api/v1/analyses/{analysisId}/requirements/{requirementId}/applicability`
+
+Body `{ "applicable": false, "reason": "…" }` marks a requirement `NOT_APPLICABLE` (reason required, at most 500 characters); `{ "applicable": true }` restores the previous status. Requires modify access and a completed analysis. The classification model can never return `NOT_APPLICABLE`.
+
 ## ReportController — `/api/v1`
 
 ### `GET /api/v1/analyses/{analysisId}/report.pdf`

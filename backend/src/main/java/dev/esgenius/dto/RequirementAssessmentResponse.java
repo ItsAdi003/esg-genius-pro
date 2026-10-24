@@ -17,5 +17,7 @@ public record RequirementAssessmentResponse(
         List<EvidenceChunkResponse> evidenceChunks,
         /** Framework section (e.g. "P6") and indicator type (e.g. "ESSENTIAL"); null for legacy requirements. */
         String section,
-        String indicatorType) {
+        String indicatorType,
+        /** Reviewer's reason when the status is NOT_APPLICABLE; otherwise null. */
+        String notApplicableReason) {
 }

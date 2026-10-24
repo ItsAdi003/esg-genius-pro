@@ -45,6 +45,14 @@ public class RequirementAssessment {
     @Column(name = "retrieval_score")
     private Double retrievalScore;
 
+    /** Status held before a reviewer marked the requirement not applicable; restored if they undo it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_before_na", length = 30)
+    private AssessmentStatus statusBeforeNotApplicable;
+
+    @Column(name = "not_applicable_reason", columnDefinition = "TEXT")
+    private String notApplicableReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -131,6 +139,34 @@ public class RequirementAssessment {
 
     public void setRetrievalScore(Double retrievalScore) {
         this.retrievalScore = retrievalScore;
+    }
+
+    public AssessmentStatus getStatusBeforeNotApplicable() {
+        return statusBeforeNotApplicable;
+    }
+
+    public String getNotApplicableReason() {
+        return notApplicableReason;
+    }
+
+    /** Marks the requirement not applicable, remembering the status it had so the change can be undone. */
+    public void markNotApplicable(String reason) {
+        if (assessmentStatus != AssessmentStatus.NOT_APPLICABLE) {
+            this.statusBeforeNotApplicable = assessmentStatus;
+        }
+        this.assessmentStatus = AssessmentStatus.NOT_APPLICABLE;
+        this.notApplicableReason = reason;
+    }
+
+    /** Reverses {@link #markNotApplicable}; falls back to human review when no earlier status was kept. */
+    public void markApplicable() {
+        if (assessmentStatus == AssessmentStatus.NOT_APPLICABLE) {
+            this.assessmentStatus = statusBeforeNotApplicable != null
+                    ? statusBeforeNotApplicable
+                    : AssessmentStatus.HUMAN_REVIEW_REQUIRED;
+        }
+        this.statusBeforeNotApplicable = null;
+        this.notApplicableReason = null;
     }
 
     public Instant getCreatedAt() {

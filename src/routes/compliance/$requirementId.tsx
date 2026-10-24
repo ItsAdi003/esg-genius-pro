@@ -8,7 +8,8 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { ConfidenceMeter, StatusBadge } from "@/components/status-badge";
@@ -19,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   complianceQueryKeys,
   findAssessmentByCode,
+  setRequirementApplicability,
   formatAssessmentStatus,
   formatConfidencePercent,
   formatEsgCategory,
@@ -83,6 +85,24 @@ function Block({
 function RequirementDetails() {
   const { requirementId } = Route.useParams();
   const { analysisId } = Route.useSearch();
+  const queryClient = useQueryClient();
+  const [naReason, setNaReason] = useState("");
+
+  const applicabilityMutation = useMutation({
+    mutationFn: (input: { requirementId: number; applicable: boolean; reason?: string }) =>
+      setRequirementApplicability(analysisId!, input.requirementId, input.applicable, input.reason),
+    onSuccess: (result) => {
+      toast.success(
+        result.assessmentStatus === "NOT_APPLICABLE"
+          ? "Marked as not applicable. It no longer affects the ESG score."
+          : "Marked as applicable again.",
+      );
+      setNaReason("");
+      void queryClient.invalidateQueries({ queryKey: complianceQueryKeys.analysis(analysisId!) });
+      void queryClient.invalidateQueries({ queryKey: complianceQueryKeys.esgScore(analysisId!) });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const analysisQuery = useQuery({
     queryKey: analysisId != null
@@ -310,6 +330,55 @@ function RequirementDetails() {
               </Button>
             </div>
           </section>
+
+          {assessment.assessmentStatus === "NOT_APPLICABLE" ? (
+            <section className="surface-card p-5">
+              <h2 className="text-sm font-semibold">Not applicable</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {assessment.notApplicableReason ?? "Marked not applicable by a reviewer."}
+              </p>
+              <Button
+                variant="outline"
+                className="mt-3 w-full"
+                disabled={applicabilityMutation.isPending}
+                onClick={() =>
+                  applicabilityMutation.mutate({ requirementId: assessment.requirementId, applicable: true })
+                }
+              >
+                Mark as applicable
+              </Button>
+            </section>
+          ) : (
+            <section className="surface-card p-5">
+              <h2 className="text-sm font-semibold">Does not apply to this company?</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                For example a company that does not use process water. Not-applicable items are left
+                out of the ESG score instead of counting as missing.
+              </p>
+              <Textarea
+                className="mt-3"
+                rows={3}
+                value={naReason}
+                maxLength={500}
+                onChange={(event) => setNaReason(event.target.value)}
+                placeholder="Reason (required), shown in the report"
+              />
+              <Button
+                variant="outline"
+                className="mt-3 w-full"
+                disabled={applicabilityMutation.isPending || naReason.trim() === ""}
+                onClick={() =>
+                  applicabilityMutation.mutate({
+                    requirementId: assessment.requirementId,
+                    applicable: false,
+                    reason: naReason.trim(),
+                  })
+                }
+              >
+                Mark as not applicable
+              </Button>
+            </section>
+          )}
 
           <section className="surface-card p-5">
             <h2 className="text-sm font-semibold">Add Comment</h2>

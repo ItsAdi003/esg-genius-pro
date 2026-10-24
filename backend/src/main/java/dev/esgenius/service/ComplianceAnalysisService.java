@@ -515,7 +515,8 @@ public class ComplianceAnalysisService {
                 assessment.getEvidenceText(),
                 deserializeEvidenceChunks(assessment.getEvidenceChunks()),
                 requirement.getSection(),
-                requirement.getIndicatorType());
+                requirement.getIndicatorType(),
+                assessment.getNotApplicableReason());
     }
 
     private List<EvidenceChunkResponse> deserializeEvidenceChunks(String json) {
@@ -536,6 +537,7 @@ public class ComplianceAnalysisService {
         int humanReviewRequired;
         int evidenceRetrieved;
         int noEvidenceFound;
+        int notApplicable;
 
         static AssessmentStatusCounts empty() {
             return new AssessmentStatusCounts();
@@ -549,6 +551,7 @@ public class ComplianceAnalysisService {
                 case HUMAN_REVIEW_REQUIRED -> humanReviewRequired += count;
                 case EVIDENCE_RETRIEVED -> evidenceRetrieved += count;
                 case NO_EVIDENCE_FOUND -> noEvidenceFound += count;
+                case NOT_APPLICABLE -> notApplicable += count;
             }
         }
 
@@ -558,7 +561,8 @@ public class ComplianceAnalysisService {
                     + notCovered
                     + humanReviewRequired
                     + evidenceRetrieved
-                    + noEvidenceFound;
+                    + noEvidenceFound
+                    + notApplicable;
         }
     }
 }

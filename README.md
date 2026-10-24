@@ -12,6 +12,8 @@ AI-assisted **SEBI BRSR** compliance gap analysis for uploaded sustainability PD
 - **Document ownership** — Uploads are tied to the signed-in Supabase user (`owner_user_id`); shared samples (`NULL` owner) are view-only unless you are an admin (`ADMIN_USER_IDS`).
 - **Usage limits** — Rolling per-user caps on uploads, analyses, and assistant questions; `GET /api/v1/me` drives usage meters on `/settings`. Over-limit API calls return **429** with `Retry-After`.
 - **Gap Assessment PDF export + history** — Download from a completed analysis (`GET …/report.pdf`); `/reports` lists recent exports via `GET /api/v1/reports`. Other report cards on `/reports` remain UI previews only.
+- **MSCI-style ESG score** — A completed BRSR analysis is scored with the MSCI structure: requirement points (covered 10, partial 5, not covered 0) become ten key issue scores (one per BRSR section group), a weighted average with sector pillar weights (Governance at least 33%), a min/max industry adjustment against same-industry analyses (needs at least 3), and an AAA–CCC band. It scores disclosure quality, not performance, and is not an official MSCI rating. `GET /api/v1/analyses/{id}/esg-score`.
+- **Not-applicable requirements** — A reviewer can mark a requirement as not applicable with a reason (for example no water use); it is excluded from the score and listed in the PDF.
 - **Document-grounded assistant** — Chat about one uploaded document; answers cite passages from that document when evidence is found.
 - **Company comparison** — Side-by-side ESG rating snapshots, key issues, and events from seeded comparison data.
 - **Supabase Auth** — Email/password sign-in; the frontend sends the access token to the API.

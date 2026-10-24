@@ -123,7 +123,11 @@ public class ComplianceClassificationResultParser {
 
     private AssessmentStatus parseStatus(String rawStatus) {
         try {
-            return AssessmentStatus.valueOf(rawStatus.trim());
+            AssessmentStatus status = AssessmentStatus.valueOf(rawStatus.trim());
+            if (status == AssessmentStatus.NOT_APPLICABLE) {
+                throw validationFailure("Invalid classification status: " + rawStatus);
+            }
+            return status;
         } catch (IllegalArgumentException ex) {
             throw validationFailure("Invalid classification status: " + rawStatus);
         }
