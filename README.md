@@ -95,6 +95,8 @@ Create the Postgres database named in `DB_URL` (default database name `esgenius`
 ./mvnw spring-boot:run
 ```
 
+**Easiest on Windows (Git Bash):** `./run-local.sh` from `backend/` loads `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the frontend `../.env` (and any `backend/.env`), reports which variables are missing (names only), then starts the backend. `./run-local.sh --check` only reports. Without these two variables every API call returns 401 `Authentication is not configured`.
+
 On Windows cmd, use `mvnw.cmd`. That file is stored with LF line endings, which can fail under cmd; `.gitattributes` now sets `*.cmd text eol=crlf` (re-checkout the file if your working copy is still LF).
 
 Uploads are written under `app.storage.upload-dir` (`uploads` by default). Multipart limit is 25MB.
